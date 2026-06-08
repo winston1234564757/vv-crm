@@ -3,24 +3,32 @@
 @theme inline {
   --font-sans: var(--font-readex), system-ui, sans-serif;
 
-  --color-selvedge: oklch(45% 0.06 260);
-  --color-selvedge-deep: oklch(35% 0.06 260);
-  --color-selvedge-dim: oklch(55% 0.05 260);
-  --color-amber: oklch(72% 0.14 80);
-  --color-cream: oklch(97% 0.004 80);
-  --color-cork: oklch(93% 0.006 70);
-  --color-worn: oklch(88% 0.005 260);
-  --color-iron: oklch(25% 0.008 260);
-  --color-ink: oklch(50% 0.01 260);
-  --color-error: oklch(50% 0.2 25);
+  --color-violet: oklch(55% 0.22 290);
+  --color-violet-deep: oklch(45% 0.22 290);
+  --color-cyan: oklch(62% 0.18 210);
+  --color-rose: oklch(55% 0.2 10);
+  --color-amber: oklch(70% 0.18 80);
+  --color-indigo: oklch(25% 0.04 280);
+  --color-iris: oklch(45% 0.04 280);
+  --color-glass: oklch(100% 0 0 / 0.65);
+  --color-glass-border: oklch(100% 0 0 / 0.9);
 }
 
 body {
-  background-color: var(--color-cream);
-  color: var(--color-iron);
+  min-height: 100vh;
+  background: linear-gradient(
+    160deg,
+    oklch(97% 0.012 280) 0%,
+    oklch(97% 0.008 340) 100%
+  );
+  color: var(--color-indigo);
   font-family: var(--font-sans);
 }
 
-.bench-edge {
-  border-bottom: 4px solid var(--color-worn);
+.glass {
+  background: var(--color-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: 0 4px 24px oklch(0% 0 0 / 0.06);
 }

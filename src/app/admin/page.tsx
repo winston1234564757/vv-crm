@@ -2,417 +2,236 @@
 
 import { useState } from "react";
 
-/* ---------- types ---------- */
-
-type Metric = {
-  label: string;
-  value: string;
-  delta: string;
-  up: boolean;
-};
-
-type Sale = {
-  id: string;
-  item: string;
-  customer: string;
-  amount: number;
-  time: string;
-};
-
-type Repair = {
-  id: string;
-  device: string;
-  customer: string;
-  status: string;
-  statusColor: string;
-};
-
-type StockAlert = {
-  item: string;
-  stock: number;
-};
-
-/* ---------- mock data ---------- */
-
-const MOCK_METRICS: Metric[] = [
-  { label: "Продажі сьогодні", value: "18 450 грн", delta: "+12%", up: true },
-  { label: "Активні ремонти", value: "7", delta: "-2", up: false },
-  { label: "Нові клієнти", value: "4", delta: "+2", up: true },
-  { label: "Низький запас", value: "3", delta: "позицій", up: false },
-];
-
-const MOCK_SALES: Sale[] = [
-  { id: "1", item: "iPhone 15 Pro 256GB", customer: "Олена К.", amount: 38500, time: "14:32" },
-  { id: "2", item: "Samsung Galaxy S24", customer: "Максим Р.", amount: 29900, time: "13:15" },
-  { id: "3", item: "Навушники AirPods Pro", customer: "Анна В.", amount: 8500, time: "12:00" },
-  { id: "4", item: "MacBook Air M3", customer: "Дмитро С.", amount: 52000, time: "10:45" },
-  { id: "5", item: "Захисне скло iPhone", customer: "Ірина П.", amount: 350, time: "10:10" },
-];
-
-const MOCK_REPAIRS: Repair[] = [
-  { id: "R-001", device: "iPhone 13 — заміна дисплея", customer: "Андрій М.", status: "Готовий", statusColor: "oklch(55% 0.14 145)" },
-  { id: "R-002", device: "Samsung A54 — розбитий екран", customer: "Наталія К.", status: "В роботі", statusColor: "var(--color-amber)" },
-  { id: "R-003", device: "Xiaomi Redmi — не заряджається", customer: "Петро В.", status: "Діагностика", statusColor: "var(--color-ink)" },
-  { id: "R-004", device: "iPad 9 — заміна батареї", customer: "Юлія С.", status: "В роботі", statusColor: "var(--color-amber)" },
-  { id: "R-005", device: "iPhone 12 — не вмикається", customer: "Олексій Г.", status: "Очікує деталі", statusColor: "var(--color-error)" },
-];
-
-const MOCK_ALERTS: StockAlert[] = [
-  { item: "iPhone 15 Pro Max 256GB", stock: 1 },
-  { item: "Захисні скла iPhone 15", stock: 2 },
-  { item: "USB-C зарядні блоки 20W", stock: 0 },
-];
-
 const WEEKLY_SALES = [12400, 18900, 15200, 22100, 18450, 25800, 20100];
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 const MAX_SALE = Math.max(...WEEKLY_SALES);
 
-/* ---------- sub-components ---------- */
+const SALES = [
+  { item: "iPhone 15 Pro 256GB", customer: "Олена К.", amount: 38500, time: "14:32" },
+  { item: "Samsung Galaxy S24", customer: "Максим Р.", amount: 29900, time: "13:15" },
+  { item: "AirPods Pro", customer: "Анна В.", amount: 8500, time: "12:00" },
+  { item: "MacBook Air M3", customer: "Дмитро С.", amount: 52000, time: "10:45" },
+];
 
-function MetricCard({ metric }: { metric: Metric }) {
+const REPAIRS = [
+  { device: "iPhone 13 — дисплей", customer: "Андрій М.", status: "Готовий", color: "oklch(55% 0.2 145)" },
+  { device: "Samsung A54 — екран", customer: "Наталія К.", status: "В роботі", color: "var(--color-amber)" },
+  { device: "Xiaomi Redmi — зарядка", customer: "Петро В.", status: "Діагностика", color: "var(--color-iris)" },
+  { device: "iPad 9 — батарея", customer: "Юлія С.", status: "В роботі", color: "var(--color-amber)" },
+];
+
+const ALERTS = [
+  { item: "iPhone 15 Pro Max 256GB", stock: 1, urgent: false },
+  { item: "Захисні скла iPhone 15", stock: 2, urgent: false },
+  { item: "USB-C зарядки 20W", stock: 0, urgent: true },
+];
+
+function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={`glass rounded-2xl p-5 ${className ?? ""}`}>{children}</div>;
+}
+
+function MetricCard({ label, value, delta, up, accent }: { label: string; value: string; delta: string; up: boolean; accent: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-sm bg-cork p-5 bench-edge">
-      <span className="text-xs font-medium uppercase tracking-wider text-ink">
-        {metric.label}
-      </span>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tracking-tight text-iron">
-          {metric.value}
-        </span>
-        <span
-          className={`text-xs font-medium ${
-            metric.up ? "text-amber" : "text-error"
-          }`}
-        >
-          {metric.delta}
-        </span>
-      </div>
-    </div>
+    <GlassCard>
+      <p className="text-xs font-medium tracking-wider text-iris">{label}</p>
+      <p className="mt-1 text-3xl font-light tracking-tight text-indigo">{value}</p>
+      <p className="mt-1 text-xs font-medium" style={{ color: accent }}>
+        {up ? "↑ " : "↓ "}{delta}
+      </p>
+    </GlassCard>
   );
 }
 
 function SalesChart() {
-  const maxH = 120;
   return (
-    <Widget title="Продажі за тиждень" className="md:col-span-2">
-      <div className="flex items-end justify-between gap-2 pt-2">
+    <GlassCard className="md:col-span-3">
+      <h2 className="text-sm font-semibold text-indigo">Продажі за тиждень</h2>
+      <div className="mt-4 flex items-end justify-between gap-2">
         {WEEKLY_SALES.map((v, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] font-medium text-ink">
-              {(v / 1000).toFixed(1)}k
-            </span>
+          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+            <span className="text-[0.625rem] font-medium text-iris">{(v / 1000).toFixed(1)}k</span>
             <div
-              className="w-full rounded-t-sm transition-all duration-500 ease-out-quart"
+              className="w-full rounded-md transition-all duration-500"
               style={{
-                height: `${(v / MAX_SALE) * maxH}px`,
-                backgroundColor: "var(--color-selvedge)",
+                height: `${(v / MAX_SALE) * 140}px`,
+                background: `linear-gradient(to top, var(--color-violet), var(--color-cyan))`,
               }}
             />
-            <span className="text-[10px] text-ink">{DAYS[i]}</span>
+            <span className="text-[0.625rem] text-iris">{DAYS[i]}</span>
           </div>
         ))}
       </div>
-    </Widget>
+    </GlassCard>
   );
 }
 
 function RepairStatus() {
-  const items = [
-    { label: "Готовий", count: 1, color: "oklch(55% 0.14 145)" },
-    { label: "В роботі", count: 2, color: "var(--color-amber)" },
-    { label: "Діагностика", count: 1, color: "var(--color-ink)" },
-    { label: "Очікує деталі", count: 1, color: "var(--color-error)" },
-  ];
-  const total = items.reduce((a, b) => a + b.count, 0);
-  let offset = 0;
-  const slices = items.map((item) => {
-    const p = item.count / total;
-    const dash = `${p * 100} ${(1 - p) * 100}`;
-    const slice = (
-      <circle
-        key={item.label}
-        r="36"
-        cx="40"
-        cy="40"
-        fill="none"
-        stroke={item.color}
-        strokeWidth="8"
-        strokeDasharray={dash}
-        strokeDashoffset={-offset}
-        transform="rotate(-90 40 40)"
-      />
-    );
-    offset += p * 100;
-    return slice;
-  });
-
   return (
-    <Widget title="Статуси ремонтів">
-      <div className="flex items-center gap-4 pt-2">
-        <svg width="80" height="80" viewBox="0 0 80 80">
-          {slices}
-        </svg>
-        <div className="flex flex-col gap-1.5">
-          {items.map((item) => (
-            <div key={item.label} className="flex items-center gap-2 text-xs">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="text-ink">{item.label}</span>
-              <span className="ml-auto font-medium text-iron">{item.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Widget>
-  );
-}
-
-function RecentSales() {
-  if (MOCK_SALES.length === 0) {
-    return (
-      <Widget title="Останні продажі">
-        <p className="py-6 text-center text-sm text-ink">
-          Сьогодні ще не було продажів
-        </p>
-      </Widget>
-    );
-  }
-  return (
-    <Widget title="Останні продажі">
-      <div className="divide-y divide-worn/50 text-sm">
-        {MOCK_SALES.map((sale) => (
-          <div
-            key={sale.id}
-            className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-iron">{sale.item}</p>
-              <p className="text-xs text-ink">{sale.customer}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-medium text-iron">
-                {sale.amount.toLocaleString()} грн
-              </p>
-              <p className="text-xs text-ink">{sale.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Widget>
-  );
-}
-
-function RecentRepairs() {
-  if (MOCK_REPAIRS.length === 0) {
-    return (
-      <Widget title="Активні ремонти">
-        <p className="py-6 text-center text-sm text-ink">
-          Немає активних ремонтів
-        </p>
-      </Widget>
-    );
-  }
-  return (
-    <Widget title="Активні ремонти">
-      <div className="divide-y divide-worn/50 text-sm">
-        {MOCK_REPAIRS.map((repair) => (
-          <div
-            key={repair.id}
-            className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-iron">{repair.device}</p>
-              <p className="text-xs text-ink">{repair.customer}</p>
-            </div>
-            <span
-              className="whitespace-nowrap rounded-sm px-2 py-0.5 text-[11px] font-medium"
-              style={{
-                backgroundColor: `color-mix(in oklch, ${repair.statusColor} 15%, transparent)`,
-                color: repair.statusColor,
-              }}
-            >
-              {repair.status}
+    <GlassCard>
+      <h2 className="text-sm font-semibold text-indigo">Статуси ремонтів</h2>
+      <div className="mt-3 space-y-2.5">
+        {REPAIRS.map((r, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <span className="truncate text-sm text-indigo">{r.device}</span>
+            <span className="shrink-0 rounded-lg px-2.5 py-0.5 text-[11px] font-medium" style={{ background: `color-mix(in oklch, ${r.color} 18%, transparent)`, color: r.color }}>
+              {r.status}
             </span>
           </div>
         ))}
       </div>
-    </Widget>
+    </GlassCard>
   );
 }
 
 function StockAlerts() {
-  if (MOCK_ALERTS.length === 0) {
-    return null;
-  }
   return (
-    <Widget title="Низький запас">
-      <div className="space-y-2 text-sm">
-        {MOCK_ALERTS.map((alert) => (
-          <div
-            key={alert.item}
-            className="flex items-center justify-between rounded-sm bg-error/5 px-3 py-2"
-          >
-            <span className="text-iron">{alert.item}</span>
-            <span
-              className={`text-xs font-semibold ${
-                alert.stock === 0 ? "text-error" : "text-amber"
-              }`}
-            >
-              {alert.stock === 0 ? "Немає" : `${alert.stock} шт`}
+    <GlassCard>
+      <h2 className="text-sm font-semibold text-indigo">Низький запас</h2>
+      <div className="mt-3 space-y-2">
+        {ALERTS.map((a, i) => (
+          <div key={i} className="flex items-center justify-between rounded-xl px-3.5 py-2" style={{ background: a.urgent ? "oklch(55% 0.2 10 / 0.08)" : "oklch(70% 0.18 80 / 0.08)" }}>
+            <span className="text-sm text-indigo">{a.item}</span>
+            <span className="text-xs font-semibold" style={{ color: a.urgent ? "var(--color-rose)" : "var(--color-amber)" }}>
+              {a.stock === 0 ? "Немає" : `${a.stock} шт`}
             </span>
           </div>
         ))}
       </div>
-    </Widget>
+    </GlassCard>
   );
 }
 
-function Widget({
-  title,
-  className,
-  children,
-}: {
-  title: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+function RecentSales() {
   return (
-    <div className={`rounded-sm bg-cork p-5 bench-edge ${className ?? ""}`}>
-      <h2 className="text-sm font-semibold tracking-tight text-iron">
-        {title}
-      </h2>
-      {children}
-    </div>
+    <GlassCard>
+      <h2 className="text-sm font-semibold text-indigo">Останні продажі</h2>
+      <div className="mt-3 divide-y divide-iris/10">
+        {SALES.map((s, i) => (
+          <div key={i} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-indigo">{s.item}</p>
+              <p className="text-xs text-iris">{s.customer} • {s.time}</p>
+            </div>
+            <p className="shrink-0 text-sm font-semibold text-violet">{s.amount.toLocaleString()} грн</p>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
+function RecentRepairs() {
+  return (
+    <GlassCard>
+      <h2 className="text-sm font-semibold text-indigo">Активні ремонти</h2>
+      <div className="mt-3 space-y-2">
+        {REPAIRS.map((r, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 rounded-xl bg-violet/[0.03] px-3.5 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-indigo">{r.device}</p>
+              <p className="text-xs text-iris">{r.customer}</p>
+            </div>
+            <span className="shrink-0 text-xs font-medium" style={{ color: r.color }}>{r.status}</span>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
   );
 }
 
 function EmptyState() {
   return (
     <div className="flex flex-1 items-center justify-center p-12">
-      <div className="max-w-sm text-center">
-        <p className="text-4xl font-bold text-iron">◈</p>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-iron">
-           Ласкаво просимо до VV CRM
-        </h1>
-        <p className="mt-2 text-sm text-ink">
-          Додайте перший товар або створіть ремонт, і ваша майстерня
-          оживе на цьому дашборді.
-        </p>
-      </div>
+      <GlassCard className="max-w-sm text-center">
+        <p className="text-4xl text-violet">◆</p>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-indigo">Ласкаво просимо до VV CRM</h1>
+        <p className="mt-2 text-sm text-iris">Додайте перший товар або створіть ремонт, і ваша майстерня оживе на цьому дашборді.</p>
+      </GlassCard>
     </div>
   );
 }
-
-function WidgetGrid() {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-
-  const widgets: { id: string; node: React.ReactNode }[] = [
-    { id: "sales-chart", node: <SalesChart /> },
-    { id: "repair-status", node: <RepairStatus /> },
-    { id: "recent-sales", node: <RecentSales /> },
-    { id: "recent-repairs", node: <RecentRepairs /> },
-    { id: "stock-alerts", node: <StockAlerts /> },
-  ];
-
-  const visible = widgets.filter((w) => !collapsed[w.id]);
-
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      {visible.map((w) => (
-        <div key={w.id} className="group relative">
-          <button
-            onClick={() =>
-              setCollapsed((prev) => ({ ...prev, [w.id]: true }))
-            }
-            className="absolute top-3 right-3 z-10 hidden h-5 w-5 items-center justify-center rounded text-xs text-ink opacity-0 transition-opacity hover:bg-worn group-hover:opacity-100 group-hover:flex"
-            aria-label="Сховати віджет"
-          >
-            ✕
-          </button>
-          {w.node}
-        </div>
-      ))}
-      {collapsed["stock-alerts"] || MOCK_ALERTS.length === 0 ? null : null}
-    </div>
-  );
-}
-
-/* ---------- exported page ---------- */
 
 export default function AdminDashboard() {
-  const [loaded] = useState(true);
-  const [hasData] = useState(true);
   const [error] = useState<string | null>(null);
 
   if (error) {
     return (
       <div className="flex items-center justify-center p-12">
-        <div className="max-w-sm text-center">
-          <p className="text-4xl text-error">⚠</p>
-          <h2 className="mt-4 text-lg font-semibold text-iron">
-            Помилка завантаження
-          </h2>
-          <p className="mt-1 text-sm text-ink">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 rounded-sm bg-selvedge px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-selvedge-deep"
-          >
+        <GlassCard className="max-w-sm text-center">
+          <p className="text-3xl text-rose">!</p>
+          <h2 className="mt-3 text-lg font-semibold text-indigo">Помилка завантаження</h2>
+          <p className="mt-1 text-sm text-iris">{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-violet px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-deep">
             Спробувати знову
           </button>
-        </div>
+        </GlassCard>
       </div>
     );
   }
 
-  if (!loaded) {
-    return (
-      <div className="animate-pulse space-y-4 p-6">
-        <div className="h-8 w-48 rounded-sm bg-worn" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-sm bg-worn" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="col-span-2 h-64 rounded-sm bg-worn" />
-          <div className="h-64 rounded-sm bg-worn" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasData) {
-    return <EmptyState />;
-  }
-
-  const today = new Date().toLocaleDateString("uk-UA", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const today = new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-iron">
-            Дашборд
-          </h1>
-          <p className="mt-0.5 text-sm text-ink" style={{ textTransform: "capitalize" }}>
-            {today}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-indigo">Дашборд</h1>
+          <p className="mt-0.5 text-sm text-iris" style={{ textTransform: "capitalize" }}>{today}</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="rounded-xl bg-violet px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-deep">+ Новий продаж</button>
+          <button className="rounded-xl border border-violet/20 px-5 py-2.5 text-sm font-medium text-violet transition-colors hover:bg-violet/5">+ Ремонт</button>
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-        {MOCK_METRICS.map((m) => (
-          <MetricCard key={m.label} metric={m} />
-        ))}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="md:col-span-2 md:row-span-1">
+          <GlassCard className="h-full">
+            <p className="text-xs font-medium tracking-wider text-iris">Продажі сьогодні</p>
+            <p className="mt-2 text-4xl font-light tracking-tight text-indigo">18 450 грн</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="rounded-full bg-cyan/10 px-2 py-0.5 text-xs font-medium text-cyan">↑ 12%</span>
+              <span className="text-xs text-iris">в порівнянні з вчора</span>
+            </div>
+          </GlassCard>
+        </div>
+        <GlassCard>
+          <p className="text-xs font-medium tracking-wider text-iris">Активні ремонти</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-indigo">7</p>
+          <p className="mt-1 text-xs text-amber">2 очікують деталі</p>
+        </GlassCard>
+        <GlassCard>
+          <p className="text-xs font-medium tracking-wider text-iris">Нові клієнти</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-indigo">4</p>
+          <p className="mt-1 text-xs text-cyan">+2 за сьогодні</p>
+        </GlassCard>
       </div>
 
-      <WidgetGrid />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <SalesChart />
+        <GlassCard>
+          <h2 className="text-sm font-semibold text-indigo">Швидкі дії</h2>
+          <div className="mt-3 space-y-2">
+            <button className="w-full rounded-xl bg-violet/5 px-4 py-3 text-left text-sm font-medium text-violet transition-colors hover:bg-violet/10">
+              + Додати товар
+            </button>
+            <button className="w-full rounded-xl bg-cyan/5 px-4 py-3 text-left text-sm font-medium text-cyan transition-colors hover:bg-cyan/10">
+              + Новий ремонт
+            </button>
+            <button className="w-full rounded-xl bg-amber/5 px-4 py-3 text-left text-sm font-medium text-amber transition-colors hover:bg-amber/10">
+              ⚡ Знайти клієнта
+            </button>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <RepairStatus />
+        <StockAlerts />
+        <RecentSales />
+      </div>
+
+      <RecentRepairs />
     </div>
   );
 }

@@ -9,17 +9,17 @@ export default function AdminError({
 }) {
   return (
     <div className="flex items-center justify-center p-12">
-      <div className="max-w-sm text-center">
-        <p className="text-4xl text-error">⚠</p>
-        <h2 className="mt-4 text-lg font-semibold text-iron">
+      <div className="glass max-w-sm rounded-2xl p-8 text-center">
+        <p className="text-3xl text-rose">!</p>
+        <h2 className="mt-3 text-lg font-semibold text-indigo">
           Помилка завантаження
         </h2>
-        <p className="mt-1 text-sm text-ink">
+        <p className="mt-1 text-sm text-iris">
           {error.message || "Сталася неочікувана помилка"}
         </p>
         <button
           onClick={reset}
-          className="mt-4 rounded-sm bg-selvedge px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-selvedge-deep"
+          className="mt-4 rounded-xl bg-violet px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-deep"
         >
           Спробувати знову
         </button>
