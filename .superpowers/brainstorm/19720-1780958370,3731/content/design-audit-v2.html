@@ -1,0 +1,45 @@
+<h2>🎨 UX/UI Аудит: VV CRM</h2>
+<p class="subtitle">З урахуванням Mobile First</p>
+
+<div class="section">
+  <h3>Ключові проблеми зараз</h3>
+  <table style="width:100%;border-collapse:collapse;">
+    <tr><th style="text-align:left;border-bottom:1px solid #ddd;padding:8px">Зона</th><th style="text-align:left;border-bottom:1px solid #ddd;padding:8px">Поточна проблема</th></tr>
+    <tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Навігація</strong></td><td style="padding:8px;border-bottom:1px solid #eee">Desktop-first sidebar, на мобільному — оверлейне меню</td></tr>
+    <tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Таблиці</strong></td><td style="padding:8px;border-bottom:1px solid #eee">overflow-x-auto — не мобільний патерн</td></tr>
+    <tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Форми</strong></td><td style="padding:8px;border-bottom:1px solid #eee">Багато полів в один рядок, потребують рефакторингу</td></tr>
+    <tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Дашборд</strong></td><td style="padding:8px;border-bottom:1px solid #eee">Багато карток, графіки, таблиці — не вміщається</td></tr>
+    <tr><td style="padding:8px;border-bottom:1px solid #eee"><strong>Дизайн-система</strong></td><td style="padding:8px;border-bottom:1px solid #eee">DESIGN.md vs реальність — конфлікт</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>Що означає Mobile First для CRM?</h3>
+  <p>Потрібно зрозуміти глибину:</p>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="full-mobile" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Повноцінна мобільна версія</h3>
+      <p>Усі функції доступні на телефоні: створення продажу, ремонту, перегляд клієнтів. Адаптивний дизайн, touch-орієнтовані елементи.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="tablet-first" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tablet-friendly + responsive</h3>
+      <p>Основний сценарій — планшет біля прилавка + ноутбук. Телефон — для швидких переглядів, але не для важкої роботи.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="progressive" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Mobile-First підхід у CSS</h3>
+      <p>Будуємо на mobile-first сітках та компонентах, але основна ціль — десктоп/планшет під час роботи. Mobile як бонус.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px;">Вибери варіант або розкажи детальніше, який mobile-сценарій важливий.</p>

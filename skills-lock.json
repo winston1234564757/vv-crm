@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "skills": {
+    "architecture": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/architecture/SKILL.md",
+      "computedHash": "a7a6d85d018ee5f1447ecedcb8c153a9dbcac00cf2529aee40db8a86637b9ee9"
+    },
+    "brainstorming": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/brainstorming/SKILL.md",
+      "computedHash": "45a7e91ad905b9375efebfdf506bd4968c1cc6f43509115f0e1f43f425591e9f"
+    },
+    "business-analyst": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/business-analyst/SKILL.md",
+      "computedHash": "0b973834355fd5d0c387f977f9d5c9745b4e70c235716c154ffcecad58cdbd9a"
+    },
+    "competitive-landscape": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/competitive-landscape/SKILL.md",
+      "computedHash": "5abb98e8bd576a389e4c88efb1f80f513bff9d5579f612f73c609f0b1b1de46d"
+    },
+    "customer-psychographic-profiler": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/customer-psychographic-profiler/SKILL.md",
+      "computedHash": "9874752664d6e76d4d26e7f932c98734858b71d8c92dabef1bc540f0d318f5a5"
+    },
+    "database-design": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/database-design/SKILL.md",
+      "computedHash": "412e8f6c0160ce140c5fe3c6489eb0b7c6fa265807e03c6b0d56a9f3ef69a925"
+    },
+    "domain-driven-design": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/domain-driven-design/SKILL.md",
+      "computedHash": "f0981d0ee22c14bc543a9d8d595b729ac977355868e582df3c6c46d8f0cbc91f"
+    },
+    "emotional-arc-designer": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/emotional-arc-designer/SKILL.md",
+      "computedHash": "8f0f8b0d8c7d8fbdd1bb9dadeaf015b164a30bcaa778b98545f7949661c9d9fb"
+    },
+    "high-end-visual-design": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/high-end-visual-design/SKILL.md",
+      "computedHash": "b8575d1cb3881872348aea70d8348acc2ab34d8413a89002966d83e259e9617c"
+    },
+    "idea-darwin": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/idea-darwin/SKILL.md",
+      "computedHash": "41e1e5e88f57a7aa16f1d6c5787826287177d697483ffbc6b4a0e4f7804010f1"
+    },
+    "jobs-to-be-done-analyst": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/jobs-to-be-done-analyst/SKILL.md",
+      "computedHash": "48184f6291319f9f6694381335201a3317f8fded1be08a78f5baa9ed29cffa67"
+    },
+    "minimalist-ui": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/minimalist-ui/SKILL.md",
+      "computedHash": "3675949693119d7389d3627ff28ee5dac4fb83e8ef9c406975b8ea7f687bcf0b"
+    },
+    "multi-agent-brainstorming": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/multi-agent-brainstorming/SKILL.md",
+      "computedHash": "22675ff160ca8f48e2b09fa780ccc8761ed21ad8e91dda96f61e16904fc2cb79"
+    },
+    "product-manager": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/product-manager/SKILL.md",
+      "computedHash": "52dc45745cccb27b928f940099d50c15b0870fd8ff8f66469e3e121301870169"
+    },
+    "radix-ui-design-system": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/radix-ui-design-system/SKILL.md",
+      "computedHash": "745c3a97b8096b7903bc2bdb7579dd3125db135829d66058cf67c585f31d450a"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "61638e85394d2e39d1109cbf607593afb9733e0de19cdf0b52ec9bc32d95ea74"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "3639bed1f40b3fbadae79fee631c42c89b2d1f5c30b05d5aa3cca06422a6bbbc"
+    }
+  }
+}

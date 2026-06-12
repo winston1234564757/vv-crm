@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.nyc_output/
+test-results/
 
 # next.js
 /.next/
@@ -23,6 +25,10 @@
 # misc
 .DS_Store
 *.pem
+*.tmp
+*.temp
+*.cache
+*.swp
 
 # debug
 npm-debug.log*
@@ -30,15 +36,32 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (should never be committed)
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.example
 
 # vercel
 .vercel
+.idea/
+.vscode/
+*.iml
+.project
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# backup files
+*.bak
+*_old.*
+*_backup.*
+*_copy.*
 
-.vercel
-.env*
+# personal junk
+TODO.txt
+NOTES.txt
+scratch.*
+test123.*
+
+# debug logs
+*.log

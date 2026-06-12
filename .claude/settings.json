@@ -1,6 +1,2 @@
 {
-  "hooks": {
-    "Stop": "mempalace_add_drawer \"Session summary and decisions\"",
-    "PreCompact": "mempalace_add_drawer \"Context compression save\""
-  }
 }

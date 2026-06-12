@@ -1,97 +1,131 @@
-<!-- SEED: re-run /impeccable document once there's code to capture the actual tokens and components. -->
-
 ---
 name: VV CRM
-description: Bento-frosh dashboard for electronics sales and repair management
+description: Warm workshop dashboard for electronics sales and repair management
 ---
 
 # Design System: VV CRM
 
 ## 1. Overview
 
-**Creative North Star: "The Frosted Workshop"**
+**Creative North Star: "The Workshop Bench"**
 
-VV CRM is a digital command center for a modern electronics workshop. Light pours through frosted glass panels that float above a subtle gradient backdrop. The interface feels tangible — cards have weight, depth, and a gentle glow — while staying bright and approachable.
+VV CRM is a digital companion for a working electronics workshop. It lives behind the counter, on a desktop, during active customer interactions. The interface feels tangible and warm — like a well-worn workbench, not a sterile dashboard.
 
-The design pairs the warmth of a physical workshop with the polish of a modern SaaS tool. Glassmorphism gives the interface depth without heaviness. A bento grid layout makes information scannable at a glance, with varied card sizes creating rhythm and hierarchy. Saturated accent colors (violet, cyan, amber, rose) cut through the frosted surfaces with purpose.
+Design decisions serve clarity and speed. Every element earns its place. Color has purpose. Motion has reason. Silence is a design tool.
 
 **Key Characteristics:**
-- Light theme with subtle warm-to-cool gradient background
-- Glass cards with backdrop-blur and subtle borders
-- Bento grid — varied card sizes, gapless, rhythmic
-- Saturated accent palette: violet, cyan, amber, rose
-- Generous corner rounding (16px cards, 12px buttons)
-- Subtle shadows for depth (not heavy, not flat)
+- Warm light theme with solid, not gradient, backgrounds
+- Solid cards with subtle warm shadows (no backdrop-blur, no glass)
+- Consistent, predictable grids
+- One restrained accent color for interactive elements
 - Readex Pro typography, weight-driven hierarchy
+- Space as hierarchy — generous where it matters, compact where it doesn't
 
-## 2. Colors
+## 2. Color
 
-**The Frosted Surface Rule.** Every panel is a glass card: translucent background (`oklch(100% 0 0 / 0.65)`), `backdrop-blur-xl`, subtle border matching the card background lightness.
+**The Warm Surface Rule.** Every surface is solid. No transparency, no backdrop-blur, no glass. Shadows are warm and shallow: `0 1px 3px oklch(0% 0 0 / 0.06)`.
 
 ### Background
-- **Gradient Start** (`oklch(97% 0.012 280)`): Warm lavender-ivory at the top of the page.
-- **Gradient End** (`oklch(97% 0.008 340)`): Soft rose-ivory at the bottom.
-
-### Glass Surface
-- **Glass White** (`oklch(100% 0 0 / 0.65)`): Default card background.
-- **Glass Border** (`oklch(100% 0 0 / 0.9)`): Card borders, subtle white-on-light.
+- **Page Surface** (`oklch(96% 0.006 60)`): Warm ivory, solid fill. The entire application sits on this.
+- **Card Surface** (`oklch(100% 0 0 / 1)`): Pure white cards with warm shadow.
+- **Sidebar Surface** (`oklch(94% 0.005 60)`): Slightly deeper warm tone to distinguish from content area.
 
 ### Primary
-- **Electric Violet** (`oklch(55% 0.22 290)`): Primary actions, interactive elements, brand chrome.
-- **Violet Deep** (`oklch(45% 0.22 290)`): Hover and pressed states.
+- **Warm Violet** (`oklch(50% 0.18 290)`): Primary actions, interactive elements. Saturated but not harsh.
+- **Violet Hover** (`oklch(42% 0.18 290)`): Hover and pressed states.
+- **Violet Subtle** (`oklch(50% 0.06 290 / 0.1)`): Light tint for active states, selected rows.
 
-### Accents
-- **Vibrant Cyan** (`oklch(62% 0.18 210)`): Data visualization, charts, informational badges.
-- **Rose** (`oklch(55% 0.2 10)`): Destructive actions, urgent alerts, error states.
-- **Amber** (`oklch(70% 0.18 80)`): Warning states, low stock, attention badges.
-- **Deep Indigo** (`oklch(25% 0.04 280)`): Primary text.
-- **Muted Iris** (`oklch(45% 0.04 280)`): Secondary text, labels, metadata.
+### Text
+- **Primary Text** (`oklch(20% 0.01 60)`): Warm near-black for headings and body.
+- **Secondary Text** (`oklch(40% 0.01 60)`): Warm mid-gray for labels, metadata.
+- **Muted Text** (`oklch(55% 0.01 60)`): Placeholder text, disabled states.
+
+### Semantics
+- **Error** (`oklch(50% 0.2 25)`): Errors, destructive actions.
+- **Warning** (`oklch(65% 0.18 85)`): Low stock, attention-needed states.
+- **Success** (`oklch(55% 0.15 145)`): Completed states, confirmations.
+- **Info** (`oklch(55% 0.12 210)`): Informational badges, data indicators.
 
 ## 3. Typography
 
-**Font:** Readex Pro — variable humanist sans.
+**Font:** Readex Pro — variable humanist sans. Single family carries everything.
 
-### Hierarchy
-- **Display** (Bold 700, `clamp(2rem, 4vw, 3rem)`, 1.1): Page titles, empty states.
-- **Headline** (SemiBold 600, `clamp(1.25rem, 2.5vw, 1.75rem)`, 1.2): Section headers, panel titles.
-- **Title** (Medium 500, `1rem` / 16px, 1.3): Card headers, navigation.
-- **Body** (Regular 400, `0.9375rem` / 15px, 1.55): Reading text.
-- **Label** (Medium 500, `0.75rem` / 12px, 1.3, 0.01em): Badges, data cells, form labels.
-- **Stat** (Light 300, `2rem` / 32px, 1): Metric values, key numbers.
+### Fixed rem scale
 
-## 4. Elevation
+| Style | Weight | Size | Line Height | Letter Spacing |
+|-------|--------|------|-------------|----------------|
+| Display | Bold 700 | 1.75rem / 28px | 1.15 | -0.02em |
+| Headline | SemiBold 600 | 1.25rem / 20px | 1.2 | -0.01em |
+| Title | Medium 500 | 1rem / 16px | 1.3 | 0 |
+| Body | Regular 400 | 0.9375rem / 15px | 1.5 | 0 |
+| Label | Medium 500 | 0.75rem / 12px | 1.3 | 0.01em |
+| Stat | SemiBold 600 | 1.5rem / 24px | 1 | -0.01em |
 
-**The Glass Rule.** Cards float above the background on two axes: subtle shadow underneath (`0 4px 24px oklch(0% 0 0 / 0.06)`) and a light-reflecting border on top (`0 0 0 1px oklch(100% 0 0 / 0.8)`). The shadow is ambient — it suggests a card, not a cliff. On hover, shadow deepens to `0 8px 40px oklch(0% 0 0 / 0.1)`.
+Line length: 65-75ch for prose; tables and data can run wider.
+
+## 4. Elevation & Surfaces
+
+Cards use solid white backgrounds with warm, shallow shadows. No backdrop-blur. No transparency.
+
+- **Card Shadow**: `0 1px 3px oklch(0% 0 0 / 0.06)`, hover `0 4px 12px oklch(0% 0 0 / 0.1)`
+- **Card Radius**: `12px`
+- **Card Padding**: `p-5` (1.25rem)
 
 ## 5. Components
 
-### Glass Card
-- **Background**: `oklch(100% 0 0 / 0.65)`
-- **Backdrop**: `blur(24px)`
-- **Border**: `1px solid oklch(100% 0 0 / 0.9)`
-- **Radius**: `16px`
-- **Shadow**: `0 4px 24px oklch(0% 0 0 / 0.06)`
+### Standard Card
+- **Background**: `oklch(100% 0 0 / 1)`
+- **Border**: `1px solid oklch(90% 0.005 60)`
+- **Radius**: `12px`
+- **Shadow**: `0 1px 3px oklch(0% 0 0 / 0.06)`
 
 ### Buttons
-- **Primary**: Electric Violet fill, 12px radius, 1.5px border matching fill.
-- **Ghost**: Transparent, Electric Violet text, hover fills at 10% opacity.
-- **Danger**: Rose fill.
+- **Primary**: Warm Violet fill, 10px radius, 0.875rem text, 500 weight
+- **Secondary**: Outlined variant with same radius, warm violet text on transparent
+- **Ghost**: Transparent, warm violet text, hover fills at 10% opacity
+- **Danger**: Error red fill
+- **All buttons**: `transform: scale(0.97)` on `:active` for physical press feedback
 
 ### Navigation
-- **Sidebar**: Glass card style, full height. Active item: Electric Violet left indicator (3px) + subtle Violet tinted background.
+- **Sidebar**: Warm neutral surface (`oklch(94% 0.005 60)`), full height. Active item: Warm Violet tinted background (`oklch(50% 0.06 290 / 0.1)`), filled text.
+- **No side-stripe accents**. Use full background tint instead.
 
-## 6. Do's and Don'ts
+### Forms
+- **Label**: Above input, 0.75rem, 500 weight, secondary text color
+- **Input**: 1px border, 10px radius, 0.875rem text, inner padding 0.75rem vertical / 1rem horizontal
+- **Focus**: Warm Violet border + ring
+- **Error**: Red border + inline message below input
+- **Select**: Same styling as input
+
+### Tables
+- **Clean borders**: top-border or bottom-border separation, no card-in-card
+- **Header**: Label style, secondary text
+- **Rows**: Body style, hover background on interactive rows
+- **Mobile**: `overflow-x-auto` with sticky first column
+
+## 6. Motion
+
+- **Duration**: 150-250ms for UI transitions (never block flow)
+- **Easing**: `cubic-bezier(0.23, 1, 0.32, 1)` — strong ease-out
+- **Press feedback**: `transform: scale(0.97)` on `:active` — 100ms
+- **Entry**: Opacity + translateY(4px), stagger 40ms between items
+- **`prefers-reduced-motion`**: Keep opacity/color transitions, remove all position/movement
+- **No decorative motion**: Every animation conveys state or prevents jarring changes
+
+## 7. Do's and Don'ts
 
 ### Do:
-- **Do** use glass cards as the primary surface — every panel floats
-- **Do** vary bento card sizes — some tall, some wide, some square
-- **Do** use saturated accents sparingly — violet for chrome, others for specific signal
-- **Do** keep the bento grid tight — no gaps between cards, use negative space inside
-- **Do** use gradient background as the only source of page-level depth
+- **Do** use solid surfaces — every panel is opaque, warm, and grounded
+- **Do** keep the palette restrained — one accent color, muted neutrals
+- **Do** use space as hierarchy — more space = more importance
+- **Do** make every form label visible and above its input
+- **Do** show inline errors with recovery suggestions
 
 ### Don't:
-- **Don't** use pure white backgrounds — the gradient should always show through
-- **Don't** stack glass cards on glass cards (nested glass looks muddy)
-- **Don't** use shadow-heavy cards — glass needs light touch
-- **Don't** use more than 3 accent colors on a single screen
-- **Don't** make the bento grid a uniform 3×3 of same-sized cards
+- **Don't** use glassmorphism, backdrop-blur, or transparent surfaces
+- **Don't** use gradient backgrounds
+- **Don't** use side-stripe accent borders
+- **Don't** use `alert()` for error messages
+- **Don't** use display fonts or serif fonts in UI
+- **Don't** animate layout properties (width, height, top, left)
+- **Don't** show loading spinners — use skeleton states

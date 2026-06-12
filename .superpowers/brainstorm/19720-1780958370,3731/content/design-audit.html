@@ -1,0 +1,45 @@
+<h2>🎨 UX/UI Аудит: VV CRM</h2>
+<p class="subtitle">Огляд поточного стану та конфліктів дизайн-системи</p>
+
+<div class="section">
+  <h3>Проблема #1: Конфлікт специфікації та реалізації</h3>
+  <p><code>DESIGN.md</code> каже: "ніякого glassmorphism, ніяких градієнтів, тверді поверхні"</p>
+  <p>Але код (commit <code>430e53d</code>) впровадив: glassmorphism, backdrop-blur, насичену палітру. Виходить розрив між документом і реальністю.</p>
+</div>
+
+<div class="section">
+  <h3>Поточна палітра</h3>
+  <p>Теплий бежевий фон + фіолетовий акцент. Але в різних частинах кольори плавають — немає єдиної системи токенів, яка використовується всюди.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+    <div style="background:oklch(96% 0.006 60);padding:20px 16px;border-radius:8px;border:1px solid #ddd;flex:1;text-align:center"><strong>Page</strong><br><small>oklch(96% 0.006 60)</small></div>
+    <div style="background:oklch(100% 0 0);padding:20px 16px;border-radius:8px;border:1px solid #ddd;flex:1;text-align:center"><strong>Card</strong><br><small>oklch(100% 0 0)</small></div>
+    <div style="background:oklch(50% 0.18 290);color:white;padding:20px 16px;border-radius:8px;flex:1;text-align:center"><strong>Accent</strong><br><small>oklch(50% 0.18 290)</small></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Проблема #2: Єдина типографіка, різне застосування</h3>
+  <p>Readex Pro — гарний вибір, але шкала не дотримується послідовно. Десь 1.75rem display, десь 1.25rem headline — але на практиці розміри плавають між сторінками.</p>
+</div>
+
+<div class="section">
+  <h3>Проблема #3: Фрагментовані компоненти</h3>
+  <p>Кожна форма має свою структуру. Таблиці не використовують спільний компонент. Стилі інлайн або через Tailwind — немає єдиного компонентного шару.</p>
+  <ul>
+    <li>Форми: окремі компоненти без спільних патернів</li>
+    <li>Таблиці: кожен розділ пише свою</li>
+    <li>Кнопки: не стандартизовані</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h3>Пропоную такий підхід до роботи:</h3>
+  <ol>
+    <li><strong>Дизайн-токени</strong> — зафіксувати кольори, тіні, радіуси в CSS</li>
+    <li><strong>Компонентна база</strong> — спільні Button, Input, Select, Card, Modal</li>
+    <li><strong>Навігація</strong> — рев'ю сайдбару та мобільного меню</li>
+    <li><strong>Сторінки</strong> — по черзі, починаючи з дашборду</li>
+  </ol>
+</div>
+
+<p class="subtitle" style="margin-top:24px;">Це відповідає тому, що ти бачиш? Що додати/змінити в цьому списку?</p>

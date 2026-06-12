@@ -1,0 +1,130 @@
+export const dynamic = "force-dynamic";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { IconRepair, IconLogo } from "@/components/icons";
+import { trackTTN } from "@/lib/services/nova-poshta";
+import NovaPoshtaWidget from "@/components/ui/NovaPoshtaWidget";
+
+const statusLabels: Record<string, string> = {
+  pending: "Прийнято в ремонт", diagnosing: "Діагностика", waiting_parts: "Очікування запчастин",
+  repairing: "Ремонтується", ready: "Готовий до видачі", completed: "Виконано",
+  handed_over: "Видано клієнту", cancelled: "Скасовано",
+};
+const statusColors: Record<string, string> = {
+  pending: "text-amber bg-amber/10", diagnosing: "text-blue bg-blue/10", waiting_parts: "text-orange bg-orange/10",
+  repairing: "text-violet bg-violet/10", ready: "text-cyan bg-cyan/10", completed: "text-emerald bg-emerald/10",
+  handed_over: "text-text-secondary bg-iris/5", cancelled: "text-rose bg-rose/10",
+};
+
+export default async function TrackingPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const supabase = createAdminClient();
+
+  const { data: repair, error } = await supabase
+    .from("repairs")
+    .select("*, customers(name)")
+    .eq("tracking_token", token.toUpperCase())
+    .single();
+
+  if (error || !repair) notFound();
+
+  const npStatus = repair.np_ttn ? await trackTTN(repair.np_ttn) : null;
+
+  const { data: statusLog } = await supabase
+    .from("repair_status_log")
+    .select("*")
+    .eq("repair_id", repair.id)
+    .eq("is_customer_visible", true)
+    .order("created_at");
+
+  return (
+    <div className="min-h-screen bg-warm-bg">
+      <header className="border-b border-warm-border/50 bg-white">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+          <Link href="/shop" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-text-primary">
+            <span className="text-violet"><IconLogo /></span> VV CRM
+          </Link>
+          <Link href="/track" className="text-sm text-violet hover:underline">Інша заявка</Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-8 text-center">
+          <div className="mb-3 flex justify-center text-violet"><IconRepair size={40} /></div>
+          <h1 className="text-xl font-semibold tracking-tight text-text-primary">Ремонт #{repair.tracking_token}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{repair.customers?.name}</p>
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-warm-border/60 bg-white p-6">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-text-secondary">Пристрій</p>
+              <p className="font-medium text-text-primary">{repair.device_name}</p>
+            </div>
+            {repair.device_imei && <div>
+              <p className="text-xs text-text-secondary">IMEI</p>
+              <p className="font-mono text-xs text-text-primary">{repair.device_imei}</p>
+            </div>}
+            <div>
+              <p className="text-xs text-text-secondary">Проблема</p>
+              <p className="text-text-primary">{repair.issue}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary">Статус</p>
+              <span className={`inline-block rounded px-2.5 py-1 text-xs font-medium ${statusColors[repair.status] || "bg-iris/5 text-text-secondary"}`}>
+                {statusLabels[repair.status] || repair.status}
+              </span>
+            </div>
+            {repair.price > 0 && <div>
+              <p className="text-xs text-text-secondary">Вартість</p>
+              <p className="font-semibold text-text-primary">{repair.price.toLocaleString()} грн</p>
+            </div>}
+            {repair.estimated_completion && <div>
+              <p className="text-xs text-text-secondary">Орієнтовна дата</p>
+              <p className="text-text-primary">{new Date(repair.estimated_completion).toLocaleDateString("uk-UA")}</p>
+            </div>}
+            {repair.np_ttn && <div className="col-span-2">
+              <NovaPoshtaWidget ttn={repair.np_ttn} initialStatus={npStatus} />
+            </div>}
+          </div>
+        </div>
+
+        {repair.device_condition_photos && repair.device_condition_photos.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-warm-border/60 bg-white p-6">
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">Фото пристрою на момент приймання</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {repair.device_condition_photos.map((url: string, i: number) => (
+                <div key={i} className="aspect-square overflow-hidden rounded-xl bg-warm-bg">
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {statusLog && statusLog.length > 0 && (
+          <div className="rounded-2xl border border-warm-border/60 bg-white p-6">
+            <h3 className="mb-4 text-sm font-semibold text-text-primary">Історія статусів</h3>
+            <div className="relative">
+              <div className="absolute left-[7px] top-1 h-[calc(100%-8px)] w-px bg-iris/10" />
+              <div className="space-y-5">
+                {statusLog.map((log) => (
+                  <div key={log.id} className="flex gap-3">
+                    <div className="relative z-10 mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-violet bg-white" />
+                    <div>
+                      <p className="text-xs text-text-secondary">{new Date(log.created_at).toLocaleString("uk-UA")}</p>
+                      <p className="text-sm font-medium text-text-primary">{statusLabels[log.to_status] || log.to_status}</p>
+                      {log.notes && <p className="text-xs text-text-secondary mt-0.5">{log.notes}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

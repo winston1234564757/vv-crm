@@ -3,32 +3,117 @@
 @theme inline {
   --font-sans: var(--font-readex), system-ui, sans-serif;
 
-  --color-violet: oklch(55% 0.22 290);
-  --color-violet-deep: oklch(45% 0.22 290);
-  --color-cyan: oklch(62% 0.18 210);
-  --color-rose: oklch(55% 0.2 10);
-  --color-amber: oklch(70% 0.18 80);
-  --color-indigo: oklch(25% 0.04 280);
-  --color-iris: oklch(45% 0.04 280);
-  --color-glass: oklch(100% 0 0 / 0.65);
-  --color-glass-border: oklch(100% 0 0 / 0.9);
+  --color-warm-bg: oklch(96% 0.006 60);
+  --color-warm-surface: oklch(100% 0 0 / 1);
+  --color-warm-sidebar: oklch(94% 0.005 60);
+  --color-warm-border: oklch(90% 0.005 60);
+  --color-warm-hover: oklch(92% 0.005 60);
+
+  --color-violet: oklch(50% 0.18 290);
+  --color-violet-hover: oklch(42% 0.18 290);
+  --color-violet-subtle: oklch(50% 0.06 290 / 0.1);
+
+  --color-text-primary: oklch(20% 0.01 60);
+  --color-text-secondary: oklch(40% 0.01 60);
+  --color-text-muted: oklch(55% 0.01 60);
+
+  --color-iris: oklch(45% 0.01 60);
+
+  --color-rose: oklch(50% 0.2 25);
+  --color-amber: oklch(65% 0.18 85);
+  --color-emerald: oklch(55% 0.15 145);
+  --color-cyan: oklch(55% 0.12 210);
 }
 
 body {
   min-height: 100vh;
-  background: linear-gradient(
-    160deg,
-    oklch(97% 0.012 280) 0%,
-    oklch(97% 0.008 340) 100%
-  );
-  color: var(--color-indigo);
+  background-color: var(--color-warm-bg);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
 
-.glass {
-  background: var(--color-glass);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--color-glass-border);
-  box-shadow: 0 4px 24px oklch(0% 0 0 / 0.06);
+.card {
+  background-color: var(--color-warm-surface);
+  border: 1px solid var(--color-warm-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
+  border-color: oklch(88% 0.005 60);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-violet);
+  outline-offset: 2px;
+}
+
+/* Press feedback for buttons */
+.btn-press {
+  transition: transform 100ms ease-out;
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Entry animation */
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-entry {
+  animation: fade-slide-in 250ms ease-out both;
+}
+
+.animate-entry-stagger {
+  animation: fade-slide-in 250ms ease-out both;
+}
+
+/* Stagger delays */
+.delay-0 { animation-delay: 0ms; }
+.delay-1 { animation-delay: 40ms; }
+.delay-2 { animation-delay: 80ms; }
+.delay-3 { animation-delay: 120ms; }
+.delay-4 { animation-delay: 160ms; }
+.delay-5 { animation-delay: 200ms; }
+.delay-6 { animation-delay: 240ms; }
+.delay-7 { animation-delay: 280ms; }
+.delay-8 { animation-delay: 320ms; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-entry,
+  .animate-entry-stagger {
+    animation: none;
+  }
+
+  .btn-press {
+    transition: none;
+  }
+
+  .btn-press:active {
+    transform: none;
+  }
+
+  .card-hover:hover {
+    box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
+    border-color: var(--color-warm-border);
+  }
+}
+
+/* Touch device hover guard */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover:hover {
+    box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
+    border-color: oklch(88% 0.005 60);
+  }
 }
