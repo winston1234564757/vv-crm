@@ -63,6 +63,11 @@ export function ServiceForm({ onSuccess, service }: { onSuccess: () => void; ser
           </div>
         </div>
 
+      <div className="mt-2">
+        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фотографії (опціонально)</label>
+        <input type="file" name="photos" multiple accept="image/*" className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white cursor-pointer hover:file:bg-violet-hover" />
+      </div>
+
       <label className="flex items-center gap-3 cursor-pointer">
         <input type="checkbox" name="is_visible" defaultChecked={service?.is_visible ?? true} className="h-4.5 w-4.5 rounded border-iris/20 text-violet focus:ring-violet" />
         <span className="text-sm font-medium text-text-primary">Показувати на вітрині</span>

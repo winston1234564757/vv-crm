@@ -1,4 +1,5 @@
 import { createClient } from "./supabase/server";
+import { getSales } from "./data-sales";
 
 function todayRange() {
   const s = new Date();
@@ -23,12 +24,12 @@ export async function getDashboardStats() {
 
   const [
     todaySalesRes, newCustomersRes, weeklySalesRes,
-    recentSalesRes, repairStatusesRes, totalSalesRes,
+    recentSales, repairStatusesRes, totalSalesRes,
   ] = await Promise.all([
     supabase.from("sales").select("total_amount").gte("created_at", start).lt("created_at", end),
     supabase.from("customers").select("id").gte("created_at", start).lt("created_at", end),
     supabase.from("sales").select("total_amount, created_at").gte("created_at", weekAgo),
-    supabase.from("sales").select("id, total_amount, created_at, customers(name)").order("created_at", { ascending: false }).limit(5),
+    getSales(5),
     supabase.from("repairs").select("status"),
     supabase.from("sales").select("total_amount"),
   ]);
@@ -74,13 +75,7 @@ export async function getDashboardStats() {
       const date = new Date(d + "T12:00:00");
       return date.toLocaleDateString("uk-UA", { weekday: "short" });
     }),
-    recentSales: (recentSalesRes.data ?? []).map((s) => ({
-      id: s.id,
-      item: "Продаж",
-      customer: ((s as unknown as { customers: { name: string } | null }).customers?.name) ?? "—",
-      amount: s.total_amount,
-      time: new Date(s.created_at).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }),
-    })),
+    recentSales,
     alerts,
     totalSales,
   };

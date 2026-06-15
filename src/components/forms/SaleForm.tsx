@@ -1,480 +1,224 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { createQuickSale } from "@/lib/actions/sales";
-import { createCustomer } from "@/lib/actions/customers";
-import { validatePromoCode } from "@/lib/actions/partners";
-import SearchSelect from "@/components/ui/SearchSelect";
-import { calculateDiscountedPrice, calculateRemainingSplit } from "@/lib/utils/finance";
-import { validateDiscount, validateSplitPayment } from "@/lib/utils/finance";
+import { useState } from "react";
+import { useSaleForm, UseSaleFormProps } from "./sale/useSaleForm";
+import SaleFormCategorySelector from "./sale/SaleFormCategorySelector";
+import SaleFormItemSelector from "./sale/SaleFormItemSelector";
+import SaleFormCustomerSection from "./sale/SaleFormCustomerSection";
+import SaleFormExtraDetails from "./sale/SaleFormExtraDetails";
+import SaleFormPaymentFields from "./sale/SaleFormPaymentFields";
+import SaleFormDeliveryFields from "./sale/SaleFormDeliveryFields";
+import { format } from "date-fns";
+import { uk } from "date-fns/locale";
+import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 
-interface Customer { id: string; name: string; phone: string; discount_percent: number; }
-interface CashRegister { id: string; name: string; }
-interface Device { id: string; brand: string | null; model: string | null; imei: string | null; price: number; status: string; }
-interface Accessory { id: string; name: string; sku: string | null; price: number; stock: number; status: string; }
-interface Service { id: string; name: string; price: number; status: string; }
+export function SaleForm(props: UseSaleFormProps) {
+  const form = useSaleForm(props);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-export function SaleForm({
-  customers,
-  cashRegisters,
-  devices,
-  accessories,
-  services,
-  initialCategory,
-  initialItemId,
-  onSuccess
-}: {
-  customers: Customer[];
-  cashRegisters: CashRegister[];
-  devices: Device[];
-  accessories: Accessory[];
-  services?: Service[];
-  initialCategory?: "device" | "accessory" | "service";
-  initialItemId?: string;
-  onSuccess: () => void
-}) {
-  const initialState = { success: false, error: "" };
-  const [state, formAction, pending] = useActionState(action, initialState);
-  const [custError, setCustError] = useState("");
-  const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
-
-  useEffect(() => { if (state.success) onSuccess(); }, [state.success, onSuccess]);
-
-  const [category, setCategory] = useState<"device" | "accessory" | "service">(initialCategory ?? "accessory");
-  const [itemId, setItemId] = useState<string>(initialItemId ?? "");
-  const [amount, setAmount] = useState<string>("");
-
-  const [discount, setDiscount] = useState<number>(0);
-  const [basePrice, setBasePrice] = useState<number>(0);
-  const [isSplit, setIsSplit] = useState<boolean>(false);
-  const [cashAmount, setCashAmount] = useState<string>("");
-  const [cardAmount, setCardAmount] = useState<string>("");
-
-  const updatePriceFromSelection = (itemId: string, category: "device" | "accessory" | "service") => {
-    let price = 0;
-    if (category === "device") {
-      const d = devices.find(x => x.id === itemId);
-      if (d) price = d.price;
-    } else if (category === "accessory") {
-      const a = accessories.find(x => x.id === itemId);
-      if (a) price = a.price;
-    } else if (category === "service" && services) {
-      const s = services.find(x => x.id === itemId);
-      if (s) price = s.price;
+  if (form.createdSaleId) {
+    const customer = form.localCustomers.find(c => c.id === form.selectedCustomerId);
+    const customerName = customer ? customer.name : "Роздрібний покупець";
+    const customerPhone = customer ? customer.phone : "";
+    
+    let printedItemName = "Товар";
+    if (form.category === "device") {
+      const d = form.inStockDevices.find((x) => x.id === form.itemId);
+      printedItemName = d ? `${d.brand} ${d.model}` : "Пристрій";
+    } else if (form.category === "accessory") {
+      const a = form.activeAccessories.find((x) => x.id === form.itemId);
+      printedItemName = a ? a.name : "Аксесуар";
+    } else if (form.category === "service") {
+      if (form.itemId === "__custom__") {
+        const customInput = document.getElementById("item_name") as HTMLInputElement;
+        printedItemName = customInput?.value || "Послуга (вручну)";
+      } else {
+        const s = form.activeServices.find((x) => x.id === form.itemId);
+        printedItemName = s ? s.name : "Послуга";
+      }
     }
-    setBasePrice(price);
-  };
 
-  useEffect(() => {
-    if (initialItemId && initialCategory) {
-      updatePriceFromSelection(initialItemId, initialCategory);
-    }
-  }, [initialItemId, initialCategory, devices, accessories, services]);
+    const handlePrintReceipt = () => {
+      setIsPrintModalOpen(true);
+    };
 
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [newCustName, setNewCustName] = useState("");
-  const [newCustPhone, setNewCustPhone] = useState("");
-  const [newCustEmail, setNewCustEmail] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+    const formattedDate = format(new Date(), "dd MMMM yyyy 'о' HH:mm", { locale: uk });
 
-  const inStockDevices = devices.filter(d => d.status === "in_stock");
-  const activeAccessories = accessories.filter(a => a.status === "active" && a.stock > 0);
-  const activeServices = (services ?? []).filter(s => s.status === "active");
-
-  const [promoCode, setPromoCode] = useState("");
-  const [partnerId, setPartnerId] = useState("");
-  const [promoMessage, setPromoMessage] = useState<{text: string, type: "success" | "error"} | null>(null);
-
-  async function handleCheckPromo() {
-    if (!promoCode.trim()) return;
-    setPromoMessage(null);
-    const res = await validatePromoCode(promoCode.trim());
-    if (res.success && res.partner) {
-      setPartnerId(res.partner.id);
-      setDiscount(res.partner.discount_percent);
-      const finalAmount = calculateDiscountedPrice(basePrice, res.partner.discount_percent);
-      setAmount(finalAmount.toString());
-      setCashAmount(finalAmount.toString());
-      setCardAmount("0");
-      setPromoMessage({ text: `Партнер: ${res.partner.name}. Знижка ${res.partner.discount_percent}%!`, type: "success" });
-    } else {
-      setPartnerId("");
-      setDiscount(0);
-      setAmount(basePrice.toString());
-      setCashAmount(basePrice.toString());
-      setPromoMessage({ text: res.error || "Промокод не знайдено", type: "error" });
-    }
-  }
-
-
-  async function handleCreateCustomer() {
-    if (!newCustName.trim() || !newCustPhone.trim()) return;
-    setCustError("");
-    const formData = new FormData();
-    formData.set("name", newCustName);
-    formData.set("phone", newCustPhone);
-    formData.set("email", newCustEmail);
-    const res = await createCustomer({ success: false, error: "" }, formData);
-    if (res.success && res.data) {
-      const created = res.data as Customer;
-      setLocalCustomers(prev => [...prev, created]);
-      setSelectedCustomerId(created.id);
-      
-      // Apply discount if any
-      const pct = created.discount_percent || 0;
-      setDiscount(pct);
-      const finalAmount = calculateDiscountedPrice(basePrice, pct);
-      setAmount(finalAmount.toString());
-      setCashAmount(finalAmount.toString());
-      setCardAmount("0");
-      
-      setShowNewCustomer(false);
-      setNewCustName("");
-      setNewCustPhone("");
-      setNewCustEmail("");
-    } else {
-      setCustError(res.error || "Помилка створення клієнта");
-    }
-  }
-
-  async function action(prevState: typeof initialState, formData: FormData) {
-    formData.set("item_id", itemId);
-    formData.set("customer_id", selectedCustomerId);
-    formData.set("discount", discount.toString());
-    formData.set("is_split", isSplit ? "true" : "false");
-    if (isSplit) {
-      formData.set("cash_amount", cashAmount);
-      formData.set("card_amount", cardAmount);
-    }
-    if (partnerId) {
-      formData.set("partner_id", partnerId);
-      formData.set("promo_code_used", promoCode.trim());
-    }
-    const res = await createQuickSale(null, formData);
-    if (res.success) return { success: true, error: "" };
-    return { success: false, error: res.error || "Сталася помилка" };
-  }
-
-  function handleCategoryChange(cat: "device" | "accessory" | "service") {
-    setCategory(cat);
-    setItemId("");
-    setBasePrice(0);
-    setAmount("");
-    setDiscount(0);
-    setCashAmount("");
-    setCardAmount("");
-  }
-
-  function handleItemSelect(id: string) {
-    setItemId(id);
-    let price = 0;
-    if (category === "device") {
-      const d = inStockDevices.find(x => x.id === id);
-      if (d) price = d.price;
-    } else if (category === "accessory") {
-      const a = activeAccessories.find(x => x.id === id);
-      if (a) price = a.price;
-    } else if (category === "service") {
-      const s = activeServices.find(x => x.id === id);
-      if (s) price = s.price;
-    }
-    setBasePrice(price);
-    const finalAmount = calculateDiscountedPrice(price, discount);
-    setAmount(finalAmount.toString());
-    setCashAmount(finalAmount.toString());
-    setCardAmount("0");
-  }
-
-  function handleCustomerSelect(id: string) {
-    if (id === "__new__") {
-      setShowNewCustomer(true);
-      setSelectedCustomerId("");
-      return;
-    }
-    setShowNewCustomer(false);
-    setSelectedCustomerId(id);
-    const customer = localCustomers.find(c => c.id === id);
-    const pct = customer ? customer.discount_percent : 0;
-    setDiscount(pct);
-
-    const finalAmount = calculateDiscountedPrice(basePrice, pct);
-    setAmount(finalAmount.toString());
-    setCashAmount(finalAmount.toString());
-    setCardAmount("0");
-  }
-
-  function handleAmountChange(val: string) {
-    setAmount(val);
-    const num = parseFloat(val) || 0;
-    setCashAmount(num.toString());
-    setCardAmount("0");
-  }
-
-  function handleCashAmountChange(val: string) {
-    setCashAmount(val);
-    const total = parseFloat(amount) || 0;
-    const cash = parseFloat(val) || 0;
-    setCardAmount(Math.max(0, total - cash).toString());
-  }
-
-  function handleCardAmountChange(val: string) {
-    setCardAmount(val);
-    const total = parseFloat(amount) || 0;
-    const card = parseFloat(val) || 0;
-    setCashAmount(Math.max(0, total - card).toString());
-  }
-
-  const getAutoRegisterName = () => {
-    if (category === "accessory") return "Каса аксесуарів";
-    if (category === "service") return "Каса ремонтів";
-    return "Каса техніки";
-  };
-
-  // Split calculations
-  const totalAmountVal = parseFloat(amount) || 0;
-  const cashAmountVal = parseFloat(cashAmount) || 0;
-  const cardAmountVal = parseFloat(cardAmount) || 0;
-  const remainingSplit = calculateRemainingSplit(totalAmountVal, cashAmountVal, cardAmountVal);
-
-  return (
-    <form action={formAction} className="flex flex-col gap-5 p-5">
-
-      {(state.error || custError) && (
-        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
-          {state.error || custError}
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center space-y-6 animate-entry">
+        {/* Animated Checkmark Icon */}
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald/10 text-emerald animate-bounce">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
         </div>
-      )}
 
-      <div className="flex gap-2 p-1 bg-iris/5 rounded-xl border border-iris/10">
-        <label className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${category === "accessory" ? "bg-white text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"}`}>
-          <input type="radio" name="item_category" value="accessory" checked={category === "accessory"} onChange={() => handleCategoryChange("accessory")} className="hidden" />
-          Аксесуар
-        </label>
-        <label className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${category === "device" ? "bg-white text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"}`}>
-          <input type="radio" name="item_category" value="device" checked={category === "device"} onChange={() => handleCategoryChange("device")} className="hidden" />
-          Техніка
-        </label>
-        <label className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${category === "service" ? "bg-white text-text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"}`}>
-          <input type="radio" name="item_category" value="service" checked={category === "service"} onChange={() => handleCategoryChange("service")} className="hidden" />
-          Послуга
-        </label>
-      </div>
-
-      {category === "accessory" && (
-        <SearchSelect
-          label="Виберіть аксесуар"
-          name="item_id"
-          options={activeAccessories.map(a => ({ id: a.id, label: `${a.name} (${a.price} грн)`, subLabel: `Залишок: ${a.stock} шт` }))}
-          value={itemId}
-          onChange={handleItemSelect}
-          placeholder="Оберіть зі списку..."
-          required
-        />
-      )}
-
-      {category === "device" && (
-        <SearchSelect
-          label="Виберіть техніку"
-          name="item_id"
-          options={inStockDevices.map(d => ({ id: d.id, label: `${d.brand} ${d.model} (${d.price} грн)`, subLabel: d.imei ? `IMEI: ${d.imei}` : undefined }))}
-          value={itemId}
-          onChange={handleItemSelect}
-          placeholder="Оберіть зі списку..."
-          required
-        />
-      )}
-
-      {category === "service" && (
-        <div className="space-y-4">
-          <SearchSelect
-            label="Виберіть послугу"
-            name="item_id"
-            options={[
-              ...activeServices.map(s => ({ id: s.id, label: `${s.name} (${s.price} грн)` })),
-              { id: "__custom__", label: "Інша послуга (ввести вручну)" }
-            ]}
-            value={itemId}
-            onChange={handleItemSelect}
-            placeholder="Оберіть зі списку..."
-            required
-          />
-          {itemId === "__custom__" && (
-            <div className="animate-entry">
-              <label htmlFor="item_name" className="mb-1.5 block text-xs font-medium text-text-secondary">Введіть назву вручну</label>
-              <input id="item_name" name="item_name" type="text" placeholder="Напр. Поклейка скла..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" required />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="sale_type" className="mb-1.5 block text-xs font-medium text-text-secondary">Тип продажу</label>
-          <select id="sale_type" name="sale_type" required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet cursor-pointer">
-            <option value="retail">Роздріб</option>
-            <option value="online">Онлайн</option>
-          </select>
+          <h2 className="text-xl font-bold text-text-primary">Продаж успішно проведено!</h2>
+          <p className="text-xs text-text-secondary mt-1">Транзакція зареєстрована в системі</p>
         </div>
-        <div>
-          <label htmlFor="monobank_payment_id" className="mb-1.5 block text-xs font-medium text-text-secondary">ID транзакції Monobank</label>
-          <input id="monobank_payment_id" name="monobank_payment_id" type="text" placeholder="якщо оплата карткою" className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
-        </div>
-      </div>
 
-      <div>
-        <SearchSelect
-          label="Клієнт (опціонально)"
-          name="customer_id"
-          options={[
-            { id: "", label: "Не вказати" },
-            ...localCustomers.map(c => ({
-              id: c.id,
-              label: `${c.name} (${c.phone})`,
-              subLabel: c.discount_percent > 0 ? `Знижка ${c.discount_percent}%` : undefined
-            })),
-            { id: "__new__", label: "+ Новий клієнт" }
-          ]}
-          value={selectedCustomerId}
-          onChange={handleCustomerSelect}
-          placeholder="Не вказано"
-        />
-        {showNewCustomer && (
-          <div className="mt-3 rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-3">
-            <p className="text-xs font-medium text-text-secondary">Новий клієнт</p>
-            <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім\'я *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <button type="button" onClick={handleCreateCustomer} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover">
-              Створити клієнта
-            </button>
+        {/* Short Breakdown */}
+        <div className="w-full rounded-2xl bg-warm-bg border border-warm-border p-4 text-left space-y-2.5 text-xs">
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Номер чеку:</span>
+            <span className="font-mono font-bold text-text-primary">#{form.createdSaleId.substring(0, 8)}</span>
           </div>
-        )}
-      </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Товар:</span>
+            <span className="font-medium text-text-primary truncate max-w-[200px] text-right" title={printedItemName}>{printedItemName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Покупець:</span>
+            <span className="font-medium text-text-primary">{customerName}</span>
+          </div>
+          <div className="flex justify-between border-t border-warm-border/50 pt-2 text-sm">
+            <span className="font-semibold text-text-primary">Сума:</span>
+            <span className="font-extrabold text-violet">{parseFloat(form.amount).toLocaleString()} ₴</span>
+          </div>
+        </div>
 
-      <div className="rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-2">
-        <label className="block text-xs font-medium text-violet">Промокод партнера (опціонально)</label>
-        <div className="flex gap-2">
-          <input 
-            type="text" 
-            value={promoCode} 
-            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-            placeholder="VVC-XXXX"
-            className="flex-1 rounded-lg border border-iris/20 bg-white px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet" 
-          />
-          <button type="button" onClick={handleCheckPromo} className="rounded-lg bg-violet px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-hover">
-            Застосувати
+        {/* Action Buttons */}
+        <div className="w-full space-y-2.5 pt-2">
+          <button
+            type="button"
+            onClick={handlePrintReceipt}
+            className="btn-press flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            <span>Роздрукувати чек</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={form.resetForm}
+            className="btn-press w-full rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
+          >
+            Новий продаж
+          </button>
+
+          <button
+            type="button"
+            onClick={form.onSuccess}
+            className="btn-press w-full py-2.5 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          >
+            Закрити вікно
           </button>
         </div>
-        {promoMessage && (
-          <p className={`text-xs font-medium ${promoMessage.type === "success" ? "text-emerald" : "text-rose"}`}>
-            {promoMessage.text}
-          </p>
-        )}
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="amount" className="mb-1.5 block text-xs font-medium text-text-secondary">
-            Сума до оплати (грн) {discount > 0 && <span className="text-cyan font-semibold">(-{discount}%)</span>}
-          </label>
-          <input id="amount" name="amount" type="number" min="0" required value={amount} onChange={(e) => handleAmountChange(e.target.value)} placeholder="0" className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-        </div>
-        {!isSplit && (
-          <div>
-            <label htmlFor="method" className="mb-1.5 block text-xs font-medium text-text-secondary">Спосіб оплати</label>
-            <select id="method" name="method" required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet cursor-pointer">
-              <option value="cash">Готівка</option>
-              <option value="card">Картка (термінал)</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 py-1">
-        <input
-          id="is_split_toggle"
-          type="checkbox"
-          checked={isSplit}
-          onChange={(e) => {
-            setIsSplit(e.target.checked);
-            setCashAmount(amount);
-            setCardAmount("0");
+        {/* ============================================================== */}
+        {/* INTERACTIVE WYSIWYG RECEIPT PRINT MODAL */}
+        {/* ============================================================== */}
+        <ReceiptPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          type="sale"
+          data={{
+            id: form.createdSaleId,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            seller_name: "Адміністратор",
+            items: [{
+              name: printedItemName,
+              quantity: 1,
+              unit_price: parseFloat(form.amount),
+              total_price: parseFloat(form.amount)
+            }],
+            total_amount: parseFloat(form.amount),
+            discount: form.discount,
+            warranty_end: form.warrantyEnd,
+            register_name: form.getAutoRegisterName()
           }}
-          className="h-4.5 w-4.5 rounded border-iris/20 text-violet focus:ring-violet cursor-pointer"
         />
-        <label htmlFor="is_split_toggle" className="text-sm font-medium text-text-primary cursor-pointer">
-          Розділити оплату (Готівка + Карта)
-        </label>
       </div>
+    );
+  }
 
-      {isSplit && (
-        <div className="space-y-3 p-4 rounded-xl bg-violet/5 border border-violet/10">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="cash_amount" className="mb-1.5 block text-xs font-medium text-text-secondary">Готівка (грн)</label>
-              <input id="cash_amount" type="number" min="0" max={amount} value={cashAmount} onChange={(e) => handleCashAmountChange(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            </div>
-            <div>
-              <label htmlFor="card_amount" className="mb-1.5 block text-xs font-medium text-text-secondary">Картка (грн)</label>
-              <input id="card_amount" type="number" min="0" max={amount} value={cardAmount} onChange={(e) => handleCardAmountChange(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            </div>
-          </div>
-          <div className="flex justify-between items-center text-xs mt-1.5 px-1">
-            <span>Статус спліт-оплати:</span>
-            {remainingSplit === 0 ? (
-              <span className="text-emerald font-semibold flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Розраховано повністю</span>
-              </span>
-            ) : (
-              <span id="split-payment-error" className="text-rose font-medium">
-                {remainingSplit > 0 
-                  ? `Залишилось розподілити: ${remainingSplit} грн` 
-                  : `Перевищення ліміту на: ${Math.abs(remainingSplit)} грн`}
-              </span>
-            )}
-          </div>
+
+  return (
+    <form action={form.formAction} className="flex flex-col gap-5 p-5">
+      {(form.state.error || form.custError) && (
+        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
+          {form.state.error || form.custError}
         </div>
       )}
+
+      <SaleFormCategorySelector category={form.category} onChange={form.handleCategoryChange} />
+
+      <SaleFormItemSelector
+        category={form.category}
+        itemId={form.itemId}
+        handleItemSelect={form.handleItemSelect}
+        activeAccessories={form.activeAccessories}
+        inStockDevices={form.inStockDevices}
+        activeServices={form.activeServices}
+      />
+
+      <SaleFormCustomerSection
+        customers={form.localCustomers}
+        selectedCustomerId={form.selectedCustomerId}
+        onChange={form.handleCustomerSelect}
+        showNewCustomer={form.showNewCustomer}
+        setShowNewCustomer={form.setShowNewCustomer}
+        newCustName={form.newCustName}
+        setNewCustName={form.setNewCustName}
+        newCustPhone={form.newCustPhone}
+        setNewCustPhone={form.setNewCustPhone}
+        newCustEmail={form.newCustEmail}
+        setNewCustEmail={form.setNewCustEmail}
+        onCreateCustomer={form.handleCreateCustomer}
+        custError={form.custError}
+      />
+
+      <SaleFormExtraDetails
+        promoCode={form.promoCode}
+        setPromoCode={form.setPromoCode}
+        promoMessage={form.promoMessage}
+        handleCheckPromo={form.handleCheckPromo}
+        warrantyStart={form.warrantyStart}
+        setWarrantyStart={form.setWarrantyStart}
+        warrantyEnd={form.warrantyEnd}
+        setWarrantyEnd={form.setWarrantyEnd}
+      />
+
+      <SaleFormPaymentFields
+        amount={form.amount}
+        onAmountChange={form.handleAmountChange}
+        discount={form.discount}
+        isSplit={form.isSplit}
+        setIsSplit={form.setIsSplit}
+        cashAmount={form.cashAmount}
+        onCashAmountChange={form.handleCashAmountChange}
+        cardAmount={form.cardAmount}
+        onCardAmountChange={form.handleCardAmountChange}
+        remainingSplit={form.remainingSplit}
+      />
 
       <div className="rounded-xl bg-iris/5 border border-iris/10 px-4 py-3 text-xs text-text-secondary flex items-center justify-between">
         <span>Каса зарахування:</span>
-        <span className="font-semibold text-text-primary">{getAutoRegisterName()}</span>
+        <span className="font-semibold text-text-primary">{form.getAutoRegisterName()}</span>
       </div>
 
-      <div className="border-t border-warm-border/50 pt-4">
-        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider">Доставка</h3>
-        <div className="flex items-center gap-2">
-          <input id="delivery_needed" name="delivery_needed" type="checkbox" value="true" className="h-5 w-5 rounded border-iris/20 text-violet focus:ring-violet cursor-pointer" />
-          <label htmlFor="delivery_needed" className="text-sm font-medium text-text-primary cursor-pointer">Потрібна доставка</label>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="delivery_address" className="mb-1.5 block text-xs font-medium text-text-secondary">Адреса доставки</label>
-            <input id="delivery_address" name="delivery_address" type="text" placeholder="Місто, відділення НП..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
-          </div>
-          <div>
-            <label htmlFor="delivery_tracking" className="mb-1.5 block text-xs font-medium text-text-secondary">ТТН доставки</label>
-            <input id="delivery_tracking" name="delivery_tracking" type="text" placeholder="номер ТТН" className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
-          </div>
-        </div>
-      </div>
+      <SaleFormDeliveryFields
+        deliveryNeeded={form.deliveryNeeded}
+        setDeliveryNeeded={form.setDeliveryNeeded}
+        deliveryAddress={form.deliveryAddress}
+        setDeliveryAddress={form.setDeliveryAddress}
+        deliveryTracking={form.deliveryTracking}
+        setDeliveryTracking={form.setDeliveryTracking}
+      />
 
-      <div>
-        <label htmlFor="notes" className="mb-1.5 block text-xs font-medium text-text-secondary">Коментар</label>
-        <textarea id="notes" name="notes" placeholder="Нотатки до продажу..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" rows={2} />
-      </div>
-
-      <button 
-        type="submit" 
-        disabled={pending || (isSplit && remainingSplit !== 0)} 
-        aria-invalid={isSplit && remainingSplit !== 0 ? "true" : "false"}
-        aria-describedby={isSplit && remainingSplit !== 0 ? "split-payment-error" : undefined}
+      <button
+        type="submit"
+        disabled={form.pending || (form.isSplit && form.remainingSplit !== 0)}
+        aria-describedby={form.isSplit && form.remainingSplit !== 0 ? "split-payment-error" : undefined}
         className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 btn-press cursor-pointer disabled:cursor-not-allowed"
       >
-        {pending ? <span className="animate-pulse opacity-60">Зачекайте...</span> : "Провести продаж"}
+        {form.pending ? <span className="animate-pulse opacity-60">Зачекайте...</span> : "Провести продаж"}
       </button>
     </form>
   );

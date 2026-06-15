@@ -1,17 +1,20 @@
 export const dynamic = "force-dynamic";
 
-import { getParts, getPartsAlerts } from "@/lib/data-parts";
+import { getParts, getPartsAlerts, getPartsUsage } from "@/lib/data-parts";
 import { getSuppliers } from "@/lib/data-suppliers";
 import { PartsTable } from "./table";
 import { AddPartButton } from "./AddPartButton";
 import { pluralUk } from "@/lib/utils/plural";
 
-function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={`card p-5 ${className ?? ""}`}>{children}</div>;
-}
+import GlassCard from "@/components/GlassCard";
 
 export default async function PartsPage() {
-  const [parts, alerts, suppliers] = await Promise.all([getParts(), getPartsAlerts(), getSuppliers()]);
+  const [parts, alerts, suppliers, usage] = await Promise.all([
+    getParts(),
+    getPartsAlerts(),
+    getSuppliers(),
+    getPartsUsage()
+  ]);
 
   const totalParts = parts.length;
   const totalValue = parts.reduce((s, p) => s + p.cost_price * p.stock, 0);
@@ -43,7 +46,7 @@ export default async function PartsPage() {
       </div>
 
       <GlassCard>
-        <PartsTable parts={parts} suppliers={suppliers} />
+        <PartsTable parts={parts} suppliers={suppliers} usage={usage} />
       </GlassCard>
     </div>
   );

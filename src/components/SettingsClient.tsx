@@ -1,10 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateSettingsAction, updateProfileRoleAction } from "@/lib/actions/settings";
+import { updateSettingsAction, updateProfileRoleAction, updateReceiptSettingsAction } from "@/lib/actions/settings";
 import type { ParsedSettings, ProfileRow } from "@/lib/data-settings";
 import { InlineError } from "@/components/ui/InlineError";
 import type { ActionState } from "@/lib/actions/types";
+
+import { GeneralSettingsTab } from "./settings/GeneralSettingsTab";
+import { StaffSettingsTab } from "./settings/StaffSettingsTab";
+import { ReceiptSettingsTab } from "./settings/ReceiptSettingsTab";
 
 interface SettingsClientProps {
   initialSettings: ParsedSettings;
@@ -12,41 +16,43 @@ interface SettingsClientProps {
   currentUserId: string;
 }
 
-const roleLabels: Record<string, string> = {
-  owner: "Власник",
-  manager: "Менеджер",
-  sales: "Продавець",
-  technician: "Технік",
-};
-
 export default function SettingsClient({
   initialSettings,
   initialProfiles,
   currentUserId,
 }: SettingsClientProps) {
-  const [shopName, setShopName] = useState(initialSettings.shop_name);
+  const [activeTab, setActiveTab] = useState<"general" | "staff" | "receipts">("general");
   const [profiles, setProfiles] = useState<ProfileRow[]>(initialProfiles);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Tech state
-  const [techOpex, setTechOpex] = useState(initialSettings.distribution_tech.opex);
-  const [techGrowth, setTechGrowth] = useState(initialSettings.distribution_tech.growth);
-  const [techProfit, setTechProfit] = useState(initialSettings.distribution_tech.net_profit);
+  // Receipt settings state for Live Preview and Form
+  const [companyName, setCompanyName] = useState(initialSettings.receipt_settings?.company_name || "VV CRM");
+  const [companySubtitle, setCompanySubtitle] = useState(initialSettings.receipt_settings?.company_subtitle || "Магазин та сервісний центр");
+  const [address, setAddress] = useState(initialSettings.receipt_settings?.address || "м. Київ, вул. Хрещатик 1");
+  const [phone, setPhone] = useState(initialSettings.receipt_settings?.phone || "+380 99 999 9999");
+  const [footerText, setFooterText] = useState(initialSettings.receipt_settings?.footer_text || "Дякуємо за покупку! Чекаємо Вас знову!");
 
-  // Acc state
-  const [accOpex, setAccOpex] = useState(initialSettings.distribution_accessories.opex);
-  const [accGrowth, setAccGrowth] = useState(initialSettings.distribution_accessories.growth);
-  const [accProfit, setAccProfit] = useState(initialSettings.distribution_accessories.net_profit);
+  // Template active previews
+  const [activePreviewTemplate, setActivePreviewTemplate] = useState<"sale" | "repair_acceptance" | "repair_warranty">("sale");
 
-  // Rep state
-  const [repOpex, setRepOpex] = useState(initialSettings.distribution_repairs.opex);
-  const [repGrowth, setRepGrowth] = useState(initialSettings.distribution_repairs.growth);
-  const [repProfit, setRepProfit] = useState(initialSettings.distribution_repairs.net_profit);
+  const [saleTitle, setSaleTitle] = useState(initialSettings.receipt_settings?.templates?.sale?.title || "ТОВАРНИЙ ЧЕК");
+  const [saleShowSeller, setSaleShowSeller] = useState(initialSettings.receipt_settings?.templates?.sale?.show_seller ?? true);
+  const [saleShowBuyer, setSaleShowBuyer] = useState(initialSettings.receipt_settings?.templates?.sale?.show_buyer ?? true);
+  const [saleWarrantyText, setSaleWarrantyText] = useState(initialSettings.receipt_settings?.templates?.sale?.warranty_text || "");
+  const [saleShowQr, setSaleShowQr] = useState(initialSettings.receipt_settings?.templates?.sale?.show_qr ?? true);
 
-  const techTotal = techOpex + techGrowth + techProfit;
-  const accTotal = accOpex + accGrowth + accProfit;
-  const repTotal = repOpex + repGrowth + repProfit;
+  const [repAccTitle, setRepAccTitle] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.title || "КВИТАНЦІЯ ПРИЙМАННЯ");
+  const [repAccShowSeller, setRepAccShowSeller] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.show_seller ?? true);
+  const [repAccShowBuyer, setRepAccShowBuyer] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.show_buyer ?? true);
+  const [repAccWarrantyText, setRepAccWarrantyText] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.warranty_text || "");
+  const [repAccShowQr, setRepAccShowQr] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.show_qr ?? true);
+
+  const [repWarrTitle, setRepWarrTitle] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.title || "ГАРАНТІЙНИЙ ТАЛОН РЕМОНТУ");
+  const [repWarrShowSeller, setRepWarrShowSeller] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.show_seller ?? true);
+  const [repWarrShowBuyer, setRepWarrShowBuyer] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.show_buyer ?? true);
+  const [repWarrWarrantyText, setRepWarrWarrantyText] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.warranty_text || "");
+  const [repWarrShowQr, setRepWarrShowQr] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.show_qr ?? true);
 
   const [settingsState, settingsAction, isPending] = useActionState(
     async (prevState: ActionState, formData: FormData) => {
@@ -65,6 +71,23 @@ export default function SettingsClient({
     { success: false }
   );
 
+  const [receiptState, receiptSettingsAction, isReceiptPending] = useActionState(
+    async (prevState: ActionState, formData: FormData) => {
+      setError("");
+      setSuccessMsg("");
+      
+      const res = await updateReceiptSettingsAction(null, formData);
+      if (res.success) {
+        setSuccessMsg("Налаштування шаблонів чеків успішно збережено!");
+        return { success: true };
+      } else {
+        setError(res.error || "Помилка збереження шаблонів чеків");
+        return { success: false };
+      }
+    },
+    { success: false }
+  );
+
   async function handleRoleChange(profileId: string, role: string) {
     setError("");
     setSuccessMsg("");
@@ -76,6 +99,7 @@ export default function SettingsClient({
       setSuccessMsg("Роль користувача успішно оновлено!");
     } else {
       setError(res.error || "Не вдалося оновити роль");
+      throw new Error(res.error || "Не вдалося оновити роль");
     }
   }
 
@@ -84,293 +108,116 @@ export default function SettingsClient({
       <InlineError message={error} onClose={() => setError("")} />
       
       {successMsg && (
-        <div className="rounded-xl bg-emerald/10 p-4 text-sm text-emerald">
+        <div className="rounded-xl bg-emerald/10 p-4 text-sm text-emerald border border-emerald/10 shadow-sm transition-all duration-200">
           {successMsg}
         </div>
       )}
 
-      <form action={settingsAction} className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Store settings card */}
-        <div className="card p-5 space-y-4">
-          <h2 className="text-base font-semibold text-text-primary">Параметри магазину</h2>
-          
-          <div>
-            <label htmlFor="shop_name" className="mb-1.5 block text-xs font-medium text-text-secondary">
-              Назва магазину / майстерні
-            </label>
-            <input
-              id="shop_name"
-              name="shop_name"
-              type="text"
-              value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
-              className="w-full rounded-xl border border-warm-border bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
-              required
+      {/* Vercel-style Tab Selector */}
+      <div className="flex border-b border-warm-border gap-2 bg-white/30 dark:bg-zinc-900/30 p-1 rounded-t-2xl">
+        <button
+          onClick={() => setActiveTab("general")}
+          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === "general"
+              ? "border-violet text-violet font-extrabold"
+              : "border-transparent text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Загальні налаштування
+        </button>
+        <button
+          onClick={() => setActiveTab("staff")}
+          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === "staff"
+              ? "border-violet text-violet font-extrabold"
+              : "border-transparent text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Співробітники
+        </button>
+        <button
+          onClick={() => setActiveTab("receipts")}
+          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === "receipts"
+              ? "border-violet text-violet font-extrabold"
+              : "border-transparent text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Конструктор чеків
+        </button>
+      </div>
+
+      <div className="transition-all duration-300">
+        {activeTab === "general" && (
+          <div className="animate-entry">
+            <GeneralSettingsTab
+              initialSettings={initialSettings}
+              action={settingsAction}
+              isPending={isPending}
             />
           </div>
+        )}
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Валюта системи</label>
-            <input
-              type="text"
-              value="UAH (Гривня)"
-              disabled
-              className="w-full rounded-xl border border-warm-border bg-warm-bg px-4 py-3 text-sm text-text-muted outline-none cursor-not-allowed"
+        {activeTab === "staff" && (
+          <div className="animate-entry">
+            <StaffSettingsTab
+              profiles={profiles}
+              currentUserId={currentUserId}
+              onRoleChange={handleRoleChange}
             />
           </div>
-        </div>
+        )}
 
-        {/* Action card */}
-        <div className="card p-5 flex flex-col justify-between">
-          <div className="space-y-2">
-            <h2 className="text-base font-semibold text-text-primary">Зберегти зміни</h2>
-            <p className="text-xs text-text-secondary">
-              Зміна назви магазину оновлює заголовок у сайдбарі та на публічній сторінці трекінгу ремонтів.
-              Зміна розподілів впливає на розподіл нових надходжень між сейфами OPEX, Growth та Чистий прибуток.
-            </p>
+        {activeTab === "receipts" && (
+          <div className="animate-entry">
+            <ReceiptSettingsTab
+              companyName={companyName}
+              setCompanyName={setCompanyName}
+              companySubtitle={companySubtitle}
+              setCompanySubtitle={setCompanySubtitle}
+              address={address}
+              setAddress={setAddress}
+              phone={phone}
+              setPhone={setPhone}
+              footerText={footerText}
+              setFooterText={setFooterText}
+              activePreviewTemplate={activePreviewTemplate}
+              setActivePreviewTemplate={setActivePreviewTemplate}
+              saleTitle={saleTitle}
+              setSaleTitle={setSaleTitle}
+              saleShowSeller={saleShowSeller}
+              setSaleShowSeller={setSaleShowSeller}
+              saleShowBuyer={saleShowBuyer}
+              setSaleShowBuyer={setSaleShowBuyer}
+              saleShowQr={saleShowQr}
+              setSaleShowQr={setSaleShowQr}
+              saleWarrantyText={saleWarrantyText}
+              setSaleWarrantyText={setSaleWarrantyText}
+              repAccTitle={repAccTitle}
+              setRepAccTitle={setRepAccTitle}
+              repAccShowSeller={repAccShowSeller}
+              setRepAccShowSeller={setRepAccShowSeller}
+              repAccShowBuyer={repAccShowBuyer}
+              setRepAccShowBuyer={setRepAccShowBuyer}
+              repAccShowQr={repAccShowQr}
+              setRepAccShowQr={setRepAccShowQr}
+              repAccWarrantyText={repAccWarrantyText}
+              setRepAccWarrantyText={setRepAccWarrantyText}
+              repWarrTitle={repWarrTitle}
+              setRepWarrTitle={setRepWarrTitle}
+              repWarrShowSeller={repWarrShowSeller}
+              setRepWarrShowSeller={setRepWarrShowSeller}
+              repWarrShowBuyer={repWarrShowBuyer}
+              setRepWarrShowBuyer={setRepWarrShowBuyer}
+              repWarrShowQr={repWarrShowQr}
+              setRepWarrShowQr={setRepWarrShowQr}
+              repWarrWarrantyText={repWarrWarrantyText}
+              setRepWarrWarrantyText={setRepWarrWarrantyText}
+              action={receiptSettingsAction}
+              isReceiptPending={isReceiptPending}
+            />
           </div>
-          
-          <button
-            type="submit"
-            disabled={isPending || techTotal !== 100 || accTotal !== 100 || repTotal !== 100}
-            className="btn-press mt-4 flex w-full items-center justify-center rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
-          >
-            {isPending ? "Збереження..." : "Зберегти всі налаштування"}
-          </button>
-        </div>
-
-        {/* Splits card */}
-        <div className="card p-5 space-y-5 md:col-span-2">
-          <h2 className="text-base font-semibold text-text-primary">Фінансовий спліт (Розподіл часток каси)</h2>
-          <p className="text-xs text-text-secondary">
-            Налаштуйте, скільки відсотків від доходів кожної каси має йти до сейфів OPEX, Growth та Чистий прибуток.
-            Сума кожної каси повинна дорівнювати <b>рівно 100%</b>.
-          </p>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* Tech splits */}
-            <div className="space-y-3 p-4 rounded-xl bg-warm-bg/50 border border-warm-border/60">
-              <h3 className="text-sm font-semibold text-text-primary">Каса техніки</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>OPEX (Операційні витрати)</span>
-                    <span className="font-semibold text-text-primary">{techOpex}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="tech_opex"
-                    value={techOpex}
-                    onChange={(e) => setTechOpex(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Growth (Розвиток)</span>
-                    <span className="font-semibold text-text-primary">{techGrowth}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="tech_growth"
-                    value={techGrowth}
-                    onChange={(e) => setTechGrowth(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Чистий прибуток</span>
-                    <span className="font-semibold text-text-primary">{techProfit}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="tech_profit"
-                    value={techProfit}
-                    onChange={(e) => setTechProfit(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div className="pt-2 border-t border-warm-border flex justify-between items-center text-xs">
-                  <span>Всього:</span>
-                  <span className={`font-semibold ${techTotal === 100 ? "text-emerald" : "text-rose"}`}>
-                    {techTotal}% {techTotal === 100 ? "✓" : `(потрібно 100%)`}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Accessory splits */}
-            <div className="space-y-3 p-4 rounded-xl bg-warm-bg/50 border border-warm-border/60">
-              <h3 className="text-sm font-semibold text-text-primary">Каса аксесуарів</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>OPEX (Операційні витрати)</span>
-                    <span className="font-semibold text-text-primary">{accOpex}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="acc_opex"
-                    value={accOpex}
-                    onChange={(e) => setAccOpex(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Growth (Розвиток)</span>
-                    <span className="font-semibold text-text-primary">{accGrowth}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="acc_growth"
-                    value={accGrowth}
-                    onChange={(e) => setAccGrowth(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Чистий прибуток</span>
-                    <span className="font-semibold text-text-primary">{accProfit}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="acc_profit"
-                    value={accProfit}
-                    onChange={(e) => setAccProfit(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div className="pt-2 border-t border-warm-border flex justify-between items-center text-xs">
-                  <span>Всього:</span>
-                  <span className={`font-semibold ${accTotal === 100 ? "text-emerald" : "text-rose"}`}>
-                    {accTotal}% {accTotal === 100 ? "✓" : `(потрібно 100%)`}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Repair splits */}
-            <div className="space-y-3 p-4 rounded-xl bg-warm-bg/50 border border-warm-border/60">
-              <h3 className="text-sm font-semibold text-text-primary">Каса ремонтів</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>OPEX (Операційні витрати)</span>
-                    <span className="font-semibold text-text-primary">{repOpex}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="rep_opex"
-                    value={repOpex}
-                    onChange={(e) => setRepOpex(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Growth (Розвиток)</span>
-                    <span className="font-semibold text-text-primary">{repGrowth}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="rep_growth"
-                    value={repGrowth}
-                    onChange={(e) => setRepGrowth(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                    <span>Чистий прибуток</span>
-                    <span className="font-semibold text-text-primary">{repProfit}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    name="rep_profit"
-                    value={repProfit}
-                    onChange={(e) => setRepProfit(Number(e.target.value))}
-                    className="w-full accent-violet"
-                  />
-                </div>
-                <div className="pt-2 border-t border-warm-border flex justify-between items-center text-xs">
-                  <span>Всього:</span>
-                  <span className={`font-semibold ${repTotal === 100 ? "text-emerald" : "text-rose"}`}>
-                    {repTotal}% {repTotal === 100 ? "✓" : `(потрібно 100%)`}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-
-      {/* Profile/Users management card */}
-      <div className="card p-5 space-y-4">
-        <h2 className="text-base font-semibold text-text-primary">Користувачі системи</h2>
-        <p className="text-xs text-text-secondary">
-          Керуйте ролями та рівнями доступу співробітників майстерні. Зміни застосовуються миттєво.
-        </p>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-                <th className="pb-2 pr-4">Ім'я / Email</th>
-                <th className="pb-2 pr-4">Поточна роль</th>
-                <th className="pb-2 text-right">Зміна ролі</th>
-              </tr>
-            </thead>
-            <tbody>
-              {profiles.map((p) => {
-                const isSelf = p.id === currentUserId;
-                return (
-                  <tr key={p.id} className="border-b border-iris/5 text-text-primary">
-                    <td className="py-3 pr-4 font-medium">
-                      {p.full_name || "Користувач"} {isSelf && <span className="text-xs text-violet font-normal">(Ви)</span>}
-                    </td>
-                    <td className="py-3 pr-4 text-xs text-text-secondary">
-                      {roleLabels[p.role] || p.role}
-                    </td>
-                    <td className="py-3 text-right">
-                      <select
-                        value={p.role}
-                        disabled={isSelf}
-                        onChange={(e) => handleRoleChange(p.id, e.target.value)}
-                        className="rounded-lg border border-warm-border bg-transparent px-3 py-1.5 text-xs text-text-primary outline-none focus:border-violet disabled:opacity-50"
-                      >
-                        <option value="owner">Власник</option>
-                        <option value="manager">Менеджер</option>
-                        <option value="sales">Продавець</option>
-                        <option value="technician">Технік</option>
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
     </div>
   );

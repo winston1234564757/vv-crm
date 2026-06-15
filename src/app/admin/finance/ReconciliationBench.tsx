@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, useLayoutEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { reconcileSaleWithMonobank } from "@/lib/actions/sales";
 import type { MonobankTransaction } from "@/lib/services/monobank";
 
@@ -28,7 +28,6 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
 
   const fetchBankTransactions = () => {
     let isMounted = true;
-    setLoading(true);
     fetch("/api/monobank")
       .then((res) => {
         if (!res.ok) throw new Error("Не вдалося завантажити виписку");
@@ -54,7 +53,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
     };
   };
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     fetchBankTransactions();
   }, []);
 

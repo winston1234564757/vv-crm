@@ -10,12 +10,17 @@ export function parseError(error: unknown): string {
   if (
     typeof error === "object" &&
     error !== null &&
-    "name" in error &&
-    error.name === "ZodError" &&
-    "issues" in error &&
-    Array.isArray((error as any).issues)
+    "issues" in error
   ) {
-    return (error as any).issues.map((e: any) => e.message).join("; ");
+    const errObj = error as Record<string, unknown>;
+    if (Array.isArray(errObj.issues)) {
+      return errObj.issues.map((e: unknown) => {
+        if (typeof e === "object" && e !== null && "message" in e && typeof (e as Record<string, unknown>).message === "string") {
+          return (e as Record<string, unknown>).message;
+        }
+        return "Невідома помилка валідації";
+      }).join("; ");
+    }
   }
   
   if (error instanceof Error) {
@@ -29,8 +34,9 @@ export function parseError(error: unknown): string {
   
   if (typeof error === "object" && error !== null) {
     // Simple Zod/Postgres error extraction
-    if ("message" in error && typeof (error as any).message === "string") {
-      return (error as any).message;
+    const errObj = error as Record<string, unknown>;
+    if ("message" in errObj && typeof errObj.message === "string") {
+      return errObj.message;
     }
   }
 

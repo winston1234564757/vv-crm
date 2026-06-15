@@ -1,4 +1,5 @@
 import { createClient } from "./supabase/server";
+import { supabaseCast } from "@/lib/utils/supabase";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -23,15 +24,17 @@ const typeNameMap: Record<string, string> = {
 
 export async function getFinanceData() {
   const supabase = await createClient();
-  const [crRes, sfRes, txRes] = await Promise.all([
+  const [crRes, sfRes, txRes, catRes] = await Promise.all([
     supabase.from("cash_registers").select("*"),
     supabase.from("safes").select("*"),
     supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
+    supabase.from("expense_categories").select("*"),
   ]);
 
   const cashRegisters = crRes.data ?? [];
   const safes = sfRes.data ?? [];
   const transactions = txRes.data ?? [];
+  const expenseCategories = catRes.data ?? [];
 
   const crMap = new Map(cashRegisters.map((cr) => [cr.id, cr.name]));
   const sfMap = new Map(safes.map((sf) => [sf.id, sf.name]));
@@ -65,27 +68,49 @@ export async function getFinanceData() {
       amount: t.amount,
       type: t.from_type === "customer" ? "sale" : t.to_type === "supplier" ? "expense" : "distribution",
       description: t.description ?? "",
+      reference_type: t.reference_type ?? null,
+      reference_id: t.reference_id ?? null,
     };
   });
 
-  return { cashRegisters, safes, transactions: resolved };
+  return { cashRegisters, safes, transactions: resolved, expenseCategories };
 }
 
 export async function getFinanceReport() {
   const supabase = await createClient();
 
-  const [salesRes, purchasesRes, expensesRes, expCatRes] = await Promise.all([
-    supabase.from("sales").select("total_amount"),
+  const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
+    supabase.from("sales").select("total_amount, sale_items(quantity, unit_cost)"),
     supabase.from("purchases").select("total_amount"),
     supabase.from("expenses").select("amount, category_id"),
     supabase.from("expense_categories").select("*"),
+    supabase.from("repairs").select("price, cost").in("status", ["completed", "handed_over"]),
   ]);
 
-
-  const totalSales = (salesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
+  const salesData = salesRes.data ?? [];
+  const totalSales = salesData.reduce((s, r) => s + r.total_amount, 0);
   const totalPurchases = (purchasesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
   const totalExpenses = (expensesRes.data ?? []).reduce((s, r) => s + r.amount, 0);
-  const profit = totalSales - totalPurchases - totalExpenses;
+
+  // Calculate Cost of Goods Sold (COGS) from sale_items
+  const salesCost = salesData.reduce((sum, sale) => {
+    const items = supabaseCast<{ quantity: number; unit_cost: number }[]>(sale.sale_items ?? []);
+    const itemsCost = items.reduce((itemSum, item) => {
+      const uCost = Number(item.unit_cost) || 0;
+      const qty = Number(item.quantity) || 1;
+      return itemSum + (uCost * qty);
+    }, 0);
+    return sum + itemsCost;
+  }, 0);
+
+  // Calculate repair margin
+  const repairsData = repairsRes.data ?? [];
+  const repairsRevenue = repairsData.reduce((s, r) => s + r.price, 0);
+  const repairsCost = repairsData.reduce((s, r) => s + r.cost, 0);
+  const repairsMargin = repairsRevenue - repairsCost;
+
+  // Accrual Net Profit = Sales Margin (Sales - COGS) + Repairs Margin - General Expenses
+  const profit = (totalSales - salesCost) + repairsMargin - totalExpenses;
 
   const catMap = new Map((expCatRes.data ?? []).map((c) => [c.id, c.name]));
   const expenseByCat: Record<string, number> = {};
@@ -97,7 +122,16 @@ export async function getFinanceReport() {
     .map(([name, amount]) => ({ name, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  return { totalSales, totalPurchases, totalExpenses, profit, categoryBreakdown };
+  return { 
+    totalSales, 
+    totalPurchases, 
+    totalExpenses, 
+    salesCost,
+    repairsRevenue,
+    repairsCost,
+    profit, 
+    categoryBreakdown 
+  };
 }
 
 interface CustomerWithName {

@@ -87,7 +87,7 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {accessories.length > 0 && (
         <section className="mb-12">
           <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary">Аксесуари</h2>
-          <p className="mb-6 text-sm text-text-secondary">Чохли, зарядки, кабелі та інше</p>
+          <p className="text-text-secondary mt-1">Ми зв&apos;яжемося з вами найближчим часом для підтвердження</p>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {accessories.map((a) => (
               <div key={a.id} className="group rounded-2xl border border-warm-border/60 bg-white p-5 transition-all hover:shadow-sm">
@@ -137,7 +137,7 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="mb-4 text-6xl">🔧</div>
           <h2 className="text-xl font-semibold text-text-primary">Вітрина порожня</h2>
-          <p className="mt-2 text-sm text-text-secondary">Товари з'являться тут, як тільки адміністратор додасть їх на вітрину</p>
+          <p className="mt-2 text-sm text-text-secondary">Товари з&apos;являться тут, як тільки адміністратор додасть їх на вітрину</p>
         </div>
       )}
     </main>

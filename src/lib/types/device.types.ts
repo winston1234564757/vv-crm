@@ -3,7 +3,7 @@ export interface WarehousePart {
   id: string;
   name: string;
   cost_price: number;
-  origin_type: string;
+  origin_type: string | null;
   stock: number;
 }
 
@@ -43,7 +43,7 @@ export interface DeviceFormData {
   repair_cost: number;
   repair_np_ttn: string | null;
   repair_status?: string | null;
-  repair_parts_replaced?: RepairPartsData[];
+  repair_parts_replaced?: RepairPartsData[] | null;
   description: string | null;
   is_visible: boolean;
   source?: string | null;

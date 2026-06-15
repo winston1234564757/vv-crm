@@ -11,8 +11,7 @@ const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 const migrations = [
-  "20260610130000_add_transit_status_to_devices.sql",
-  "20260611080000_device_repairs_and_part_origin.sql"
+  "20260614030000_atomic_stock_functions.sql"
 ];
 
 async function runMigration(fileName) {
@@ -26,7 +25,8 @@ async function runMigration(fileName) {
   const { error } = await supabase.rpc("exec_sql", { sql });
   
   if (error) {
-    console.log("RPC exec_sql not available or returned error, trying pg_exec_sql...");
+    console.log("RPC exec_sql returned error:", error);
+    console.log("trying pg_exec_sql...");
     
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pg_exec_sql`, {
       method: "POST",

@@ -1,13 +1,15 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { updateRepair } from "@/lib/actions/repairs";
+import { updateRepair, addPartToRepairAction, removePartFromRepairAction } from "@/lib/actions/repairs";
 import NovaPoshtaWidget from "@/components/ui/NovaPoshtaWidget";
-import { IconEye, IconEyeOff } from "@/components/icons";
+import { IconEye, IconEyeOff, IconDelete, IconPlus, IconSpinner } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 interface RepairData {
   id: string;
-  customer_id: string;
+  customer_id: string | null;
   customer_name?: string;
   device_name: string;
   device_imei: string | null;
@@ -21,8 +23,8 @@ interface RepairData {
   is_external_sc: boolean;
   external_sc_cost: number;
   markup_amount: number;
-  issue_nodes?: string[];
-  issue_diagnostics?: string[];
+  issue_nodes?: string[] | null;
+  issue_diagnostics?: string[] | null;
   payment_status?: string | null;
   diagnosis_result?: string | null;
   technician_notes_internal?: string | null;
@@ -68,6 +70,124 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
   const [npTtn, setNpTtn] = useState<string>(repair.np_ttn || "");
   const [notes, setNotes] = useState<string>(repair.notes || "");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Parts Stock Deduction States
+  const router = useRouter();
+  const [allocatedParts, setAllocatedParts] = useState<Array<{
+    id: string;
+    part_id: string;
+    quantity: number;
+    unit_cost: number;
+    parts: {
+      name: string;
+      compatible_with: string | null;
+    } | null;
+  }>>([]);
+  const [availableParts, setAvailableParts] = useState<Array<{
+    id: string;
+    name: string;
+    stock: number;
+    cost_price: number;
+    compatible_with: string | null;
+  }>>([]);
+  const [selectedPartId, setSelectedPartId] = useState<string>("");
+  const [partQty, setPartQty] = useState<number>(1);
+  const [partCost, setPartCost] = useState<string>("");
+  const [partsLoading, setPartsLoading] = useState<boolean>(true);
+  const [partActionPending, setPartActionPending] = useState<boolean>(false);
+
+  const handlePartSelect = (partId: string) => {
+    setSelectedPartId(partId);
+    const part = availableParts.find(p => p.id === partId);
+    if (part) {
+      setPartCost(part.cost_price.toString());
+    } else {
+      setPartCost("");
+    }
+  };
+
+  const fetchPartsData = async () => {
+    setPartsLoading(true);
+    try {
+      const supabase = createClient();
+      
+      // 1. Fetch allocated parts
+      const { data: allocated, error: allocErr } = await supabase
+        .from("repair_parts")
+        .select("id, part_id, quantity, unit_cost, parts(name, compatible_with)")
+        .eq("repair_id", repair.id);
+        
+      if (!allocErr && allocated) {
+        setAllocatedParts(allocated as any);
+      }
+
+      // 2. Fetch available parts
+      const { data: available, error: availErr } = await supabase
+        .from("parts")
+        .select("id, name, stock, cost_price, compatible_with")
+        .gt("stock", 0)
+        .order("name");
+        
+      if (!availErr && available) {
+        setAvailableParts(available as any);
+      }
+    } catch (e) {
+      console.error("Помилка завантаження запчастин:", e);
+    } finally {
+      setPartsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPartsData();
+  }, [repair.id]);
+
+  const handleAddPart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPartId) return;
+    
+    const part = availableParts.find(p => p.id === selectedPartId);
+    if (!part) return;
+
+    setPartActionPending(true);
+    const formData = new FormData();
+    formData.append("repairId", repair.id);
+    formData.append("partId", selectedPartId);
+    formData.append("quantity", partQty.toString());
+    formData.append("unitCost", partCost || part.cost_price.toString());
+
+    const res = await addPartToRepairAction(null, formData);
+    setPartActionPending(false);
+
+    if (res.success) {
+      const addedCost = (parseFloat(partCost) || part.cost_price) * partQty;
+      setCost(prev => (parseFloat(prev) + addedCost).toString());
+      setSelectedPartId("");
+      setPartQty(1);
+      setPartCost("");
+      fetchPartsData();
+      router.refresh();
+    } else {
+      alert(res.error || "Помилка при списанні деталі");
+    }
+  };
+
+  const handleRemovePart = async (repairPartId: string, unitCost: number, quantity: number) => {
+    if (!confirm("Ви впевнені, що хочете повернути цю деталь на склад?")) return;
+    
+    setPartActionPending(true);
+    const res = await removePartFromRepairAction(repairPartId);
+    setPartActionPending(false);
+
+    if (res.success) {
+      const removedCost = unitCost * quantity;
+      setCost(prev => Math.max(0, parseFloat(prev) - removedCost).toString());
+      fetchPartsData();
+      router.refresh();
+    } else {
+      alert(res.error || "Помилка при поверненні деталі");
+    }
+  };
 
   const computedPrice = useMemo(() => {
     if (!isExternal) return price;
@@ -248,9 +368,131 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
       {isExternal && (
         <div className="rounded-xl bg-iris/5 border border-iris/10 px-4 py-3 text-xs text-text-secondary flex items-center justify-between">
           <span>Авторозрахована ціна для клієнта:</span>
-          <span className="font-semibold text-sm text-text-primary">{price} грн</span>
+          <span className="font-semibold text-sm text-text-primary">{computedPrice} грн</span>
         </div>
       )}
+
+      {/* Списання запчастин зі складу */}
+      <div className="rounded-xl border border-iris/20 bg-violet/5 p-4.5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+            <span>Використані запчастини зі складу</span>
+            {partsLoading && <IconSpinner className="h-4 w-4 animate-spin text-violet" />}
+          </h4>
+          <span className="text-[11px] font-medium text-text-secondary bg-iris/10 px-2 py-0.5 rounded">
+            Складський облік
+          </span>
+        </div>
+
+        {/* Список виділених запчастин */}
+        {!partsLoading && allocatedParts.length === 0 ? (
+          <p className="text-xs text-text-secondary/60 italic py-2">Запчастини зі складу не списані для цього ремонту.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {allocatedParts.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-xl bg-white border border-warm-border/50 px-3.5 py-2.5 text-xs text-text-primary hover:border-violet/30 transition-all duration-200"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold">{item.parts?.name || "Невідома запчастина"}</span>
+                  {item.parts?.compatible_with && (
+                    <span className="text-[10px] text-text-secondary">
+                      Сумісність: {item.parts.compatible_with}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className="font-medium text-text-secondary">
+                      {item.quantity} шт. × {item.unit_cost} грн
+                    </span>
+                    <p className="font-bold text-violet">{item.quantity * item.unit_cost} грн</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={partActionPending}
+                    onClick={() => handleRemovePart(item.id, item.unit_cost, item.quantity)}
+                    className="p-1.5 rounded-lg text-rose hover:bg-rose/10 transition-colors focus:outline-none disabled:opacity-50"
+                    title="Повернути деталь на склад"
+                  >
+                    <IconDelete size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Форма додавання запчастини */}
+        <div className="pt-2 border-t border-iris/10">
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="md:col-span-1">
+                <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Оберіть деталь</label>
+                <select
+                  value={selectedPartId}
+                  onChange={(e) => handlePartSelect(e.target.value)}
+                  disabled={partsLoading || partActionPending}
+                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                >
+                  <option value="">-- Виберіть зі складу --</option>
+                  {availableParts.map((part) => (
+                    <option key={part.id} value={part.id}>
+                      {part.name} ({part.stock} шт.) {part.compatible_with ? `[${part.compatible_with}]` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Кількість (шт.)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedPartId ? (availableParts.find(p => p.id === selectedPartId)?.stock || 1) : 1}
+                  value={partQty}
+                  onChange={(e) => setPartQty(parseInt(e.target.value) || 1)}
+                  disabled={!selectedPartId || partActionPending}
+                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Собівартість (грн)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder={selectedPartId ? (availableParts.find(p => p.id === selectedPartId)?.cost_price.toString() || "") : "0"}
+                  value={partCost}
+                  onChange={(e) => setPartCost(e.target.value)}
+                  disabled={!selectedPartId || partActionPending}
+                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddPart}
+              disabled={!selectedPartId || partActionPending}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-violet/90 text-white px-4 py-2.5 text-xs font-semibold hover:bg-violet transition-colors focus:outline-none disabled:opacity-50"
+            >
+              {partActionPending ? (
+                <>
+                  <IconSpinner className="h-3.5 w-3.5 animate-spin" />
+                  <span>Обробка...</span>
+                </>
+              ) : (
+                <>
+                  <IconPlus size={14} />
+                  <span>Списати запчастину на ремонт</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div>
         <label htmlFor="notes" className="mb-1.5 block text-xs font-medium text-text-secondary">Коментар / Нотатки</label>

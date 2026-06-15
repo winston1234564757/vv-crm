@@ -14,12 +14,12 @@ export function DeviceFormCondition({ device }: DeviceFormConditionProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Грейд</label>
-          <select name="condition_grade" defaultValue={device?.condition_grade ?? "A"} className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer">
-            <option value="new">Новий</option>
-            <option value="A">Grade A (Ідеальний)</option>
-            <option value="B">Grade B (Хороший)</option>
-            <option value="C">Grade C (Середній)</option>
-            <option value="for_repair">Під ремонт</option>
+          <select name="condition_grade" defaultValue={device?.condition_grade ?? "good"} className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer">
+            <option value="perfect">Grade A (Ідеальний / Новий)</option>
+            <option value="good">Grade B (Хороший)</option>
+            <option value="fair">Grade C (Середній)</option>
+            <option value="poor">Поганий</option>
+            <option value="damaged">Під ремонт / Пошкоджений</option>
           </select>
         </div>
         <div className="md:col-span-2">

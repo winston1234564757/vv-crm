@@ -11,6 +11,7 @@ export default async function SettingsPage() {
   if (!user) {
     redirect("/login");
   }
+  const currentUserId = user.id;
 
   const [settings, profiles] = await Promise.all([
     getSettings(),
@@ -28,7 +29,7 @@ export default async function SettingsPage() {
       <SettingsClient
         initialSettings={settings}
         initialProfiles={profiles}
-        currentUserId={user.id}
+        currentUserId={currentUserId}
       />
     </div>
   );

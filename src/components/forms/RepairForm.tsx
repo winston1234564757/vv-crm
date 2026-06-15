@@ -13,6 +13,14 @@ interface Customer {
   phone: string;
 }
 
+interface Device {
+  id: string;
+  brand: string | null;
+  model: string | null;
+  imei: string | null;
+  status: string;
+}
+
 const ISSUE_NODES = [
   { value: "display", label: "Дисплей" },
   { value: "battery", label: "Акумулятор" },
@@ -37,7 +45,19 @@ const ISSUE_DIAGNOSTICS = [
   { value: "other_diag", label: "Інша проблема" },
 ];
 
-export function RepairForm({ customers, onSuccess }: { customers: Customer[], onSuccess: () => void }) {
+export function RepairForm({ 
+  customers, 
+  devices, 
+  onSuccess,
+  initialDeviceId = "",
+  initialIsInternal = false
+}: { 
+  customers: Customer[], 
+  devices: Device[], 
+  onSuccess: () => void,
+  initialDeviceId?: string,
+  initialIsInternal?: boolean
+}) {
   const initialState = { success: false, error: "" };
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -46,12 +66,19 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
   const [custError, setCustError] = useState("");
   const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
 
+  const [isInternal, setIsInternal] = useState(initialIsInternal);
+  const [selectedInventoryDeviceId, setSelectedInventoryDeviceId] = useState(initialDeviceId);
+
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState("");
   const [newCustPhone, setNewCustPhone] = useState("");
   const [newCustEmail, setNewCustEmail] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const initialDev = initialDeviceId ? devices.find(d => d.id === initialDeviceId) : null;
+  const [deviceName, setDeviceName] = useState(initialDev ? `${initialDev.brand ?? ""} ${initialDev.model ?? ""}`.trim() : "");
+  const [deviceImei, setDeviceImei] = useState(initialDev ? (initialDev.imei ?? "") : "");
 
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [selectedDiagnostics, setSelectedDiagnostics] = useState<string[]>([]);
@@ -113,10 +140,34 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
     setSelectedCustomerId(id);
   }
 
+  function handleDeviceSelect(id: string) {
+    setSelectedInventoryDeviceId(id);
+    const dev = devices.find(d => d.id === id);
+    if (dev) {
+      setDeviceName(`${dev.brand ?? ""} ${dev.model ?? ""}`.trim());
+      setDeviceImei(dev.imei ?? "");
+    } else {
+      setDeviceName("");
+      setDeviceImei("");
+    }
+  }
+
   async function action(prevState: typeof initialState, formData: FormData) {
     formData.set("issue_nodes", JSON.stringify(selectedNodes));
     formData.set("issue_diagnostics", JSON.stringify(selectedDiagnostics));
-    formData.set("customer_id", selectedCustomerId);
+    
+    // Передаємо назву та IMEI зі стейту (оскільки при disabled вони не надсилаються автоматично)
+    formData.set("device_name", deviceName);
+    formData.set("device_imei", deviceImei);
+
+    if (isInternal) {
+      formData.set("customer_id", "");
+      formData.set("inventory_device_id", selectedInventoryDeviceId);
+    } else {
+      formData.set("customer_id", selectedCustomerId);
+      formData.set("inventory_device_id", "");
+    }
+
     if (partnerId) {
       formData.set("partner_id", partnerId);
       formData.set("promo_code_used", promoCode.trim());
@@ -131,6 +182,11 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
     { id: "__new__", label: "+ Новий клієнт" }
   ];
 
+  const deviceOptions = devices.map(d => ({
+    id: d.id,
+    label: `${d.brand ?? ""} ${d.model ?? ""} (IMEI: ${d.imei ?? "не вказано"})`
+  }));
+
   return (
     <form action={formAction} className="flex flex-col gap-5 p-5">
       {(state.error || custError) && (
@@ -139,28 +195,79 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
         </div>
       )}
 
-      <div>
-        <SearchSelect
-          label="Клієнт"
-          name="customer_id"
-          options={selectOptions}
-          value={selectedCustomerId}
-          onChange={handleCustomerSelect}
-          placeholder="Оберіть клієнта..."
-          required
-        />
-        {showNewCustomer && (
-          <div className="mt-3 rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-3">
-            <p className="text-xs font-medium text-text-secondary">Новий клієнт</p>
-            <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім'я *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-            <button type="button" onClick={handleCreateCustomer} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover">
-              Створити клієнта
-            </button>
-          </div>
-        )}
+      {/* Перемикач типу ремонту */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-text-secondary">Тип ремонту</label>
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-iris/5 p-1 border border-iris/10">
+          <button
+            type="button"
+            onClick={() => {
+              setIsInternal(false);
+              setSelectedInventoryDeviceId("");
+              setDeviceName("");
+              setDeviceImei("");
+            }}
+            className={`rounded-lg py-2.5 text-xs font-semibold tracking-wide transition-all ${
+              !isInternal
+                ? "bg-violet text-white shadow-sm"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            👤 Клієнтський ремонт
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsInternal(true);
+              setSelectedCustomerId("");
+            }}
+            className={`rounded-lg py-2.5 text-xs font-semibold tracking-wide transition-all ${
+              isInternal
+                ? "bg-violet text-white shadow-sm"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            📦 Внутрішній (Склад)
+          </button>
+        </div>
       </div>
+
+      {!isInternal ? (
+        <div>
+          <SearchSelect
+            label="Клієнт"
+            name="customer_id"
+            options={selectOptions}
+            value={selectedCustomerId}
+            onChange={handleCustomerSelect}
+            placeholder="Оберіть клієнта..."
+            required
+          />
+          {showNewCustomer && (
+            <div className="mt-3 rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-3">
+              <p className="text-xs font-medium text-text-secondary">Новий клієнт</p>
+              <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім&apos;я *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <button type="button" onClick={handleCreateCustomer} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover">
+                Створити клієнта
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <SearchSelect
+            label="Складський пристрій на продаж"
+            name="inventory_device_id"
+            options={deviceOptions}
+            value={selectedInventoryDeviceId}
+            onChange={handleDeviceSelect}
+            placeholder="Оберіть пристрій зі складу..."
+            required
+          />
+        </div>
+      )}
 
       <div>
         <label className="mb-1.5 block text-xs font-medium text-text-secondary">Вузол ремонту (оберіть що потребує ремонту)</label>
@@ -211,8 +318,11 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
           name="device_name"
           required
           type="text"
-          placeholder="Напр. iPhone 13 Pro Max"
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40"
+          value={deviceName}
+          onChange={e => setDeviceName(e.target.value)}
+          disabled={isInternal}
+          placeholder={isInternal ? "Оберіть пристрій вище" : "Напр. iPhone 13 Pro Max"}
+          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40 disabled:opacity-60 disabled:bg-iris/5"
         />
       </div>
 
@@ -224,7 +334,7 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
               id="device_password"
               name="device_password"
               type={showPassword ? "text" : "password"}
-              placeholder="Код блокування, iCloud..."
+              placeholder="Код блокування..."
               className="w-full rounded-xl border border-iris/20 bg-transparent pl-4 pr-10 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet"
             />
             <button
@@ -237,7 +347,7 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
           </div>
         </div>
         <div>
-          <label htmlFor="device_accessories_included" className="mb-1.5 block text-xs font-medium text-text-secondary">Комплектація (що здав клієнт)</label>
+          <label htmlFor="device_accessories_included" className="mb-1.5 block text-xs font-medium text-text-secondary">Комплектація (що здано)</label>
           <input id="device_accessories_included" name="device_accessories_included" type="text" placeholder="Зарядка, чохол, коробка..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
         </div>
       </div>
@@ -248,8 +358,11 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
           id="device_imei"
           name="device_imei"
           type="text"
+          value={deviceImei}
+          onChange={e => setDeviceImei(e.target.value)}
+          disabled={isInternal}
           placeholder="IMEI або S/N"
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40"
+          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40 disabled:opacity-60 disabled:bg-iris/5"
         />
       </div>
 
@@ -257,11 +370,12 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
         <div>
           <label htmlFor="source" className="mb-1.5 block text-xs font-medium text-text-secondary">Звідки звернувся</label>
           <select id="source" name="source" value={source} onChange={(e) => setSource(e.target.value)} required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet">
-            <option value="store">Прийшов у магазин</option>
+            <option value="walk_in">Прийшов у магазин</option>
+            <option value="phone">Зателефонував</option>
             <option value="online">Онлайн (сайт/месенджер)</option>
-            <option value="recommendation">За рекомендацією (Промокод)</option>
+            {!isInternal && <option value="marketplace">Маркетплейс / Промокод</option>}
           </select>
-          {source === "recommendation" && (
+          {!isInternal && source === "marketplace" && (
             <div className="mt-3 p-3 rounded-xl bg-violet/5 border border-violet/20 space-y-2">
               <label className="block text-xs font-medium text-violet">Введіть промокод партнера</label>
               <div className="flex gap-2">
@@ -291,7 +405,7 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
       </div>
 
       <div>
-        <label htmlFor="issue" className="mb-1.5 block text-xs font-medium text-text-secondary">Опис проблеми</label>
+        <label htmlFor="issue" className="mb-1.5 block text-xs font-medium text-text-secondary">Опис проблеми / роботи</label>
         <textarea
           id="issue"
           name="issue"
@@ -336,11 +450,11 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
             <label htmlFor="device_condition" className="mb-1.5 block text-xs font-medium text-text-secondary">Грейд стану *</label>
             <select id="device_condition" name="device_condition" required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet">
               <option value="">Оберіть стан...</option>
-              <option value="new">Новий</option>
-              <option value="A">Grade A (Ідеальний)</option>
-              <option value="B">Grade B (Хороший)</option>
-              <option value="C">Grade C (Середній)</option>
-              <option value="for_repair">Під ремонт</option>
+              <option value="perfect">Grade A (Ідеальний / Новий)</option>
+              <option value="good">Grade B (Хороший)</option>
+              <option value="fair">Grade C (Середній)</option>
+              <option value="poor">Поганий</option>
+              <option value="damaged">Під ремонт / Пошкоджений</option>
             </select>
           </div>
           <div>
@@ -350,7 +464,7 @@ export function RepairForm({ customers, onSuccess }: { customers: Customer[], on
         </div>
         <div className="mt-4">
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фото стану пристрою *</label>
-          <p className="text-xs text-text-secondary mb-2">Додайте фото пристрою на момент приймання (обов'язково)</p>
+          <p className="text-xs text-text-secondary mb-2">Додайте фото пристрою на момент приймання (обов&apos;язково)</p>
           <input type="file" name="device_condition_photos" multiple accept="image/*" required className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white" />
         </div>
       </div>

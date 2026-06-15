@@ -4,8 +4,11 @@ import { useState } from "react";
 import { IconSearch, IconEdit, IconDelete } from "@/components/icons";
 import Drawer from "@/components/ui/Drawer";
 import { ServiceForm } from "@/components/forms/ServiceForm";
+import { ServiceDetailView } from "@/components/ServiceDetailView";
 import { deleteService } from "@/lib/actions/inventory";
 import { InlineError } from "@/components/ui/InlineError";
+import { useRouter } from "next/navigation";
+import type { SaleWithDetails } from "@/lib/data-sales";
 
 type ServiceRow = {
   id: string;
@@ -26,9 +29,12 @@ const categoryLabels: Record<string, string> = {
   diagnostics: "Діагностика", software: "ПЗ / Прошивка", cleaning: "Чистка", setup: "Налаштування", other: "Інше",
 };
 
-export function ServicesTable({ services }: { services: ServiceRow[] }) {
+export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]; sales?: SaleWithDetails[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<ServiceRow | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceRow | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const filtered = services.filter(s => {
@@ -36,12 +42,6 @@ export function ServicesTable({ services }: { services: ServiceRow[] }) {
     const q = query.toLowerCase();
     return s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q);
   });
-
-  async function handleDelete(id: string) {
-    if (!confirm("Видалити цю послугу?")) return;
-    const res = await deleteService(id);
-    if (!res.success) setError(res.error ?? "");
-  }
 
   return (
     <>
@@ -78,9 +78,13 @@ export function ServicesTable({ services }: { services: ServiceRow[] }) {
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]">
+                <tr 
+                  key={s.id} 
+                  onClick={() => { setSelectedService(s); setIsEditing(false); }}
+                  className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
+                >
                   <td className="py-3 pr-4">
-                    <div className="font-medium">{s.name}</div>
+                    <div className="font-medium text-text-primary">{s.name}</div>
                     {s.description && <div className="text-xs text-text-secondary mt-0.5 line-clamp-1">{s.description}</div>}
                   </td>
                   <td className="py-3 pr-4">
@@ -101,20 +105,50 @@ export function ServicesTable({ services }: { services: ServiceRow[] }) {
                       {s.status === "active" ? "Активна" : "Неактивна"}
                     </span>
                   </td>
-                  <td className="py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => setEditing(s)}
-                        className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet"
-                      >
-                        <IconEdit />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"
-                      >
-                        <IconDelete />
-                      </button>
+                  <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-2">
+                      {deletingId === s.id ? (
+                        <div className="flex items-center gap-1.5 animate-entry">
+                          <button
+                            onClick={() => setDeletingId(null)}
+                            className="px-2 py-1.5 text-[11px] font-semibold text-text-secondary bg-iris/5 hover:bg-iris/10 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Ні
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const res = await deleteService(s.id);
+                              if (!res.success) {
+                                setError(res.error ?? "");
+                              } else {
+                                setDeletingId(null);
+                                router.refresh();
+                              }
+                            }}
+                            className="px-2.5 py-1.5 text-[11px] font-semibold text-white bg-rose hover:bg-rose/90 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Видалити
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedService(s);
+                              setIsEditing(true);
+                            }}
+                            className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
+                          >
+                            <IconEdit />
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(s.id)}
+                            className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose cursor-pointer"
+                          >
+                            <IconDelete />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -124,9 +158,25 @@ export function ServicesTable({ services }: { services: ServiceRow[] }) {
         </table>
       </div>
 
-      <Drawer isOpen={!!editing} onClose={() => setEditing(null)} title="Редагувати послугу">
-        {editing && (
-          <ServiceForm onSuccess={() => setEditing(null)} service={editing} />
+      <Drawer 
+        isOpen={!!selectedService} 
+        onClose={() => { setSelectedService(null); setIsEditing(false); }} 
+        title={isEditing ? "Редагувати послугу" : "Деталі послуги"}
+      >
+        {selectedService && (
+          isEditing ? (
+            <ServiceForm 
+              onSuccess={() => { setSelectedService(null); setIsEditing(false); router.refresh(); }} 
+              service={selectedService} 
+            />
+          ) : (
+            <ServiceDetailView 
+              service={selectedService} 
+              onEdit={() => setIsEditing(true)} 
+              onClose={() => setSelectedService(null)} 
+              sales={sales}
+            />
+          )
         )}
       </Drawer>
     </>

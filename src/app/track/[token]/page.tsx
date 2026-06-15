@@ -32,12 +32,33 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
 
   const npStatus = repair.np_ttn ? await trackTTN(repair.np_ttn) : null;
 
-  const { data: statusLog } = await supabase
-    .from("repair_status_log")
-    .select("*")
-    .eq("repair_id", repair.id)
-    .eq("is_customer_visible", true)
-    .order("created_at");
+  // Parallel fetches for log and shop settings
+  const [statusLogRes, settingsRes] = await Promise.all([
+    supabase
+      .from("repair_status_log")
+      .select("*")
+      .eq("repair_id", repair.id)
+      .eq("is_customer_visible", true)
+      .order("created_at"),
+    supabase
+      .from("settings")
+      .select("*")
+  ]);
+
+  const statusLog = statusLogRes.data;
+  const settingsData = settingsRes.data;
+
+  // Extract contact information from settings fallback to defaults if not configured
+  let shopPhone = "+380 99 999 9999";
+  let shopName = "VV CRM";
+  if (settingsData) {
+    const receiptRow = settingsData.find(s => s.key === "receipt_settings");
+    if (receiptRow && typeof receiptRow.value === "object" && receiptRow.value !== null) {
+      const val = receiptRow.value as any;
+      if (val.phone) shopPhone = val.phone;
+      if (val.company_name) shopName = val.company_name;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-warm-bg">
@@ -85,9 +106,39 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
               <p className="text-xs text-text-secondary">Орієнтовна дата</p>
               <p className="text-text-primary">{new Date(repair.estimated_completion).toLocaleDateString("uk-UA")}</p>
             </div>}
+            {repair.warranty_months > 0 && (repair.status === "completed" || repair.status === "handed_over") && (
+              <div>
+                <p className="text-xs text-text-secondary">Гарантія на ремонт</p>
+                <p className="font-semibold text-emerald">{repair.warranty_months} міс.</p>
+              </div>
+            )}
             {repair.np_ttn && <div className="col-span-2">
               <NovaPoshtaWidget ttn={repair.np_ttn} initialStatus={npStatus} />
             </div>}
+          </div>
+        </div>
+
+        {/* Блок зв'язку з СЦ */}
+        <div className="mb-6 rounded-2xl border border-violet/10 bg-violet/[0.02] p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
+          <div>
+            <h4 className="text-xs font-bold text-text-primary">Потрібна консультація щодо ремонту?</h4>
+            <p className="text-[11px] text-text-secondary mt-0.5">Зв'яжіться з менеджером нашого сервісного центру {shopName}</p>
+          </div>
+          <div className="flex gap-2 text-xs">
+            <a
+              href={`tel:${shopPhone.replace(/\s+/g, "")}`}
+              className="btn-press rounded-xl bg-violet px-4 py-2.5 font-semibold text-white transition-colors hover:bg-violet-hover flex items-center justify-center text-center"
+            >
+              📞 Зателефонувати
+            </a>
+            <a
+              href={`https://t.me/${shopPhone.replace(/[^\d]/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-press rounded-xl bg-white border border-warm-border text-violet font-semibold px-4 py-2.5 transition-colors hover:bg-iris/5 flex items-center justify-center text-center"
+            >
+              💬 Telegram підтримка
+            </a>
           </div>
         </div>
 
@@ -128,3 +179,4 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     </div>
   );
 }
+

@@ -2,9 +2,15 @@ export const dynamic = "force-dynamic";
 
 import { getFinanceData, getFinanceReport, getUnreconciledSales } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
+import { AddExpenseButton } from "./AddExpenseButton";
+import { AddDistributionButton } from "./AddDistributionButton";
 import ReconciliationBench from "./ReconciliationBench";
 import { getSettings } from "@/lib/data-settings";
 import type { SafeDistribution } from "@/lib/data-settings";
+import { getSales } from "@/lib/data-sales";
+import { getRepairs } from "@/lib/data-repairs";
+import { getPurchases } from "@/lib/data-purchases";
+import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 
 function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={`card p-5 ${className ?? ""}`}>{children}</div>;
@@ -18,10 +24,23 @@ const typeLabels: Record<string, string> = {
 };
 
 export default async function FinancePage() {
-  const { cashRegisters, safes, transactions } = await getFinanceData();
-  const report = await getFinanceReport();
-  const unreconciledSales = await getUnreconciledSales();
-  const settings = await getSettings();
+  const [
+    { cashRegisters, safes, transactions, expenseCategories },
+    report,
+    unreconciledSales,
+    settings,
+    sales,
+    repairs,
+    purchases
+  ] = await Promise.all([
+    getFinanceData(),
+    getFinanceReport(),
+    getUnreconciledSales(),
+    getSettings(),
+    getSales(),
+    getRepairs(),
+    getPurchases(),
+  ]);
 
 
   const totalCash = cashRegisters.reduce((s, c) => s + c.balance, 0);
@@ -33,12 +52,16 @@ export default async function FinancePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Фінанси</h1>
           <p className="mt-0.5 text-sm text-text-secondary">Каси, сейфи та рух коштів</p>
         </div>
-        <AddTransferButton cashRegisters={cashRegisters} safes={safes} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
+          <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
+          <AddTransferButton cashRegisters={cashRegisters} safes={safes} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
@@ -60,22 +83,38 @@ export default async function FinancePage() {
       {/* Profit/Loss */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
         <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Дохід (продажі)</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-cyan">{report.totalSales.toLocaleString()} грн</p>
+          <p className="text-xs font-medium tracking-wider text-text-secondary">Загальний дохід</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-cyan">{(report.totalSales + report.repairsRevenue).toLocaleString()} грн</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            продажі {report.totalSales.toLocaleString()} + ремонти {report.repairsRevenue.toLocaleString()}
+          </p>
         </GlassCard>
         <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Витрати</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-rose">{(report.totalPurchases + report.totalExpenses).toLocaleString()} грн</p>
-          <p className="mt-1 text-xs text-text-secondary">закупівлі {report.totalPurchases.toLocaleString()} + витрати {report.totalExpenses.toLocaleString()}</p>
+          <p className="text-xs font-medium tracking-wider text-text-secondary">Собівартість & Витрати</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-rose">
+            {(report.salesCost + report.repairsCost + report.totalExpenses).toLocaleString()} грн
+          </p>
+          <p className="mt-1 text-xs text-text-secondary">
+            собівартість {(report.salesCost + report.repairsCost).toLocaleString()} + витрати {report.totalExpenses.toLocaleString()}
+          </p>
         </GlassCard>
         <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Прибуток</p>
-          <p className={`mt-2 text-3xl font-light tracking-tight ${report.profit >= 0 ? "text-emerald" : "text-rose"}`}>{report.profit.toLocaleString()} грн</p>
-          <p className="mt-1 text-xs text-text-secondary">{report.profit >= 0 ? "✅ Позитивний" : "⚠️ Негативний"}</p>
+          <p className="text-xs font-medium tracking-wider text-text-secondary">Чистий прибуток</p>
+          <p className={`mt-2 text-3xl font-light tracking-tight ${report.profit >= 0 ? "text-emerald" : "text-rose"}`}>
+            {report.profit.toLocaleString()} грн
+          </p>
+          <p className="mt-1 text-xs text-text-secondary">
+            {report.profit >= 0 ? "✅ Позитивний" : "⚠️ Дефіцит"}
+          </p>
         </GlassCard>
         <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Маржа</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-violet">{report.totalSales > 0 ? Math.round((report.profit / report.totalSales) * 100) : 0}%</p>
+          <p className="text-xs font-medium tracking-wider text-text-secondary">Маржинальність</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-violet">
+            {report.totalSales + report.repairsRevenue > 0 
+              ? Math.round((report.profit / (report.totalSales + report.repairsRevenue)) * 100) 
+              : 0}%
+          </p>
+          <p className="mt-1 text-xs text-text-secondary">чиста рентабельність</p>
         </GlassCard>
       </div>
 
@@ -140,44 +179,12 @@ export default async function FinancePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5">
-        <GlassCard>
-          <h2 className="text-sm font-semibold text-text-primary">Рух коштів</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-                  <th className="pb-2 pr-4">Дата</th>
-                  <th className="pb-2 pr-4">Від</th>
-                  <th className="pb-2 pr-4">До</th>
-                  <th className="pb-2 pr-4">Тип</th>
-                  <th className="pb-2 pr-4 max-w-[200px]">Опис</th>
-                  <th className="pb-2 text-right">Сума</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr key={t.id} className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]">
-                    <td className="py-3 pr-4 text-xs text-text-secondary whitespace-nowrap">{t.date}</td>
-                    <td className="py-3 pr-4 text-text-secondary">{t.from}</td>
-                    <td className="py-3 pr-4 font-medium">{t.to}</td>
-                    <td className="py-3 pr-4">
-                      <span className="rounded-lg px-2 py-0.5 text-[11px] font-medium whitespace-nowrap" style={{ background: `color-mix(in oklch, ${typeColors[t.type] ?? "var(--color-iris)"} 18%, transparent)`, color: typeColors[t.type] ?? "var(--color-iris)" }}>
-                        {typeLabels[t.type] ?? t.type}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-text-secondary text-xs max-w-[200px] truncate">{t.description}</td>
-                    <td className="py-3 text-right font-medium whitespace-nowrap">{t.amount.toLocaleString()} грн</td>
-                  </tr>
-                ))}
-                {transactions.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Немає транзакцій</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
+        <FinanceTransactionsTable
+          transactions={transactions}
+          sales={sales}
+          repairs={repairs}
+          purchases={purchases}
+        />
       </div>
     </div>
   );

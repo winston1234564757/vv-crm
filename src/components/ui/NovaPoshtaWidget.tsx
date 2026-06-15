@@ -40,21 +40,6 @@ export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidge
 const [loading, setLoading] = useState<boolean>(!initialStatus);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (initialStatus) {
-      setStatus(initialStatus);
-      setLoading(false);
-      return;
-    }
-
-    if (!ttn || ttn.trim().length < 10) {
-      setLoading(false);
-      return;
-    }
-
-    fetchTrackingData(ttn);
-  }, [ttn, initialStatus]);
-
   const fetchTrackingData = (trackingNumber: string) => {
     let isMounted = true;
     setLoading(true);
@@ -82,6 +67,22 @@ const [loading, setLoading] = useState<boolean>(!initialStatus);
       isMounted = false;
     };
   };
+
+  useEffect(() => {
+    if (initialStatus) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus(initialStatus);
+      setLoading(false);
+      return;
+    }
+
+    if (!ttn || ttn.trim().length < 10) {
+      setLoading(false);
+      return;
+    }
+
+    fetchTrackingData(ttn);
+  }, [ttn, initialStatus]);
 
   if (!ttn) return null;
 

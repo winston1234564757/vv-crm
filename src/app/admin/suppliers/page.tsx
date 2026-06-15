@@ -1,16 +1,18 @@
 export const dynamic = "force-dynamic";
 
 import { getSuppliers } from "@/lib/data-suppliers";
+import { getPurchases } from "@/lib/data-purchases";
 import { SuppliersTable } from "./table";
 import { AddSupplierButton } from "./AddSupplierButton";
 import { pluralUk } from "@/lib/utils/plural";
 
-function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={`card p-5 ${className ?? ""}`}>{children}</div>;
-}
+import GlassCard from "@/components/GlassCard";
 
 export default async function SuppliersPage() {
-  const suppliers = await getSuppliers();
+  const [suppliers, purchases] = await Promise.all([
+    getSuppliers(),
+    getPurchases()
+  ]);
 
   return (
     <div className="space-y-5">
@@ -22,7 +24,7 @@ export default async function SuppliersPage() {
         <AddSupplierButton />
       </div>
       <GlassCard>
-        <SuppliersTable suppliers={suppliers} />
+        <SuppliersTable suppliers={suppliers} purchases={purchases} />
       </GlassCard>
     </div>
   );

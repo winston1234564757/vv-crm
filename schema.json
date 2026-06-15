@@ -487,6 +487,194 @@
         ]
       }
     },
+    "/partners": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.partners.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.promo_code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.discount_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.reward_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.balance"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.updated_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/partners"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "partners"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.partners"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "partners"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.partners.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.promo_code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.discount_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.reward_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.balance"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.updated_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "partners"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.partners.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.promo_code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.discount_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.reward_percent"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.balance"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.partners.updated_at"
+          },
+          {
+            "$ref": "#/parameters/body.partners"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "partners"
+        ]
+      }
+    },
     "/customers": {
       "get": {
         "parameters": [
@@ -1485,6 +1673,15 @@
             "$ref": "#/parameters/rowFilter.repairs.customer_communication_log"
           },
           {
+            "$ref": "#/parameters/rowFilter.repairs.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -1647,6 +1844,15 @@
             "$ref": "#/parameters/rowFilter.repairs.customer_communication_log"
           },
           {
+            "$ref": "#/parameters/rowFilter.repairs.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -1759,6 +1965,15 @@
           },
           {
             "$ref": "#/parameters/rowFilter.repairs.customer_communication_log"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
           },
           {
             "$ref": "#/parameters/body.repairs"
@@ -3212,6 +3427,15 @@
             "$ref": "#/parameters/rowFilter.sales.return_reason"
           },
           {
+            "$ref": "#/parameters/rowFilter.sales.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.warranty_end"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -3317,6 +3541,15 @@
             "$ref": "#/parameters/rowFilter.sales.return_reason"
           },
           {
+            "$ref": "#/parameters/rowFilter.sales.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.warranty_end"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -3372,6 +3605,15 @@
           },
           {
             "$ref": "#/parameters/rowFilter.sales.return_reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.partner_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.promo_code_used"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sales.warranty_end"
           },
           {
             "$ref": "#/parameters/body.sales"
@@ -4545,6 +4787,45 @@
         ]
       }
     },
+    "/rpc/recalculate_customer_stats": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "cust_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cust_id"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) recalculate_customer_stats"
+        ]
+      }
+    },
     "/rpc/transfer_funds": {
       "post": {
         "parameters": [
@@ -4730,6 +5011,71 @@
         },
         "updated_at": {
           "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "partners": {
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "promo_code",
+        "discount_percent",
+        "reward_percent",
+        "balance",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "phone": {
+          "format": "text",
+          "type": "string"
+        },
+        "promo_code": {
+          "format": "text",
+          "type": "string"
+        },
+        "discount_percent": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "reward_percent": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "balance": {
+          "default": 0,
+          "format": "numeric",
+          "type": "number"
+        },
+        "status": {
+          "default": "active",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "updated_at": {
+          "default": "timezone('utc'::text, now())",
           "format": "timestamp with time zone",
           "type": "string"
         }
@@ -5003,7 +5349,6 @@
     "repairs": {
       "required": [
         "id",
-        "customer_id",
         "device_name",
         "issue",
         "status",
@@ -5192,6 +5537,20 @@
         },
         "customer_communication_log": {
           "format": "jsonb"
+        },
+        "partner_id": {
+          "description": "Note:\nThis is a Foreign Key to `partners.id`.<fk table='partners' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "promo_code_used": {
+          "format": "text",
+          "type": "string"
+        },
+        "inventory_device_id": {
+          "description": "Note:\nThis is a Foreign Key to `devices.id`.<fk table='devices' column='id'/>",
+          "format": "uuid",
+          "type": "string"
         }
       },
       "type": "object"
@@ -5781,6 +6140,19 @@
         },
         "return_reason": {
           "format": "text",
+          "type": "string"
+        },
+        "partner_id": {
+          "description": "Note:\nThis is a Foreign Key to `partners.id`.<fk table='partners' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "promo_code_used": {
+          "format": "text",
+          "type": "string"
+        },
+        "warranty_end": {
+          "format": "date",
           "type": "string"
         }
       },
@@ -6402,6 +6774,75 @@
       "in": "query",
       "type": "string"
     },
+    "body.partners": {
+      "name": "partners",
+      "description": "partners",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/partners"
+      }
+    },
+    "rowFilter.partners.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.phone": {
+      "name": "phone",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.promo_code": {
+      "name": "promo_code",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.discount_percent": {
+      "name": "discount_percent",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.reward_percent": {
+      "name": "reward_percent",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.balance": {
+      "name": "balance",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.partners.updated_at": {
+      "name": "updated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.customers": {
       "name": "customers",
       "description": "customers",
@@ -6920,6 +7361,24 @@
     },
     "rowFilter.repairs.customer_communication_log": {
       "name": "customer_communication_log",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.repairs.partner_id": {
+      "name": "partner_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.repairs.promo_code_used": {
+      "name": "promo_code_used",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.repairs.inventory_device_id": {
+      "name": "inventory_device_id",
       "required": false,
       "in": "query",
       "type": "string"
@@ -7601,6 +8060,24 @@
     },
     "rowFilter.sales.return_reason": {
       "name": "return_reason",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.sales.partner_id": {
+      "name": "partner_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.sales.promo_code_used": {
+      "name": "promo_code_used",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.sales.warranty_end": {
+      "name": "warranty_end",
       "required": false,
       "in": "query",
       "type": "string"

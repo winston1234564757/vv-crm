@@ -5,6 +5,7 @@ import Drawer from "@/components/ui/Drawer";
 import { DeviceForm } from "@/components/forms/device/DeviceForm";
 import { DeviceFormData } from "@/lib/types/device.types";
 import { IconPlus } from "@/components/icons";
+import type { Database } from "@/types/database";
 
 export function AddDeviceButton({
   className = "flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer",
@@ -15,7 +16,7 @@ export function AddDeviceButton({
   className?: string;
   children?: React.ReactNode;
   size?: "default" | "full" | "half";
-  parts?: any[];
+  parts?: Database["public"]["Tables"]["parts"]["Row"][];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 

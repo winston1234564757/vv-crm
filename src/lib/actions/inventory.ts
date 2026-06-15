@@ -45,7 +45,7 @@ const deviceSchema = z.object({
   source: z.enum(["supplier", "trade_in", "buyout", "olx", "customer_return"]).optional().default("supplier"),
   source_reference: z.string().nullable().optional(),
   purchased_from: z.string().nullable().optional(),
-  condition_grade: z.enum(["new", "A", "B", "C", "for_repair"]).optional().default("A"),
+  condition_grade: z.enum(["perfect", "good", "fair", "poor", "damaged"]).optional().default("good"),
   condition_description: z.string().nullable().optional(),
   original_box: z.coerce.boolean().optional().default(false),
   accessories_included: z.string().nullable().optional(),
@@ -60,8 +60,8 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     let parsedParts = [];
     try {
       parsedParts = rawParts ? JSON.parse(rawParts as string) : [];
-    } catch (e) {
-      console.error("Failed to parse repair_parts_replaced:", e);
+    } catch {
+      // silently ignore invalid JSON — defaults to empty array
     }
 
     const data = {
@@ -95,14 +95,20 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       accessories_included: formData.get("accessories_included") || null,
       serial_number: formData.get("serial_number") || null,
       warehouse_location: formData.get("warehouse_location") || null,
-      photo_urls: formData.get("photo_urls") ? (formData.get("photo_urls") as string).split(",").map(s => s.trim()).filter(Boolean) : [],
+      photo_urls: [], // will be handled after parsing
     };
 
     const parsed = deviceSchema.parse(data);
 
+    // Upload photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      parsed.photo_urls = await uploadMediaFiles(photoFiles, "devices");
+    }
+
     const supabase = await createClient();
     const { error } = await supabase.from("devices").insert({
-      type: parsed.type,
+      type: parsed.type as string,
       brand: parsed.brand,
       model: parsed.model,
       imei: parsed.imei,
@@ -133,8 +139,7 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       serial_number: parsed.serial_number,
       warehouse_location: parsed.warehouse_location,
       photo_urls: parsed.photo_urls,
-      status: "in_stock"
-    } as DeviceInsert);
+    });
 
     if (error) throw error;
 
@@ -154,6 +159,7 @@ const accessorySchema = z.object({
   price: z.coerce.number().min(0),
   cost_price: z.coerce.number().min(0),
   stock: z.coerce.number().min(0),
+  warranty_months: z.coerce.number().min(0).optional().default(6),
   description: z.string().nullable().optional(),
   is_visible: z.coerce.boolean().optional().default(false),
   source: z.string().optional().default("supplier"),
@@ -169,6 +175,7 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       price: formData.get("price"),
       cost_price: formData.get("cost_price"),
       stock: formData.get("stock"),
+      warranty_months: formData.get("warranty_months") || null,
       description: formData.get("description") || null,
       is_visible: formData.get("is_visible") === "true",
       source: formData.get("source") || "supplier",
@@ -185,6 +192,7 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       price: parsed.price,
       cost_price: parsed.cost_price,
       stock: parsed.stock,
+      warranty_months: parsed.warranty_months,
       description: parsed.description,
       is_visible: parsed.is_visible,
       source: parsed.source,
@@ -211,7 +219,11 @@ const serviceSchema = z.object({
   category: z.string().min(1, "Категорія обов'язкова"),
   is_visible: z.coerce.boolean().optional().default(true),
   photo_urls: z.array(z.string()).optional().default([]),
+  warranty_days: z.coerce.number().min(0).nullable().optional(),
+  duration_minutes: z.coerce.number().min(0).nullable().optional(),
 });
+
+import { uploadMediaFiles } from "@/lib/supabase/storage";
 
 export async function createService(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
   try {
@@ -221,10 +233,18 @@ export async function createService(prevState: ActionState | null, formData: For
       price: formData.get("price"),
       category: formData.get("category"),
       is_visible: formData.get("is_visible") === "true",
+      warranty_days: formData.get("warranty_days") || null,
+      duration_minutes: formData.get("duration_minutes") || null,
       photo_urls: [],
     };
 
     const parsed = serviceSchema.parse(data);
+
+    // Upload photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      parsed.photo_urls = await uploadMediaFiles(photoFiles, "services");
+    }
 
     const supabase = await createClient();
     const { error } = await supabase.from("services").insert(parsed as ServiceInsert);
@@ -246,11 +266,31 @@ export async function updateService(id: string, prevState: ActionState | null, f
       price: formData.get("price"),
       category: formData.get("category"),
       is_visible: formData.get("is_visible") === "true",
+      warranty_days: formData.get("warranty_days") || null,
+      duration_minutes: formData.get("duration_minutes") || null,
+      photo_urls: [], // we will update this separately
     };
 
     const parsed = serviceSchema.parse(data);
 
     const supabase = await createClient();
+    
+    // Upload new photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      const newPhotoUrls = await uploadMediaFiles(photoFiles, "services");
+      
+      // Get existing photos
+      const { data: existingService } = await supabase.from("services").select("photo_urls").eq("id", id).single();
+      const existingPhotos = existingService?.photo_urls || [];
+      
+      parsed.photo_urls = [...existingPhotos, ...newPhotoUrls];
+    } else {
+      // Keep existing
+      const { data: existingService } = await supabase.from("services").select("photo_urls").eq("id", id).single();
+      parsed.photo_urls = existingService?.photo_urls || [];
+    }
+
     const { error } = await supabase.from("services").update(parsed as ServiceUpdate).eq("id", id);
     if (error) throw error;
 
@@ -282,8 +322,8 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
     let parsedParts = [];
     try {
       parsedParts = rawParts ? JSON.parse(rawParts as string) : [];
-    } catch (e) {
-      console.error("Failed to parse repair_parts_replaced:", e);
+    } catch {
+      // silently ignore invalid JSON — defaults to empty array
     }
 
     const data = {
@@ -317,12 +357,29 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       accessories_included: formData.get("accessories_included") || null,
       serial_number: formData.get("serial_number") || null,
       warehouse_location: formData.get("warehouse_location") || null,
-      photo_urls: formData.get("photo_urls") ? (formData.get("photo_urls") as string).split(",").map(s => s.trim()).filter(Boolean) : [],
+      photo_urls: [], // will be handled after parsing
     };
 
     const parsed = deviceSchema.parse(data);
 
     const supabase = await createClient();
+
+    // Upload new photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      const newPhotoUrls = await uploadMediaFiles(photoFiles, "devices");
+      
+      // Get existing photos
+      const { data: existingDevice } = await supabase.from("devices").select("photo_urls").eq("id", id).single();
+      const existingPhotos = existingDevice?.photo_urls || [];
+      
+      parsed.photo_urls = [...existingPhotos, ...newPhotoUrls];
+    } else {
+      // Keep existing
+      const { data: existingDevice } = await supabase.from("devices").select("photo_urls").eq("id", id).single();
+      parsed.photo_urls = existingDevice?.photo_urls || [];
+    }
+
     const { error } = await supabase.from("devices").update(parsed as DeviceUpdate).eq("id", id);
     if (error) throw error;
 
@@ -356,6 +413,7 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       price: formData.get("price"),
       cost_price: formData.get("cost_price"),
       stock: formData.get("stock"),
+      warranty_months: formData.get("warranty_months") || null,
       description: formData.get("description") || null,
       is_visible: formData.get("is_visible") === "true",
       source: formData.get("source") || "supplier",
@@ -428,7 +486,7 @@ export async function updateDeviceStatus(
 ): Promise<ActionState> {
   try {
     const supabase = await createClient();
-    const updatePayload: any = { status };
+    const updatePayload: DeviceUpdate = { status };
     if (repair_status) {
       updatePayload.repair_status = repair_status;
     }
@@ -450,6 +508,104 @@ export async function updateDeviceStatus(
 
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+export async function bulkUpdateDevicesStatus(
+  ids: string[],
+  status: "in_stock" | "transit" | "service" | "sold" | "returned" | "archived"
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const updatePayload: DeviceUpdate = { status };
+    if (status === "service") {
+      updatePayload.needs_repair = true;
+      updatePayload.repair_status = "pending";
+    }
+    
+    const { error } = await supabase
+      .from("devices")
+      .update(updatePayload)
+      .in("id", ids);
+
+    if (error) throw error;
+    revalidatePath("/admin/devices");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+export async function bulkUpdateDevicesTtn(ids: string[], ttn: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    
+    const { data: devices, error: fetchErr } = await supabase
+      .from("devices")
+      .select("id, notes")
+      .in("id", ids);
+      
+    if (fetchErr) throw fetchErr;
+    
+    // Group devices by current notes content to minimize UPDATE calls
+    const ttnNote = `ТТН закупівлі: ${ttn}`;
+    const withExistingTtn: string[] = [];
+    const withoutTtn: string[] = [];
+    const devicesMap: Record<string, string> = {};
+
+    for (const dev of devices || []) {
+      devicesMap[dev.id] = dev.notes || "";
+      if ((dev.notes || "").includes("ТТН закупівлі:")) {
+        withExistingTtn.push(dev.id);
+      } else {
+        withoutTtn.push(dev.id);
+      }
+    }
+
+    // For devices without TTN: append the note (same for all — one UPDATE call)
+    if (withoutTtn.length > 0) {
+      // Each device may have different existing notes, so we still need per-device updates
+      // but batch by groups that have the exact same notes value
+      const noteGroups: Record<string, string[]> = {};
+      for (const id of withoutTtn) {
+        const currentNotes = devicesMap[id];
+        const newNotes = currentNotes ? `${currentNotes}\n${ttnNote}` : ttnNote;
+        if (!noteGroups[newNotes]) noteGroups[newNotes] = [];
+        noteGroups[newNotes].push(id);
+      }
+      // Batch: one UPDATE per unique note value (typically 1-2 groups)
+      for (const [newNotes, groupIds] of Object.entries(noteGroups)) {
+        const { error: updErr } = await supabase
+          .from("devices")
+          .update({ notes: newNotes })
+          .in("id", groupIds);
+        if (updErr) throw updErr;
+      }
+    }
+
+    // For devices with existing TTN: replace the TTN line
+    if (withExistingTtn.length > 0) {
+      const noteGroups: Record<string, string[]> = {};
+      for (const id of withExistingTtn) {
+        const currentNotes = devicesMap[id];
+        const newNotes = currentNotes.replace(/ТТН закупівлі: [^\n]*/g, ttnNote);
+        if (!noteGroups[newNotes]) noteGroups[newNotes] = [];
+        noteGroups[newNotes].push(id);
+      }
+      for (const [newNotes, groupIds] of Object.entries(noteGroups)) {
+        const { error: updErr } = await supabase
+          .from("devices")
+          .update({ notes: newNotes })
+          .in("id", groupIds);
+        if (updErr) throw updErr;
+      }
+    }
+    
+    revalidatePath("/admin/devices");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

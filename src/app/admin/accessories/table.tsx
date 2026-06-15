@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { IconSearch, IconEdit, IconDelete } from "@/components/icons";
+import { IconSearch, IconEdit, IconDelete, IconWarning } from "@/components/icons";
 import { deleteAccessory } from "@/lib/actions/inventory";
 import Drawer from "@/components/ui/Drawer";
 import { AccessoryForm } from "@/components/forms/AccessoryForm";
+import { AccessoryDetailView } from "@/components/AccessoryDetailView";
 import { InlineError } from "@/components/ui/InlineError";
+import type { SaleWithDetails } from "@/lib/data-sales";
 
 type AccessoryRow = {
   id: string;
@@ -21,10 +23,11 @@ type AccessoryRow = {
 
 const typeLabels: Record<string, string> = { case: "Чохол", screen_protector: "Захисне скло", charger: "Зарядка", cable: "Кабель", headphones: "Навушники", other: "Інше" };
 
-export function AccessoriesTable({ accessories }: { accessories: AccessoryRow[] }) {
+export function AccessoriesTable({ accessories, sales = [] }: { accessories: AccessoryRow[]; sales?: SaleWithDetails[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  const [editingAccessory, setEditingAccessory] = useState<any>(null);
+  const [selectedAccessory, setSelectedAccessory] = useState<AccessoryRow | null>(null);
+  const [isEditingAccessory, setIsEditingAccessory] = useState(false);
   const [error, setError] = useState("");
 
   async function handleDelete(id: string) {
@@ -87,7 +90,11 @@ export function AccessoriesTable({ accessories }: { accessories: AccessoryRow[] 
               </tr>
             ) : (
               filtered.map((a) => (
-                <tr key={a.id} className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]">
+                <tr 
+                  key={a.id} 
+                  onClick={() => { setSelectedAccessory(a); setIsEditingAccessory(false); }}
+                  className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
+                >
                   <td className="py-3 pr-4 font-medium">{a.name}</td>
                   <td className="py-3 pr-4 text-text-secondary text-xs">{typeLabels[a.type]}</td>
                   <td className="py-3 pr-4 text-right">{a.price.toLocaleString()} грн</td>
@@ -97,16 +104,21 @@ export function AccessoriesTable({ accessories }: { accessories: AccessoryRow[] 
                   <td className="py-3 pr-4 text-right">
                     {a.stock === 0 ? (
                       <span className="rounded-lg px-2.5 py-0.5 text-[11px] font-medium" style={{ background: "color-mix(in oklch, var(--color-rose) 18%, transparent)", color: "var(--color-rose)" }}>Немає</span>
+                    ) : a.stock <= a.min_stock ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-medium" style={{ background: "color-mix(in oklch, var(--color-amber) 18%, transparent)", color: "var(--color-amber)" }}>
+                        <IconWarning size={12} />
+                        Мало: {a.stock} шт
+                      </span>
                     ) : (
                       <span className="rounded-lg px-2.5 py-0.5 text-[11px] font-medium" style={{ background: "color-mix(in oklch, var(--color-cyan) 18%, transparent)", color: "var(--color-cyan)" }}>{a.stock} шт</span>
                     )}
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditingAccessory(a)} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet">
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedAccessory(a); setIsEditingAccessory(true); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet">
                         <IconEdit />
                       </button>
-                      <button onClick={() => handleDelete(a.id)} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose">
                         <IconDelete />
                       </button>
                     </div>
@@ -118,9 +130,28 @@ export function AccessoriesTable({ accessories }: { accessories: AccessoryRow[] 
         </table>
       </div>
 
-      <Drawer isOpen={!!editingAccessory} onClose={() => setEditingAccessory(null)} title="Редагувати аксесуар">
-        {editingAccessory && <AccessoryForm onSuccess={() => setEditingAccessory(null)} accessory={editingAccessory} />}
+      <Drawer 
+        isOpen={!!selectedAccessory} 
+        onClose={() => { setSelectedAccessory(null); setIsEditingAccessory(false); }} 
+        title={isEditingAccessory ? "Редагувати аксесуар" : "Деталі аксесуару"}
+      >
+        {selectedAccessory && (
+          isEditingAccessory ? (
+            <AccessoryForm 
+              onSuccess={() => { setSelectedAccessory(null); setIsEditingAccessory(false); }} 
+              accessory={selectedAccessory} 
+            />
+          ) : (
+            <AccessoryDetailView 
+              accessory={selectedAccessory} 
+              onEdit={() => setIsEditingAccessory(true)} 
+              onClose={() => setSelectedAccessory(null)} 
+              sales={sales.filter(s => s.items.some(item => item.item_type === "accessory" && item.item_id === selectedAccessory.id))}
+            />
+          )
+        )}
       </Drawer>
     </>
   );
 }
+

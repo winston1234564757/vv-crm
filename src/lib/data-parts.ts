@@ -1,4 +1,5 @@
 import { createClient } from "./supabase/server";
+import { supabaseCast } from "@/lib/utils/supabase";
 import type { Database } from "@/types/database";
 
 type PartRow = Database["public"]["Tables"]["parts"]["Row"];
@@ -14,7 +15,7 @@ export async function getParts() {
     .order("name");
   if (error) throw error;
   
-  const parts = (data ?? []) as unknown as PartWithSupplier[];
+  const parts = supabaseCast<PartWithSupplier[]>(data ?? []);
   return parts.map((p) => ({ ...p, supplier_name: p.suppliers?.name ?? "—" }));
 }
 
@@ -28,4 +29,17 @@ export async function getPartsAlerts() {
     item: p.name, stock: p.stock, urgent: p.stock === 0,
   }));
 }
+
+export async function getPartsUsage() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("repair_parts")
+    .select(`
+      *,
+      repairs(id, device_name, created_at, status, price, assigned_to, issue)
+    `);
+  if (error) throw error;
+  return data ?? [];
+}
+
 

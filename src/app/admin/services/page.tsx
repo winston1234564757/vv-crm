@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getServices } from "@/lib/data-services";
+import { getSales } from "@/lib/data-sales";
 import { ServicesTable } from "./table";
 import { AddServiceButton } from "./AddServiceButton";
 import { pluralUk } from "@/lib/utils/plural";
@@ -8,7 +9,10 @@ import { pluralUk } from "@/lib/utils/plural";
 import GlassCard from "@/components/GlassCard";
 
 export default async function ServicesPage() {
-  const services = await getServices();
+  const [services, sales] = await Promise.all([
+    getServices(),
+    getSales()
+  ]);
 
   const activeServices = services.filter(s => s.status === "active");
   const totalRevenue = services.reduce((s, sv) => s + sv.price, 0);
@@ -42,7 +46,7 @@ export default async function ServicesPage() {
 
       <div className="grid grid-cols-1 gap-5">
         <GlassCard>
-          <ServicesTable services={services} />
+          <ServicesTable services={services} sales={sales} />
         </GlassCard>
       </div>
     </div>

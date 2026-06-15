@@ -17,6 +17,7 @@ export default function Drawer({ isOpen, onClose, title, children, size = "half"
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/Input";
 
 const initialState = { success: false, error: "" };
 
-export function AccessoryForm({ onSuccess, accessory }: { onSuccess: () => void; accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null } }) {
+export function AccessoryForm({ onSuccess, accessory }: { onSuccess: () => void; accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null } }) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -44,7 +44,10 @@ export function AccessoryForm({ onSuccess, accessory }: { onSuccess: () => void;
         <Input label="Ціна продажу (грн)" name="price" type="number" required placeholder="600" defaultValue={accessory?.price.toString() ?? ""} />
       </div>
 
-      <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue={accessory?.stock.toString() ?? "1"} />
+      <div className="grid grid-cols-2 gap-4">
+        <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue={accessory?.stock.toString() ?? "1"} />
+        <Input label="Гарантія (міс)" name="warranty_months" type="number" required placeholder="6" defaultValue={accessory?.warranty_months?.toString() ?? "6"} />
+      </div>
 
       <div>
         <label className="mb-1.5 block text-xs font-medium text-text-secondary">Опис (опціонально)</label>

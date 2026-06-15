@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getAccessories } from "@/lib/data-accessories";
+import { getSales } from "@/lib/data-sales";
 import { IconPlus } from "@/components/icons";
 import { AccessoriesTable } from "./table";
 import { AddAccessoryButton } from "./AddAccessoryButton";
@@ -10,7 +11,10 @@ import { pluralUk } from "@/lib/utils/plural";
 import GlassCard from "@/components/GlassCard";
 
 export default async function AccessoriesPage() {
-  const accessories = await getAccessories();
+  const [accessories, sales] = await Promise.all([
+    getAccessories(),
+    getSales()
+  ]);
 
   const totalItems = accessories.reduce((s, a) => s + a.stock, 0);
   const totalValue = accessories.reduce((s, a) => s + a.stock * a.price, 0);
@@ -53,7 +57,7 @@ export default async function AccessoriesPage() {
 
       <div className="grid grid-cols-1 gap-5">
         <GlassCard>
-          <AccessoriesTable accessories={accessories} />
+          <AccessoriesTable accessories={accessories} sales={sales} />
         </GlassCard>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { PartnersClient } from "./PartnersClient";
+import { getSales } from "@/lib/data-sales";
+import { PartnersClient, type PartnerData } from "./PartnersClient";
 
 export const metadata = {
   title: "Партнерська Програма | VV CRM",
@@ -18,5 +19,7 @@ export default async function PartnersPage() {
     console.error("Error fetching partners:", error);
   }
 
-  return <PartnersClient initialPartners={partners || []} />;
+  const sales = await getSales();
+
+  return <PartnersClient initialPartners={(partners as PartnerData[]) || []} sales={sales} />;
 }

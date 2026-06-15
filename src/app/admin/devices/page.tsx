@@ -6,19 +6,22 @@ import { getCashRegisters } from "@/lib/data-finance";
 import { getAccessories } from "@/lib/data-accessories";
 import { getServices } from "@/lib/data-services";
 import { getParts } from "@/lib/data-parts";
+import { getInternalRepairs } from "@/lib/data-repairs";
 import { DevicesTable } from "./table";
 import { AddDeviceButton } from "./AddDeviceButton";
 import { pluralUk } from "@/lib/utils/plural";
 import GlassCard from "@/components/GlassCard";
+import { supabaseCast } from "@/lib/utils/supabase";
 
 export default async function DevicesPage() {
-  const [devices, customers, cashRegisters, accessories, services, parts] = await Promise.all([
+  const [devices, customers, cashRegisters, accessories, services, parts, repairs] = await Promise.all([
     getDevices(),
     getCustomers(),
     getCashRegisters(),
     getAccessories(),
     getServices(),
     getParts(),
+    getInternalRepairs(),
   ]);
 
   const inStockDevices = devices.filter((d) => d.status === "in_stock");
@@ -66,12 +69,13 @@ export default async function DevicesPage() {
       <div className="grid grid-cols-1 gap-5">
         <GlassCard>
           <DevicesTable 
-            devices={devices} 
+            devices={devices as unknown as import('./table').DeviceRow[]} 
             customers={customers} 
             cashRegisters={cashRegisters} 
             accessories={accessories} 
             services={services}
             parts={parts} 
+            repairs={repairs}
           />
         </GlassCard>
       </div>

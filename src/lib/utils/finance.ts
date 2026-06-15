@@ -23,7 +23,7 @@ export function calculateRemainingSplit(total: number, cash: number, card: numbe
 /**
  * Валідація ціни - має бути невід'ємним числом
  */
-export function validatePrice(price: any): number {
+export function validatePrice(price: unknown): number {
   const num = Number(price);
   if (isNaN(num) || num < 0) {
     throw new Error("Ціна має бути невід'ємним числом");
@@ -34,7 +34,7 @@ export function validatePrice(price: any): number {
 /**
  * Валідація кількості товару - має бути цілим невід'ємним числом
  */
-export function validateStock(stock: any): number {
+export function validateStock(stock: unknown): number {
   const num = Number(stock);
   if (!Number.isInteger(num) || num < 0) {
     throw new Error("Кількість товару має бути цілим невід'ємним числом");
@@ -45,7 +45,7 @@ export function validateStock(stock: any): number {
 /**
  * Валідація URL фотографій - має бути дійсним URL або порожнім рядком
  */
-export function validatePhotoUrl(url: any): string {
+export function validatePhotoUrl(url: unknown): string {
   if (!url || typeof url !== 'string') {
     throw new Error("URL фотографії має бути валідним рядком");
   }
@@ -59,56 +59,58 @@ export function validatePhotoUrl(url: any): string {
 /**
  * Валідація частин - має містити назву та невід'ємну ціну
  */
-export function validatePart(part: any): { name: string; cost: number; origin: string } {
+export function validatePart(part: unknown): { name: string; cost: number; origin: string } {
   if (!part || typeof part !== 'object') {
     throw new Error("Дані частини повинні бути об'єктом");
   }
-  if (!part.name || typeof part.name !== 'string' || !part.name.trim()) {
+  const p = part as Record<string, unknown>;
+  if (!p.name || typeof p.name !== 'string' || !p.name.trim()) {
     throw new Error("Назва частини обов'язкова та не може бути порожньою");
   }
-  const cost = Number(part.cost);
+  const cost = Number(p.cost);
   if (isNaN(cost) || cost < 0) {
     throw new Error("Вартість частини має бути невід'ємним числом");
   }
-  if (!part.origin || typeof part.origin !== 'string') {
+  if (!p.origin || typeof p.origin !== 'string') {
     throw new Error("Походження частини обов'язкове");
   }
   return {
-    name: part.name.trim(),
+    name: p.name.trim() as string,
     cost,
-    origin: part.origin
+    origin: p.origin as string
   };
 }
 
 /**
  * Валідація частини з колекції складу
  */
-export function validateWarehousePart(part: any): { id: string; name: string; cost_price: number; origin_type: string; stock: number } {
+export function validateWarehousePart(part: unknown): { id: string; name: string; cost_price: number; origin_type: string; stock: number } {
   if (!part || typeof part !== 'object') {
     throw new Error("Дані частини зі складу повинні бути об'єктом");
   }
-  if (!part.id || typeof part.id !== 'string') {
+  const p = part as Record<string, unknown>;
+  if (!p.id || typeof p.id !== 'string') {
     throw new Error("ID частини обов'язкове");
   }
-  if (!part.name || typeof part.name !== 'string') {
+  if (!p.name || typeof p.name !== 'string') {
     throw new Error("Назва частини обов'язкова");
   }
-  const cost = Number(part.cost_price);
+  const cost = Number(p.cost_price);
   if (isNaN(cost) || cost < 0) {
     throw new Error("Вартість частини має бути невід'ємним числом");
   }
-  if (!part.origin_type || typeof part.origin_type !== 'string') {
+  if (!p.origin_type || typeof p.origin_type !== 'string') {
     throw new Error("Тип походження частини обов'язковий");
   }
-  const stock = Number(part.stock);
+  const stock = Number(p.stock);
   if (!Number.isInteger(stock) || stock < 0) {
     throw new Error("Кількість товару на складі має бути цілим невід'ємним числом");
   }
   return {
-    id: part.id,
-    name: part.name,
+    id: p.id as string,
+    name: p.name as string,
     cost_price: cost,
-    origin_type: part.origin_type,
+    origin_type: p.origin_type as string,
     stock
   };
 }
@@ -116,7 +118,7 @@ export function validateWarehousePart(part: any): { id: string; name: string; co
 /**
  * Валідація знижки - має бути числом від 0 до 100
  */
-export function validateDiscount(discount: any): number {
+export function validateDiscount(discount: unknown): number {
   const num = Number(discount);
   if (isNaN(num) || num < 0 || num > 100) {
     throw new Error("Знижка має бути числом від 0 до 100");
@@ -127,7 +129,7 @@ export function validateDiscount(discount: any): number {
 /**
  * Валідація комбінації готівки та карти для спліт-оплати
  */
-export function validateSplitPayment(total: number, cash: any, card: any): { cash: number; card: number } {
+export function validateSplitPayment(total: number, cash: unknown, card: unknown): { cash: number; card: number } {
   const cashNum = Number(cash);
   const cardNum = Number(card);
   

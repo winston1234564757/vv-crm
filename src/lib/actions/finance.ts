@@ -55,6 +55,97 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
     if (rpcError) throw rpcError;
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+const expenseSchema = z.object({
+  category_id: z.string().uuid("Оберіть категорію витрати"),
+  amount: z.coerce.number().min(1, "Сума витрати має бути більше 0"),
+  paid_from_safe_id: z.string().uuid("Оберіть сейф для оплати"),
+  description: z.string().optional(),
+});
+
+export async function createExpenseAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+  try {
+    const data = {
+      category_id: formData.get("category_id"),
+      amount: formData.get("amount"),
+      paid_from_safe_id: formData.get("paid_from_safe_id"),
+      description: formData.get("description") || "",
+    };
+
+    const parsed = expenseSchema.parse(data);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    const { error: rpcError } = await supabase.rpc("create_expense", {
+      category_id: parsed.category_id,
+      amount: parsed.amount,
+      paid_from_safe_id: parsed.paid_from_safe_id,
+      description: parsed.description || "",
+      user_id: user.id,
+    });
+
+    if (rpcError) throw rpcError;
+
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+const distributionSchema = z.object({
+  cash_register_id: z.string().uuid("Оберіть касу для розподілу"),
+  amount: z.coerce.number().min(1, "Сума розподілу має бути більше 0"),
+  opex_amount: z.coerce.number().min(0),
+  growth_amount: z.coerce.number().min(0),
+  net_profit_amount: z.coerce.number().min(0),
+  description: z.string().optional(),
+});
+
+export async function distributeFundsAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+  try {
+    const data = {
+      cash_register_id: formData.get("cash_register_id"),
+      amount: formData.get("amount"),
+      opex_amount: formData.get("opex_amount"),
+      growth_amount: formData.get("growth_amount"),
+      net_profit_amount: formData.get("net_profit_amount"),
+      description: formData.get("description") || "",
+    };
+
+    const parsed = distributionSchema.parse(data);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    const { error: rpcError } = await supabase.rpc("distribute_register_funds", {
+      cash_register_id: parsed.cash_register_id,
+      amount: parsed.amount,
+      opex_amount: parsed.opex_amount,
+      growth_amount: parsed.growth_amount,
+      net_profit_amount: parsed.net_profit_amount,
+      desc_text: parsed.description || "",
+      user_id: user.id,
+    });
+
+    if (rpcError) throw rpcError;
+
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

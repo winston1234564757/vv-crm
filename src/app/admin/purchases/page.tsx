@@ -4,13 +4,17 @@ import { getPurchases } from "@/lib/data-purchases";
 import { PurchasesTable } from "./table";
 import { AddPurchaseButton } from "./AddPurchaseButton";
 import { pluralUk } from "@/lib/utils/plural";
+import { getSafes } from "@/lib/data-finance";
 
 function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={`card p-5 ${className ?? ""}`}>{children}</div>;
 }
 
 export default async function PurchasesPage() {
-  const purchases = await getPurchases();
+  const [purchases, safes] = await Promise.all([
+    getPurchases(),
+    getSafes(),
+  ]);
   const total = purchases.reduce((s, p) => s + p.total_amount, 0);
 
   return (
@@ -37,7 +41,7 @@ export default async function PurchasesPage() {
         </GlassCard>
       </div>
       <GlassCard>
-        <PurchasesTable purchases={purchases} />
+        <PurchasesTable purchases={purchases} safes={safes} />
       </GlassCard>
     </div>
   );

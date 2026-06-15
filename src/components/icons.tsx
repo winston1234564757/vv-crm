@@ -229,6 +229,23 @@ function IconList({ size = 20 }: { size?: number }) {
   );
 }
 
-export { IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList };
+function IconCheck({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
 
+function IconTruck({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1" y="3" width="15" height="13" />
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </svg>
+  );
+}
 
+export { IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck };

@@ -23,3 +23,8 @@
 | Services / Products / Inventory | 10 хвилин |
 | Status Tracking | 1 хвилина |
 | Repairs / Orders list | 2 хвилини |
+
+## Vercel Build & Eslint Errors
+- **Лапки в JSX:** Ніколи не використовуй звичайні апострофи `'` в JSX-коді (наприклад, `Ім'я`, `обов'язково`). Vercel збірка падає через помилку `react/no-unescaped-entities`. ЗАВЖДИ використовуй HTML entity `&apos;` (наприклад, `Ім&apos;я`, `обов&apos;язково`).
+- **Supabase Json Types:** Коли використовуєш поля типу Json (напр., масиви об'єктів `repair_parts_replaced`), вони повертаються як `string | null` через Supabase Type Generator. Явно перевизначай їх тип у локальних інтерфейсах або використовуй кастинг (напр., `as unknown as { ... }[]`), бо інакше Next.js не скомпілює проект!
+- **Vercel Checks:** Перед запуском або деплоєм через `vercel --prod` ОБОВ'ЯЗКОВО запускай `npm run lint` та `npm run build` (або `npx tsc --noEmit`), щоб відловити усі приховані помилки типізації та форматування. Vercel не пропустить ЖОДНОЇ помилки (Error) з Eslint.

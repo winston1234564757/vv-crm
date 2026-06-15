@@ -5,12 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
-import type { Database } from "@/types/database";
 import { notifyStaffLowStock } from "@/lib/services/telegram";
-
-
-type PartInsert = Database["public"]["Tables"]["parts"]["Insert"];
-type PartUpdate = Database["public"]["Tables"]["parts"]["Update"];
 
 const partSchema = z.object({
   name: z.string().min(1, "Назва обов'язкова"),
@@ -43,7 +38,7 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
     };
     const parsed = partSchema.parse(data);
     const supabase = await createClient();
-    const { error } = await supabase.from("parts").insert(parsed as PartInsert);
+    const { error } = await supabase.from("parts").insert(parsed);
     if (error) throw error;
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
@@ -70,7 +65,7 @@ export async function updatePart(id: string, prevState: ActionState | null, form
     };
     const parsed = partSchema.parse(data);
     const supabase = await createClient();
-    const { error } = await supabase.from("parts").update(parsed as PartUpdate).eq("id", id);
+    const { error } = await supabase.from("parts").update(parsed).eq("id", id);
     if (error) throw error;
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
@@ -96,10 +91,26 @@ export async function deletePart(id: string): Promise<ActionState> {
 export async function adjustPartStock(partId: string, quantityChange: number, reason: string, referenceId?: string): Promise<ActionState> {
   try {
     const supabase = await createClient();
-    const { data: part } = await supabase.from("parts").select("stock").eq("id", partId).single();
+
+    // Read current stock
+    const { data: part } = await supabase.from("parts").select("stock, name, min_stock").eq("id", partId).single();
     if (!part) throw new Error("Деталь не знайдено");
+
     const newStock = Math.max(0, part.stock + quantityChange);
-    await supabase.from("parts").update({ stock: newStock }).eq("id", partId);
+
+    // Optimistic lock: only update if stock hasn't changed since we read it
+    const { data: updatedRows, error: updateErr } = await supabase
+      .from("parts")
+      .update({ stock: newStock })
+      .eq("id", partId)
+      .eq("stock", part.stock) // optimistic lock condition
+      .select("id");
+
+    if (updateErr) throw updateErr;
+    if (!updatedRows || updatedRows.length === 0) {
+      throw new Error("Конфлікт залишку: запчастина перед цим була змінена. Спробуйте ще раз.");
+    }
+
     await supabase.from("inventory_movements").insert({
       item_type: "part",
       item_id: partId,
@@ -109,17 +120,28 @@ export async function adjustPartStock(partId: string, quantityChange: number, re
     });
 
     // Alert staff if stock falls below minimum
-    const { data: updatedPart } = await supabase
-      .from("parts")
-      .select("name, stock, min_stock")
-      .eq("id", partId)
-      .single();
-
-    if (updatedPart && updatedPart.stock <= updatedPart.min_stock) {
-      const isUrgent = updatedPart.stock === 0;
-      await notifyStaffLowStock(updatedPart.name, updatedPart.stock, isUrgent);
+    if (newStock <= part.min_stock) {
+      const isUrgent = newStock === 0;
+      await notifyStaffLowStock(part.name, newStock, isUrgent);
     }
 
+    revalidatePath("/admin/parts");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+export async function bulkUpdatePartsTtn(ids: string[], ttn: string | null): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("parts")
+      .update({ np_ttn: ttn })
+      .in("id", ids);
+
+    if (error) throw error;
     revalidatePath("/admin/parts");
     return { success: true };
   } catch (err) {

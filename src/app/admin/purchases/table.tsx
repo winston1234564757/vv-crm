@@ -4,8 +4,16 @@ import { useState } from "react";
 import { IconSearch, IconDelete } from "@/components/icons";
 import { deletePurchase, updatePurchaseStatus } from "@/lib/actions/purchases";
 import Drawer from "@/components/ui/Drawer";
-import { PurchaseForm } from "@/components/forms/PurchaseForm";
+import { PurchaseDetailView } from "@/components/PurchaseDetailView";
 import { InlineError } from "@/components/ui/InlineError";
+import { PayPurchaseModal } from "@/components/PayPurchaseModal";
+
+interface Safe {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+}
 
 type PurchaseRow = {
   id: string; supplier_id: string | null; total_amount: number; status: string;
@@ -18,9 +26,14 @@ type PurchaseRow = {
 const statusLabels: Record<string, string> = { pending: "Очікується", received: "Отримано", paid: "Оплачено", cancelled: "Скасовано" };
 const statusColors: Record<string, string> = { pending: "text-amber bg-amber/10", received: "text-cyan bg-cyan/10", paid: "text-emerald bg-emerald/10", cancelled: "text-rose bg-rose/10" };
 
-export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
+export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseRow[]; safes?: Safe[] }) {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
+
+  const [payPurchaseId, setPayPurchaseId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [isPaying, setIsPaying] = useState(false);
 
   async function handleDelete(id: string) {
     if (!confirm("Видалити закупівлю?")) return;
@@ -31,6 +44,18 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
   async function handleStatus(id: string, status: string) {
     const res = await updatePurchaseStatus(id, status);
     if (!res.success) setError(res.error ?? "");
+  }
+
+  async function handleConfirmPayment(safeId: string) {
+    if (!payPurchaseId) return;
+    setIsPaying(true);
+    const res = await updatePurchaseStatus(payPurchaseId, "paid", safeId);
+    setIsPaying(false);
+    if (res.success) {
+      setPayPurchaseId(null);
+    } else {
+      setError(res.error ?? "Помилка оплати");
+    }
   }
 
   const filtered = purchases.filter(p => {
@@ -64,7 +89,11 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
               <tr><td colSpan={7} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td></tr>
             ) : (
               filtered.map(p => (
-                <tr key={p.id} className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]">
+                <tr 
+                  key={p.id} 
+                  onClick={() => setSelectedPurchase(p)}
+                  className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
+                >
                   <td className="py-3 pr-4 font-medium">{p.suppliers?.name || "—"}</td>
                   <td className="py-3 pr-4 font-mono text-sm">{p.total_amount.toLocaleString()} грн</td>
                   <td className="py-3 pr-4 text-xs">
@@ -75,18 +104,31 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
                   <td className="py-3 pr-4 text-text-secondary text-xs">{p.purchase_items?.length || 0}</td>
                   <td className="py-3 pr-4 text-xs text-text-secondary truncate max-w-[150px]">{p.notes || "—"}</td>
                   <td className="py-3 pr-4 text-xs text-text-secondary">{new Date(p.created_at).toLocaleDateString("uk-UA")}</td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       {p.status === "pending" && (
                         <>
-                          <button onClick={() => handleStatus(p.id, "received")} className="btn-press rounded-lg bg-cyan/10 px-2.5 py-1.5 text-[11px] font-medium text-cyan transition-colors hover:bg-cyan/20">Отримано</button>
-                          <button onClick={() => handleStatus(p.id, "cancelled")} className="btn-press rounded-lg bg-rose/10 px-2.5 py-1.5 text-[11px] font-medium text-rose transition-colors hover:bg-rose/20">Скасувати</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "received"); }} className="btn-press rounded-lg bg-cyan/10 px-2.5 py-1.5 text-[11px] font-medium text-cyan transition-colors hover:bg-cyan/20 cursor-pointer">Отримано</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleStatus(p.id, "cancelled"); }} className="btn-press rounded-lg bg-rose/10 px-2.5 py-1.5 text-[11px] font-medium text-rose transition-colors hover:bg-rose/20 cursor-pointer">Скасувати</button>
                         </>
                       )}
                       {p.status === "received" && (
-                        <button onClick={() => handleStatus(p.id, "paid")} className="btn-press rounded-lg bg-emerald/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald transition-colors hover:bg-emerald/20">Оплачено</button>
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setPayPurchaseId(p.id); 
+                            setPayAmount(p.total_amount);
+                          }} 
+                          className="btn-press rounded-lg bg-emerald/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald transition-colors hover:bg-emerald/20 cursor-pointer"
+                        >
+                          Оплачено
+                        </button>
                       )}
-                      <button onClick={() => handleDelete(p.id)} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"><IconDelete /></button>
+                      {(p.status === "pending" || p.status === "cancelled") ? (
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose cursor-pointer"><IconDelete /></button>
+                      ) : (
+                        <div className="w-8 h-8" /> /* Займає місце для вирівнювання */
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -95,6 +137,32 @@ export function PurchasesTable({ purchases }: { purchases: PurchaseRow[] }) {
           </tbody>
         </table>
       </div>
+
+      {selectedPurchase && (
+        <Drawer
+          isOpen={!!selectedPurchase}
+          onClose={() => setSelectedPurchase(null)}
+          title={`Деталі закупівлі #${selectedPurchase.id.substring(0, 8)}`}
+        >
+          <PurchaseDetailView
+            purchase={selectedPurchase}
+            safes={safes}
+            onStatusUpdated={() => {
+              setSelectedPurchase(null);
+            }}
+            onClose={() => setSelectedPurchase(null)}
+          />
+        </Drawer>
+      )}
+
+      <PayPurchaseModal
+        isOpen={payPurchaseId !== null}
+        onClose={() => setPayPurchaseId(null)}
+        onConfirm={handleConfirmPayment}
+        safes={safes}
+        amount={payAmount}
+        isPending={isPaying}
+      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { getCustomers, getSalesForHistory } from "@/lib/data-customers";
+import { getCustomers } from "@/lib/data-customers";
+import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
 import { IconPlus } from "@/components/icons";
 import { CustomersTable } from "./table";
@@ -12,12 +13,30 @@ import GlassCard from "@/components/GlassCard";
 export default async function CustomersPage() {
   const [customers, sales, repairs] = await Promise.all([
     getCustomers(),
-    getSalesForHistory(),
+    getSales(),
     getRepairs()
   ]);
 
-  const totalSpent = customers.reduce((s, c) => s + c.total_spent, 0);
-  const todayCount = customers.filter((c) => {
+  const resolvedCustomers = (customers ?? []).map((c) => {
+    const clientSales = sales.filter((s) => s.customer_id === c.id);
+    const salesSpent = clientSales.reduce((sum, s) => sum + s.total_amount, 0);
+    const salesCount = clientSales.length;
+
+    const clientRepairs = repairs.filter(
+      (r) => r.customer_id === c.id && ["completed", "handed_over"].includes(r.status)
+    );
+    const repairsSpent = clientRepairs.reduce((sum, r) => sum + r.price, 0);
+    const repairsCount = clientRepairs.length;
+
+    return {
+      ...c,
+      total_spent: salesSpent + repairsSpent,
+      total_visits: salesCount + repairsCount,
+    };
+  });
+
+  const totalSpent = resolvedCustomers.reduce((s, c) => s + c.total_spent, 0);
+  const todayCount = resolvedCustomers.filter((c) => {
     const d = new Date(c.created_at);
     const now = new Date();
     return d.toDateString() === now.toDateString();
@@ -29,7 +48,7 @@ export default async function CustomersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Клієнти</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
-            {customers.length} {pluralUk(customers.length, "клієнт", "клієнти", "клієнтів")} у системі
+            {resolvedCustomers.length} {pluralUk(resolvedCustomers.length, "клієнт", "клієнти", "клієнтів")} у системі
           </p>
         </div>
         <AddCustomerButton />
@@ -44,7 +63,7 @@ export default async function CustomersPage() {
         </div>
         <GlassCard interactive>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Середній чек</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{customers.length > 0 ? Math.round(totalSpent / customers.length).toLocaleString() : 0} грн</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{resolvedCustomers.length > 0 ? Math.round(totalSpent / resolvedCustomers.length).toLocaleString() : 0} грн</p>
         </GlassCard>
         <GlassCard interactive>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Сьогодні</p>
@@ -54,7 +73,7 @@ export default async function CustomersPage() {
 
       <div className="grid grid-cols-1 gap-5">
         <GlassCard interactive>
-          <CustomersTable customers={customers} sales={sales} repairs={repairs} />
+          <CustomersTable customers={resolvedCustomers} sales={sales} repairs={repairs} />
         </GlassCard>
       </div>
     </div>

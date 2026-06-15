@@ -7,9 +7,12 @@ export function createClient() {
   if (client) return client;
 
   client = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key',
     {
+      cookieOptions: {
+        maxAge: 315360000, // 10 years for PWA persistence
+      },
       global: {
         fetch: (url, options) => {
           const controller = new AbortController();

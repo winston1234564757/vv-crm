@@ -30,6 +30,8 @@ body {
   background-color: var(--color-warm-bg);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .card {
@@ -117,3 +119,53 @@ body {
     border-color: oklch(88% 0.005 60);
   }
 }
+
+/* Print Styles */
+@media print {
+  /* Hide all UI components */
+  aside, nav, header, button, .no-print, [role="dialog"], [role="presentation"], .drawer {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  body {
+    background: white !important;
+    color: #000 !important;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Only show printable areas */
+  .printable-receipt {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 320px !important; /* Perfect for both 80mm thermal and scaled A4/A5 printing */
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    color: #000 !important;
+    padding: 10px !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+
+  .printable-receipt, .printable-receipt * {
+    visibility: visible !important;
+  }
+  
+  /* Dotted dividers for clean receipt aesthetic */
+  .receipt-divider {
+    border-top: 1px dashed #000 !important;
+    margin: 8px 0 !important;
+    height: 0 !important;
+  }
+}
+

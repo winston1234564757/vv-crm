@@ -18,10 +18,6 @@ const customerSchema = z.object({
   tags: z.array(z.string()).nullable().optional(),
   preferred_contact: z.string().optional().default("phone"),
   source: z.string().optional().default("walk_in"),
-  social_links: z.string().nullable().optional(),
-  orders_total: z.coerce.number().optional().default(0),
-  orders_completed: z.coerce.number().optional().default(0),
-  last_visit: z.string().nullable().optional(),
 });
 
 export async function createCustomer(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -40,10 +36,6 @@ export async function createCustomer(prevState: ActionState | null, formData: Fo
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: formData.get("preferred_contact") || "phone",
       source: formData.get("source") || "walk_in",
-      social_links: formData.get("social_links") || null,
-      orders_total: Number(formData.get("orders_total")) || 0,
-      orders_completed: Number(formData.get("orders_completed")) || 0,
-      last_visit: formData.get("last_visit") || null,
     };
 
     const parsed = customerSchema.parse(data);
@@ -60,10 +52,7 @@ export async function createCustomer(prevState: ActionState | null, formData: Fo
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: parsed.preferred_contact,
       source: parsed.source,
-      social_links: parsed.social_links,
-      orders_total: parsed.orders_total,
-      orders_completed: parsed.orders_completed,
-      last_visit: parsed.last_visit,
+      // orders_total, orders_completed, last_visit are computed by the system — not user inputs
     })
     .select("id, name, phone, discount_percent")
     .single();
@@ -95,16 +84,16 @@ export async function updateCustomer(id: string, prevState: ActionState | null, 
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: formData.get("preferred_contact") || "phone",
       source: formData.get("source") || "walk_in",
-      social_links: formData.get("social_links") || null,
-      orders_total: Number(formData.get("orders_total")) || 0,
-      orders_completed: Number(formData.get("orders_completed")) || 0,
-      last_visit: formData.get("last_visit") || null,
     };
 
     const parsed = customerSchema.parse(data);
 
     const supabase = await createClient();
-    const { error } = await supabase.from("customers").update({ ...parsed, tags: tagsArray.length ? tagsArray : null }).eq("id", id);
+    const { error } = await supabase.from("customers").update({
+      ...parsed,
+      tags: tagsArray.length ? tagsArray : null,
+      // orders_total, orders_completed, last_visit are NOT updated from form
+    }).eq("id", id);
     if (error) throw error;
 
     revalidatePath("/admin/customers");

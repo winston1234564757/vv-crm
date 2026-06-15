@@ -10,20 +10,9 @@ import {
   IconGrid,
   IconBox,
   IconRepair,
-  IconWarning
+  IconWarning,
+  IconTruck
 } from "@/components/icons";
-
-// Додаткові локальні іконки для відмови від емодзі
-function IconTruck({ size = 16, className }: { size?: number; className?: string }) {
-  return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="1" y="3" width="15" height="13" />
-      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-      <circle cx="5.5" cy="18.5" r="2.5" />
-      <circle cx="18.5" cy="18.5" r="2.5" />
-    </svg>
-  );
-}
 
 function IconDownload({ size = 14 }: { size?: number }) {
   return (
@@ -52,48 +41,18 @@ function IconCheck({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
-import { deleteDevice, updateDeviceStatus } from "@/lib/actions/inventory";
+import { deleteDevice, updateDeviceStatus, bulkUpdateDevicesStatus, bulkUpdateDevicesTtn } from "@/lib/actions/inventory";
 import Drawer from "@/components/ui/Drawer";
 import { DeviceForm } from "@/components/forms/device/DeviceForm";
+import { DeviceDetailView } from "@/components/DeviceDetailView";
 import { SaleForm } from "@/components/forms/SaleForm";
 import { InlineError } from "@/components/ui/InlineError";
 import { motion } from "framer-motion";
+import type { Database } from "@/types/database";
 
-type DeviceRow = {
-  id: string;
-  type: string;
-  brand: string | null;
-  model: string | null;
-  storage: string | null;
-  color: string | null;
-  imei: string | null;
-  price: number;
-  cost_price: number;
-  status: string;
-  ram: string | null;
-  battery_health: number | null;
-  screen_size: string | null;
-  cpu: string | null;
-  gpu: string | null;
-  source: string | null;
-  condition_grade: string | null;
-  condition_description: string | null;
-  original_box: boolean | null;
-  needs_repair: boolean;
-  repair_node: string | null;
-  repair_cost: number;
-  repair_np_ttn: string | null;
-  repair_status: string;
-  repair_parts_replaced: any;
-  created_at: string;
-  sku: string | null;
-  description: string | null;
-  is_visible: boolean;
-  accessories_included?: string | null;
-  serial_number?: string | null;
-  warehouse_location?: string | null;
-  source_reference?: string | null;
-  purchased_from?: string | null;
+type DbDeviceRow = Database["public"]["Tables"]["devices"]["Row"];
+export type DeviceRow = Omit<DbDeviceRow, "repair_parts_replaced"> & {
+  repair_parts_replaced: { name: string; cost: number; origin: string }[] | null;
 };
 
 
@@ -116,19 +75,19 @@ const sourceLabels: Record<string, string> = {
 };
 
 const conditionLabels: Record<string, string> = {
-  new: "Новий", 
-  like_new: "Як новий", 
-  good: "Добрий", 
-  fair: "Задовільний", 
+  perfect: "Grade A (Ідеальний)", 
+  good: "Grade B (Хороший)", 
+  fair: "Grade C (Середній)", 
   poor: "Поганий",
+  damaged: "Під ремонт / Пошкоджений",
 };
 
 const conditionColors: Record<string, string> = {
-  new: "text-cyan bg-cyan/10", 
-  like_new: "text-cyan bg-cyan/10",
+  perfect: "text-cyan bg-cyan/10", 
   good: "text-violet bg-violet/10", 
   fair: "text-amber bg-amber/10", 
   poor: "text-rose bg-rose/10",
+  damaged: "text-rose bg-rose/10",
 };
 
 const statusColors: Record<string, string> = { 
@@ -149,13 +108,16 @@ const statusLabels: Record<string, string> = {
   archived: "Архів" 
 };
 
+import type { getInternalRepairs } from "@/lib/data-repairs";
+
 interface DevicesTableProps {
   devices: DeviceRow[];
-  customers: any[];
-  cashRegisters: any[];
-  accessories: any[];
-  services: any[];
-  parts: any[];
+  customers: Database["public"]["Tables"]["customers"]["Row"][];
+  cashRegisters: Database["public"]["Tables"]["cash_registers"]["Row"][];
+  accessories: Database["public"]["Tables"]["accessories"]["Row"][];
+  services: Database["public"]["Tables"]["services"]["Row"][];
+  parts: Database["public"]["Tables"]["parts"]["Row"][];
+  repairs?: Awaited<ReturnType<typeof getInternalRepairs>>;
 }
 
 export function DevicesTable({ 
@@ -164,7 +126,8 @@ export function DevicesTable({
   cashRegisters, 
   accessories, 
   services,
-  parts
+  parts,
+  repairs = []
 }: DevicesTableProps) {
   const [activeTab, setActiveTab] = useState<"kanban" | "archive">("kanban");
   
@@ -176,12 +139,17 @@ export function DevicesTable({
   const [filterCondition, setFilterCondition] = useState("all");
   
   // Модальні вікна / Drawer
-  const [editingDevice, setEditingDevice] = useState<DeviceRow | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceRow | null>(null);
+  const [isEditingDevice, setIsEditingDevice] = useState(false);
   const [sellingDevice, setSellingDevice] = useState<DeviceRow | null>(null);
   
   // Помилки та успіх
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  
+  // Bulk Selection
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [bulkTtn, setBulkTtn] = useState("");
 
   async function handleDelete(id: string) {
     if (!confirm("Видалити цей пристрій?")) return;
@@ -198,6 +166,31 @@ export function DevicesTable({
     const res = await updateDeviceStatus(id, newStatus, repairStatus);
     setPendingId(null);
     if (!res.success) setError(res.error ?? "");
+  }
+
+  async function handleBulkStatusChange(status: "in_stock" | "transit" | "service" | "sold" | "returned" | "archived") {
+    if (selectedDeviceIds.length === 0) return;
+    setPendingId("bulk");
+    const res = await bulkUpdateDevicesStatus(selectedDeviceIds, status);
+    setPendingId(null);
+    if (res.success) {
+      setSelectedDeviceIds([]);
+    } else {
+      setError(res.error || "Помилка оновлення статусу");
+    }
+  }
+
+  async function handleBulkDevicesTtn() {
+    if (selectedDeviceIds.length === 0 || !bulkTtn) return;
+    setPendingId("bulk");
+    const res = await bulkUpdateDevicesTtn(selectedDeviceIds, bulkTtn);
+    setPendingId(null);
+    if (res.success) {
+      setSelectedDeviceIds([]);
+      setBulkTtn("");
+    } else {
+      setError(res.error || "Помилка оновлення ТТН");
+    }
   }
 
   // Динамічний список брендів з наявних пристроїв
@@ -250,6 +243,61 @@ export function DevicesTable({
     <>
       <InlineError message={error} onClose={() => setError("")} />
 
+      {/* BULK ACTIONS PANEL */}
+      {selectedDeviceIds.length > 0 && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-violet/5 border border-violet/20 p-4 animate-entry mb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet text-white text-xxs font-bold">
+              {selectedDeviceIds.length}
+            </span>
+            <span className="text-xs font-semibold text-text-primary">техніки обрано для групових дій</span>
+          </div>
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeTab === "kanban" && (
+              <>
+                <button
+                  onClick={() => handleBulkStatusChange("in_stock")}
+                  disabled={pendingId === "bulk"}
+                  className="rounded-xl bg-violet hover:bg-violet-hover text-white px-4 py-2 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  Отримати на склад (In Stock)
+                </button>
+                <button
+                  onClick={() => handleBulkStatusChange("service")}
+                  disabled={pendingId === "bulk"}
+                  className="rounded-xl bg-amber hover:bg-amber-hover text-white px-4 py-2 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  Передати в ремонт (Service)
+                </button>
+                <div className="h-6 w-px bg-iris/20 hidden sm:block mx-1" />
+              </>
+            )}
+            
+            <input
+              type="text"
+              value={bulkTtn}
+              onChange={(e) => setBulkTtn(e.target.value)}
+              placeholder="ТТН закупівлі..."
+              className="rounded-xl border border-warm-border bg-white px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[150px]"
+            />
+            <button
+              onClick={handleBulkDevicesTtn}
+              disabled={pendingId === "bulk" || !bulkTtn}
+              className="rounded-xl bg-violet hover:bg-violet-hover text-white px-4 py-2 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors"
+            >
+              Задати ТТН
+            </button>
+            <button
+              onClick={() => { setSelectedDeviceIds([]); setBulkTtn(""); }}
+              className="rounded-xl border border-warm-border bg-white hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              Скасувати
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Шапка з вкладками */}
       <div className="flex flex-col gap-4 border-b border-warm-border pb-4 md:flex-row md:items-center md:justify-between">
         <div className="flex gap-2 p-1 bg-warm-sidebar rounded-xl border border-warm-border max-w-fit">
@@ -257,6 +305,7 @@ export function DevicesTable({
             onClick={() => {
               setActiveTab("kanban");
               handleResetFilters();
+              setSelectedDeviceIds([]);
             }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === "kanban"
@@ -274,6 +323,7 @@ export function DevicesTable({
             onClick={() => {
               setActiveTab("archive");
               handleResetFilters();
+              setSelectedDeviceIds([]);
             }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === "archive"
@@ -409,9 +459,18 @@ export function DevicesTable({
                     <KanbanCard 
                       key={d.id} 
                       device={d} 
-                      onEdit={setEditingDevice}
+                      onEdit={(dev) => { setSelectedDevice(dev); setIsEditingDevice(true); }}
                       onDelete={handleDelete}
+                      onCardClick={(dev) => { setSelectedDevice(dev); setIsEditingDevice(false); }}
                       pending={pendingId === d.id}
+                      isSelected={selectedDeviceIds.includes(d.id)}
+                      onSelectToggle={(id) => {
+                        if (selectedDeviceIds.includes(id)) {
+                          setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== id));
+                        } else {
+                          setSelectedDeviceIds([...selectedDeviceIds, id]);
+                        }
+                      }}
                       actions={
                         <button
                           onClick={() => handleStatusChange(d.id, "in_stock")}
@@ -447,19 +506,31 @@ export function DevicesTable({
                     <KanbanCard 
                       key={d.id} 
                       device={d} 
-                      onEdit={setEditingDevice}
+                      onEdit={(dev) => { setSelectedDevice(dev); setIsEditingDevice(true); }}
                       onDelete={handleDelete}
+                      onCardClick={(dev) => { setSelectedDevice(dev); setIsEditingDevice(false); }}
+                      onStatusChange={handleStatusChange}
                       pending={pendingId === d.id}
+                      isSelected={selectedDeviceIds.includes(d.id)}
+                      onSelectToggle={(id) => {
+                        if (selectedDeviceIds.includes(id)) {
+                          setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== id));
+                        } else {
+                          setSelectedDeviceIds([...selectedDeviceIds, id]);
+                        }
+                      }}
                       actions={
                         <div className="flex gap-2 w-full">
-                          <button
-                            onClick={() => handleStatusChange(d.id, "service")}
-                            disabled={pendingId === d.id}
-                            className="btn-press flex-1 rounded-xl border border-amber/25 bg-amber/5 py-2 text-xs font-semibold text-amber transition-colors hover:bg-amber/10 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                          >
-                            <IconRepair size={14} />
-                            <span>В ремонт</span>
-                          </button>
+                          {!(d.needs_repair && (d.repair_status === "completed" || d.repair_status === "handed_over")) && (
+                            <button
+                              onClick={() => handleStatusChange(d.id, "service")}
+                              disabled={pendingId === d.id}
+                              className="btn-press flex-1 rounded-xl border border-amber/25 bg-amber/5 py-2 text-xs font-semibold text-amber transition-colors hover:bg-amber/10 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                            >
+                              <IconRepair size={14} />
+                              <span>В ремонт</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => setSellingDevice(d)}
                             disabled={pendingId === d.id}
@@ -497,9 +568,18 @@ export function DevicesTable({
                     <KanbanCard 
                       key={d.id} 
                       device={d} 
-                      onEdit={setEditingDevice}
+                      onEdit={(dev) => { setSelectedDevice(dev); setIsEditingDevice(true); }}
                       onDelete={handleDelete}
+                      onCardClick={(dev) => { setSelectedDevice(dev); setIsEditingDevice(false); }}
                       pending={pendingId === d.id}
+                      isSelected={selectedDeviceIds.includes(d.id)}
+                      onSelectToggle={(id) => {
+                        if (selectedDeviceIds.includes(id)) {
+                          setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== id));
+                        } else {
+                          setSelectedDeviceIds([...selectedDeviceIds, id]);
+                        }
+                      }}
                       actions={
                         <button
                           onClick={() => handleStatusChange(d.id, "in_stock", "completed")}
@@ -527,6 +607,20 @@ export function DevicesTable({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-warm-border text-left text-xs font-semibold text-text-secondary">
+                    <th className="pb-3 pr-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && selectedDeviceIds.length === filtered.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedDeviceIds(filtered.map(x => x.id));
+                          } else {
+                            setSelectedDeviceIds([]);
+                          }
+                        }}
+                        className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                      />
+                    </th>
                     <th className="pb-3 pr-4">Модель / Категорія</th>
                     <th className="pb-3 pr-4">Характеристики</th>
                     <th className="pb-3 pr-4">Стан</th>
@@ -541,8 +635,27 @@ export function DevicesTable({
                 <tbody>
                   {filtered.map((d) => {
                     const totalCost = d.cost_price + (d.needs_repair ? d.repair_cost : 0);
+                    const isSelected = selectedDeviceIds.includes(d.id);
                     return (
-                      <tr key={d.id} className="border-b border-warm-border/50 text-text-primary transition-colors hover:bg-violet/[0.01]">
+                      <tr 
+                        key={d.id} 
+                        onClick={() => { setSelectedDevice(d); setIsEditingDevice(false); }}
+                        className={`border-b border-warm-border/50 text-text-primary transition-colors cursor-pointer ${isSelected ? "bg-violet/[0.04]" : "hover:bg-violet/[0.01]"}`}
+                      >
+                        <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDeviceIds([...selectedDeviceIds, d.id]);
+                              } else {
+                                setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== d.id));
+                              }
+                            }}
+                            className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                          />
+                        </td>
                         <td className="py-3 pr-4 font-medium">
                           <div>{d.brand} {d.model}</div>
                           <span className="text-[9px] text-text-secondary bg-warm-sidebar px-2 py-0.5 rounded uppercase">
@@ -583,11 +696,20 @@ export function DevicesTable({
                         </td>
                         <td className="py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => setEditingDevice(d)}
-                              className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
-                              title="Редагувати"
-                            >
+                            {d.status !== 'transit' && (
+                              <button
+                                onClick={() => handleStatusChange(d.id, "transit")}
+                                className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
+                                title="Повернути в дорогу"
+                              >
+                                <IconTruck size={16} />
+                              </button>
+                            )}
+                             <button
+                               onClick={(e) => { e.stopPropagation(); setSelectedDevice(d); setIsEditingDevice(true); }}
+                               className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
+                               title="Редагувати"
+                             >
                               <IconEdit size={16} />
                             </button>
                             <button
@@ -609,10 +731,29 @@ export function DevicesTable({
         )}
       </div>
 
-      {/* DRAWER: РЕДАГУВАННЯ ПРИСТРОЮ */}
-      <Drawer isOpen={!!editingDevice} onClose={() => setEditingDevice(null)} title="Редагувати пристрій" size="half">
-        {editingDevice && (
-          <DeviceForm onSuccess={() => setEditingDevice(null)} device={editingDevice} parts={parts} />
+      {/* DRAWER: ПЕРЕГЛЯД ТА РЕДАГУВАННЯ ПРИСТРОЮ */}
+      <Drawer 
+        isOpen={!!selectedDevice} 
+        onClose={() => { setSelectedDevice(null); setIsEditingDevice(false); }} 
+        title={isEditingDevice ? "Редагувати пристрій" : "Деталі пристрою"} 
+        size="half"
+      >
+        {selectedDevice && (
+          isEditingDevice ? (
+            <DeviceForm 
+              onSuccess={() => { setSelectedDevice(null); setIsEditingDevice(false); }} 
+              device={selectedDevice} 
+              parts={parts} 
+            />
+          ) : (
+            <DeviceDetailView 
+              device={selectedDevice} 
+              onEdit={() => setIsEditingDevice(true)} 
+              onSell={() => { setSellingDevice(selectedDevice); setSelectedDevice(null); }}
+              onClose={() => setSelectedDevice(null)} 
+              repairs={repairs.filter(r => r.inventory_device_id === selectedDevice.id)}
+            />
+          )
         )}
       </Drawer>
 
@@ -644,44 +785,75 @@ function KanbanCard({
   device, 
   onEdit, 
   onDelete, 
+  onCardClick,
+  onStatusChange,
   pending, 
-  actions 
+  actions,
+  isSelected,
+  onSelectToggle
 }: { 
   device: DeviceRow; 
   onEdit: (d: DeviceRow) => void; 
   onDelete: (id: string) => void; 
+  onCardClick: (d: DeviceRow) => void;
+  onStatusChange?: (id: string, status: "in_stock" | "transit" | "sold" | "service" | "returned" | "archived") => void;
   pending: boolean;
   actions: React.ReactNode;
+  isSelected?: boolean;
+  onSelectToggle?: (id: string) => void;
 }) {
   const totalCost = device.cost_price + (device.needs_repair ? device.repair_cost : 0);
   
   return (
-    <div className={`card group relative flex flex-col justify-between p-4 transition-all duration-200 card-hover ${
-      pending ? "opacity-55" : ""
-    }`}>
+    <div 
+      onClick={() => onCardClick(device)}
+      className={`card group relative flex flex-col justify-between p-4 transition-all duration-200 card-hover cursor-pointer ${
+        pending ? "opacity-55" : ""
+      } ${isSelected ? "bg-violet/[0.04] border-violet/30" : ""}`}
+    >
       <div>
         {/* Ряд заголовку: Бренд і Модель */}
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h4 className="font-semibold text-text-primary text-sm leading-snug">
-              {device.brand} {device.model}
-            </h4>
-            <span className="text-[9px] text-text-secondary font-semibold uppercase bg-warm-sidebar px-2 py-0.5 rounded">
-              {typeLabels[device.type] || device.type}
-            </span>
+          <div className="flex items-start">
+            {onSelectToggle && (
+              <input
+                type="checkbox"
+                checked={isSelected || false}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => onSelectToggle(device.id)}
+                className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer mr-2 mt-0.5 bg-transparent"
+              />
+            )}
+            <div>
+              <h4 className="font-semibold text-text-primary text-sm leading-snug">
+                {device.brand} {device.model}
+              </h4>
+              <span className="text-[9px] text-text-secondary font-semibold uppercase bg-warm-sidebar px-2 py-0.5 rounded">
+                {typeLabels[device.type] || device.type}
+              </span>
+            </div>
           </div>
 
-          {/* Кнопки Редагувати / Видалити */}
+          {/* Кнопки Дій */}
           <div className="flex items-center gap-0.5 rounded-lg bg-warm-sidebar p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {device.status === 'in_stock' && onStatusChange && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onStatusChange(device.id, "transit"); }}
+                className="flex h-6 w-6 items-center justify-center rounded text-text-secondary hover:bg-cyan/10 hover:text-cyan cursor-pointer"
+                title="Повернути в дорогу"
+              >
+                <IconTruck size={14} />
+              </button>
+            )}
             <button
-              onClick={() => onEdit(device)}
+              onClick={(e) => { e.stopPropagation(); onEdit(device); }}
               className="flex h-6 w-6 items-center justify-center rounded text-text-secondary hover:bg-violet/10 hover:text-violet cursor-pointer"
               title="Редагувати"
             >
               <IconEdit size={13} />
             </button>
             <button
-              onClick={() => onDelete(device.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(device.id); }}
               className="flex h-6 w-6 items-center justify-center rounded text-text-secondary hover:bg-rose/10 hover:text-rose cursor-pointer"
               title="Видалити"
             >
@@ -730,13 +902,25 @@ function KanbanCard({
 
         {/* Блок Ремонту (якщо є) */}
         {device.needs_repair && (
-          <div className="mt-3 rounded-lg bg-rose/5 border border-rose/10 p-2.5 text-[11px] text-rose">
+          <div className={`mt-3 rounded-lg border p-2.5 text-[11px] ${
+            device.repair_status === "completed" || device.repair_status === "handed_over" 
+            ? "bg-emerald/5 border-emerald/10 text-emerald" 
+            : "bg-rose/5 border-rose/10 text-rose"
+          }`}>
             <div className="font-semibold flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-rose shrink-0 flex items-center">
-                  <IconWarning size={14} />
+                <span className="shrink-0 flex items-center">
+                  {device.repair_status === "completed" || device.repair_status === "handed_over" ? (
+                    <IconCheck size={14} />
+                  ) : (
+                    <IconWarning size={14} />
+                  )}
                 </span>
-                <span>Потребує ремонту</span>
+                <span>
+                  {device.repair_status === "completed" || device.repair_status === "handed_over" 
+                    ? "Ремонт виконано" 
+                    : "Потребує ремонту"}
+                </span>
               </div>
               
               {device.repair_status && (
@@ -784,7 +968,7 @@ function KanbanCard({
           <div className="mt-2.5 text-[11px] text-text-secondary border-t border-warm-border/30 pt-2">
             <span className="font-semibold block mb-1 text-text-primary text-[10px] uppercase tracking-wider">Замінені деталі:</span>
             <div className="space-y-1">
-              {device.repair_parts_replaced.map((part: any, idx: number) => (
+              {device.repair_parts_replaced.map((part: { name: string; cost: number; origin: string }, idx: number) => (
                 <div key={idx} className="flex justify-between items-center bg-warm-sidebar/40 rounded-lg px-2.5 py-1 text-[10px] border border-warm-border/20">
                   <span className="truncate text-text-primary font-medium">
                     замінено &ldquo;{part.name}{part.origin ? ` (${part.origin})` : ""}&rdquo;
@@ -822,7 +1006,11 @@ function KanbanCard({
         </div>
 
         {/* Кнопки дій */}
-        <div className="flex pt-1">{actions}</div>
+        {actions && (
+          <div onClick={(e) => e.stopPropagation()} className="flex pt-1">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );

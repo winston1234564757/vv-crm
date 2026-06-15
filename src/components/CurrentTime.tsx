@@ -6,8 +6,10 @@ export function CurrentTime() {
   const [time, setTime] = useState<string>("");
 
   useEffect(() => {
-    // Set time on mount to avoid server-side mismatch warnings
-    setTime(new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    // Set time on mount asynchronously to avoid synchronous setState warnings
+    setTimeout(() => {
+      setTime(new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    }, 0);
     
     const interval = setInterval(() => {
       setTime(new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));

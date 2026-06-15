@@ -2,20 +2,26 @@
   "name": "vv-crm",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
   },
   "dependencies": {
+    "@serwist/next": "^9.5.11",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
+    "date-fns": "^4.4.0",
     "framer-motion": "^12.40.0",
     "next": "16.2.7",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "serwist": "^9.5.11",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -25,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.8"
