@@ -1,11 +1,72 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
 import type { Database } from "@/types/database";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+const nodeLabelsForRepair: Record<string, string> = {
+  display: "Заміна дисплея",
+  battery: "Заміна акумулятора",
+  charging_port: "Ремонт порту зарядки",
+  speaker: "Ремонт динаміка/мікрофона",
+  camera: "Ремонт камери",
+  button: "Ремонт кнопок",
+  housing: "Ремонт корпусу",
+  water_damage: "Усунення наслідків вологи",
+  software: "Прошивка/ПЗ",
+  other_node: "Ремонт (інше)",
+};
+
+/**
+ * Idempotent: creates a repair card for a warehouse device only if no active repair exists.
+ */
+async function autoCreateRepairForDevice(
+  supabase: SupabaseClient<Database>,
+  deviceId: string
+): Promise<void> {
+  // 1. Fetch device info
+  const { data: device } = await supabase
+    .from("devices")
+    .select("brand, model, imei, repair_node, repair_cost")
+    .eq("id", deviceId)
+    .single();
+
+  if (!device) return;
+
+  // 2. Idempotency: check for existing active repair
+  const { data: existing } = await supabase
+    .from("repairs")
+    .select("id")
+    .eq("inventory_device_id", deviceId)
+    .not("status", "in", `("completed","handed_over","cancelled")`)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return; // already has an active repair
+
+  const deviceName = [device.brand, device.model].filter(Boolean).join(" ") || "Без назви";
+  const issue = device.repair_node
+    ? nodeLabelsForRepair[device.repair_node] ?? device.repair_node
+    : "Потребує ремонту";
+
+  const tracking_token = randomBytes(3).toString("hex").toUpperCase();
+
+  await supabase.from("repairs").insert({
+    inventory_device_id: deviceId,
+    device_name: deviceName,
+    device_imei: device.imei ?? null,
+    issue,
+    price: device.repair_cost ?? 0,
+    status: "received",
+    tracking_token,
+    warranty_months: 0,
+  });
+}
 
 type DeviceInsert = Database["public"]["Tables"]["devices"]["Insert"];
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
@@ -107,7 +168,7 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     }
 
     const supabase = await createClient();
-    const { error } = await supabase.from("devices").insert({
+    const { data: inserted, error } = await supabase.from("devices").insert({
       type: parsed.type as string,
       brand: parsed.brand,
       model: parsed.model,
@@ -139,12 +200,18 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       serial_number: parsed.serial_number,
       warehouse_location: parsed.warehouse_location,
       photo_urls: parsed.photo_urls,
-    });
+    }).select("id").single();
 
     if (error) throw error;
 
+    // Auto-create repair card if device needs repair
+    if (parsed.needs_repair && inserted?.id) {
+      await autoCreateRepairForDevice(supabase, inserted.id);
+    }
+
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
+    revalidatePath("/admin/repairs");
     
     return { success: true };
   } catch (err) {
@@ -380,11 +447,24 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       parsed.photo_urls = existingDevice?.photo_urls || [];
     }
 
+    // Check previous needs_repair value before update
+    const { data: prevDevice } = await supabase
+      .from("devices")
+      .select("needs_repair")
+      .eq("id", id)
+      .single();
+
     const { error } = await supabase.from("devices").update(parsed as DeviceUpdate).eq("id", id);
     if (error) throw error;
 
+    // Auto-create repair if needs_repair just turned true
+    if (parsed.needs_repair && !prevDevice?.needs_repair) {
+      await autoCreateRepairForDevice(supabase, id);
+    }
+
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
+    revalidatePath("/admin/repairs");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
@@ -506,8 +586,14 @@ export async function updateDeviceStatus(
 
     if (error) throw error;
 
+    // Auto-create repair when device goes to service
+    if (status === "service") {
+      await autoCreateRepairForDevice(supabase, id);
+    }
+
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
+    revalidatePath("/admin/repairs");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
@@ -532,8 +618,15 @@ export async function bulkUpdateDevicesStatus(
       .in("id", ids);
 
     if (error) throw error;
+
+    // Auto-create repair for each device going to service
+    if (status === "service") {
+      await Promise.all(ids.map((id) => autoCreateRepairForDevice(supabase, id)));
+    }
+
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
+    revalidatePath("/admin/repairs");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

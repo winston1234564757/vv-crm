@@ -8,6 +8,7 @@ import { uk } from "date-fns/locale";
 import { IconClose } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import type { ReceiptSettings } from "@/lib/data-settings";
+import { supabaseCast } from "@/lib/utils/supabase";
 
 interface ReceiptPrintModalProps {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         if (error) throw error;
         
         if (dbData?.value) {
-          const settings = dbData.value as unknown as ReceiptSettings;
+          const settings = supabaseCast<ReceiptSettings>(dbData.value);
           setCompanyName(settings.company_name || "VV CRM");
           setCompanySubtitle(settings.company_subtitle || "Магазин та сервісний центр");
           setAddress(settings.address || "м. Київ, вул. Хрещатик 1");

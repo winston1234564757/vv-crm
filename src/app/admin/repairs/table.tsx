@@ -13,6 +13,8 @@ import { updateRepairStatus, bulkUpdateRepairsStatus, bulkUpdateRepairsTtn } fro
 type RepairRow = {
   id: string;
   customer_id: string | null;
+  inventory_device_id: string | null;
+  repair_type: "customer" | "internal";
   customer_name: string;
   customer_phone: string;
   customer_telegram: string | null;
@@ -69,6 +71,8 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
 
   const filtered = repairs.filter((r) => {
     if (filter === "external") return r.is_external_sc;
+    if (filter === "customer") return r.repair_type === "customer";
+    if (filter === "internal") return r.repair_type === "internal";
     if (filter !== "all" && r.status !== filter) return false;
     if (!query) return true;
     const q = query.toLowerCase();
@@ -215,20 +219,30 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
         </div>
 
         <div className="flex gap-1.5 flex-wrap">
-          {["all", "diagnostics", "in_progress", "awaiting_parts", "ready", "external", "completed"].map((f) => (
+          {["all", "customer", "internal", "diagnostics", "in_progress", "awaiting_parts", "ready", "external", "completed"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${filter === f ? "bg-violet text-white" : "bg-violet/5 text-text-secondary hover:bg-violet/10 hover:text-text-primary"}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                filter === f
+                  ? f === "customer" ? "bg-violet text-white"
+                  : f === "internal" ? "bg-amber text-white"
+                  : "bg-violet text-white"
+                  : "bg-violet/5 text-text-secondary hover:bg-violet/10 hover:text-text-primary"
+              }`}
             >
-              {f === "all" ? "Усі" : f === "external" ? "Сторонній СЦ" : statusLabels[f] || f}
+              {f === "all" ? "Усі"
+                : f === "customer" ? "👤 Клієнтські"
+                : f === "internal" ? "📦 Складські"
+                : f === "external" ? "Сторонній СЦ"
+                : statusLabels[f] || f}
             </button>
           ))}
         </div>
       </div>
 
       {viewMode === "kanban" ? (
-        <div className="mt-4">
+        <div className="mt-4 -mx-5 -mb-5">
           <RepairsKanban 
             repairs={filtered} 
             onCardClick={(r) => { setSelectedRepair(r); setIsEditing(false); }}
@@ -255,6 +269,7 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                   />
                 </th>
                 <th className="pb-2 pr-4">№</th>
+                <th className="pb-2 pr-4">Тип</th>
                 <th className="pb-2 pr-4">Клієнт</th>
                 <th className="pb-2 pr-4">Пристрій</th>
                 <th className="pb-2 pr-4">Дедлайн</th>
@@ -295,6 +310,15 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                         />
                       </td>
                       <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{r.id.substring(0, 8)}</td>
+                      <td className="py-3 pr-4">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                          r.repair_type === "internal"
+                            ? "bg-amber/10 text-amber"
+                            : "bg-violet/10 text-violet"
+                        }`}>
+                          {r.repair_type === "internal" ? "📦 Склад" : "👤 Клієнт"}
+                        </span>
+                      </td>
                       <td className="py-3 pr-4 font-medium">{r.customer_name}</td>
                       <td className="py-3 pr-4">
                         <div className="flex flex-col">

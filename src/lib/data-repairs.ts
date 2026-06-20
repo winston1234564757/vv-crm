@@ -92,3 +92,36 @@ export async function getDeviceRepairs(deviceId: string) {
   return data ?? [];
 }
 
+/**
+ * Returns ALL repairs (customer + internal) merged into one array,
+ * each with a repair_type field: "customer" | "internal"
+ */
+export async function getAllRepairs() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("repairs")
+    .select(`*, customers(name, phone, telegram_id), devices(brand, model, imei, status)`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((r) => {
+    const isInternal = !!r.inventory_device_id;
+    const cust = r.customers as { name: string; phone: string; telegram_id: string | null } | null;
+    const dev = r.devices as { brand: string | null; model: string | null; imei: string | null; status: string } | null;
+
+    return {
+      ...r,
+      repair_type: isInternal ? "internal" : "customer",
+      customer_name: isInternal
+        ? "Внутрішній (Склад)"
+        : cust?.name ?? "—",
+      customer_phone: isInternal ? "—" : cust?.phone ?? "",
+      customer_telegram: isInternal ? null : cust?.telegram_id ?? null,
+      device_name: isInternal && dev
+        ? `${dev.brand || ""} ${dev.model || ""}`.trim() || r.device_name
+        : r.device_name,
+    } as typeof r & { repair_type: "customer" | "internal" };
+  });
+}
