@@ -118,6 +118,7 @@ interface DevicesTableProps {
   services: Database["public"]["Tables"]["services"]["Row"][];
   parts: Database["public"]["Tables"]["parts"]["Row"][];
   repairs?: Awaited<ReturnType<typeof getInternalRepairs>>;
+  safes?: Database["public"]["Tables"]["safes"]["Row"][];
 }
 
 export function DevicesTable({ 
@@ -127,7 +128,8 @@ export function DevicesTable({
   accessories, 
   services,
   parts,
-  repairs = []
+  repairs = [],
+  safes = []
 }: DevicesTableProps) {
   const [activeTab, setActiveTab] = useState<"kanban" | "archive">("kanban");
   
@@ -137,6 +139,20 @@ export function DevicesTable({
   const [filterType, setFilterType] = useState("all");
   const [filterBrand, setFilterBrand] = useState("all");
   const [filterCondition, setFilterCondition] = useState("all");
+
+  // Професійні фільтри для архіву
+  const [archiveStatusFilter, setArchiveStatusFilter] = useState<"all" | "sold" | "returned" | "archived">("all");
+  const [marginFilter, setMarginFilter] = useState<"all" | "high" | "low" | "deficit">("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "yesterday" | "week" | "month" | "prev_month">("all");
+  
+  // Сортування
+  const [sortBy, setSortBy] = useState<
+    "updated_at_desc" | "updated_at_asc" | 
+    "created_at_desc" | "created_at_asc" | 
+    "price_desc" | "price_asc" | 
+    "cost_desc" | "cost_asc" | 
+    "profit_desc" | "profit_asc"
+  >("created_at_desc");
   
   // Модальні вікна / Drawer
   const [selectedDevice, setSelectedDevice] = useState<DeviceRow | null>(null);
@@ -222,20 +238,92 @@ export function DevicesTable({
     if (filterBrand !== "all" && d.brand !== filterBrand) return false;
     if (filterCondition !== "all" && d.condition_grade !== filterCondition) return false;
 
+    // 4. Специфічні фільтри для архіву
+    if (activeTab === "archive") {
+      if (archiveStatusFilter !== "all" && d.status !== archiveStatusFilter) return false;
+
+      const totalCost = d.cost_price + (d.repair_cost || 0);
+      const profit = d.price - totalCost;
+      const ros = d.price > 0 ? (profit / d.price) * 100 : 0;
+
+      if (marginFilter === "high" && !(profit >= 5000 || ros >= 25)) return false;
+      if (marginFilter === "low" && !(profit >= 0 && profit <= 2000)) return false;
+      if (marginFilter === "deficit" && profit < 0) return false;
+
+      if (dateFilter !== "all" && d.updated_at) {
+        const uDate = new Date(d.updated_at);
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+        const startOfWeek = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+        if (dateFilter === "today" && uDate < startOfToday) return false;
+        if (dateFilter === "yesterday" && (uDate < startOfYesterday || uDate >= startOfToday)) return false;
+        if (dateFilter === "week" && uDate < startOfWeek) return false;
+        if (dateFilter === "month" && uDate < startOfMonth) return false;
+        if (dateFilter === "prev_month" && (uDate < startOfPrevMonth || uDate > endOfPrevMonth)) return false;
+      }
+    }
+
     return true;
   });
 
-  // Групування для Канбану
-  const transitDevices = filtered.filter((d) => d.status === "transit");
-  const inStockDevices = filtered.filter((d) => d.status === "in_stock");
-  const serviceDevices = filtered.filter((d) => d.status === "service");
+  // Сортування
+  const sorted = [...filtered].sort((a, b) => {
+    const costA = a.cost_price + (a.repair_cost || 0);
+    const costB = b.cost_price + (b.repair_cost || 0);
+    const profitA = a.price - costA;
+    const profitB = b.price - costB;
 
-  const hasActiveFilters = filterType !== "all" || filterBrand !== "all" || filterCondition !== "all";
+    switch (sortBy) {
+      case "updated_at_desc":
+        return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+      case "updated_at_asc":
+        return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
+      case "created_at_desc":
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      case "created_at_asc":
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      case "price_desc":
+        return b.price - a.price;
+      case "price_asc":
+        return a.price - b.price;
+      case "cost_desc":
+        return costB - costA;
+      case "cost_asc":
+        return costA - costB;
+      case "profit_desc":
+        return profitB - profitA;
+      case "profit_asc":
+        return profitA - profitB;
+      default:
+        return 0;
+    }
+  });
+
+  // Групування для Канбану
+  const transitDevices = sorted.filter((d) => d.status === "transit");
+  const inStockDevices = sorted.filter((d) => d.status === "in_stock");
+  const serviceDevices = sorted.filter((d) => d.status === "service");
+
+  const hasActiveFilters = 
+    filterType !== "all" || 
+    filterBrand !== "all" || 
+    filterCondition !== "all" ||
+    archiveStatusFilter !== "all" ||
+    marginFilter !== "all" ||
+    dateFilter !== "all";
 
   const handleResetFilters = () => {
     setFilterType("all");
     setFilterBrand("all");
     setFilterCondition("all");
+    setArchiveStatusFilter("all");
+    setMarginFilter("all");
+    setDateFilter("all");
     setQuery("");
   };
 
@@ -304,6 +392,7 @@ export function DevicesTable({
           <button
             onClick={() => {
               setActiveTab("kanban");
+              setSortBy("created_at_desc");
               handleResetFilters();
               setSelectedDeviceIds([]);
             }}
@@ -322,6 +411,7 @@ export function DevicesTable({
           <button
             onClick={() => {
               setActiveTab("archive");
+              setSortBy("updated_at_desc");
               handleResetFilters();
               setSelectedDeviceIds([]);
             }}
@@ -354,6 +444,42 @@ export function DevicesTable({
             />
           </div>
 
+          {/* Вибір сортування */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="appearance-none rounded-xl border border-warm-border bg-warm-surface pl-3 pr-8 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-violet/20 outline-none transition-colors focus:border-violet/40 cursor-pointer min-w-[170px]"
+            >
+              {activeTab === "archive" ? (
+                <>
+                  <option value="updated_at_desc">🕒 Спочатку продані</option>
+                  <option value="updated_at_asc">🕒 Давні продажі</option>
+                  <option value="created_at_desc">🆕 Нові надходження</option>
+                  <option value="created_at_asc">⏳ Старі надходження</option>
+                  <option value="price_desc">💰 Ціна: від високої</option>
+                  <option value="price_asc">💰 Ціна: від низької</option>
+                  <option value="profit_desc">📈 Прибуток: від високого</option>
+                  <option value="profit_asc">📉 Прибуток: від низького</option>
+                  <option value="cost_desc">🏷️ Собівартість: від високої</option>
+                  <option value="cost_asc">🏷️ Собівартість: від низької</option>
+                </>
+              ) : (
+                <>
+                  <option value="created_at_desc">🆕 Спочатку нові</option>
+                  <option value="created_at_asc">⏳ Спочатку старі</option>
+                  <option value="price_desc">💰 Ціна: від високої</option>
+                  <option value="price_asc">💰 Ціна: від низької</option>
+                </>
+              )}
+            </select>
+            <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </div>
+
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className={`flex items-center gap-1.5 rounded-xl border px-4.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
@@ -373,7 +499,7 @@ export function DevicesTable({
 
       {/* Панель розширеної фільтрації */}
       {showAdvanced && (
-        <div className="mt-4 rounded-xl border border-warm-border bg-warm-sidebar/30 p-4 animate-entry">
+        <div className="mt-4 rounded-xl border border-warm-border bg-warm-sidebar/30 p-4 animate-entry space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {/* Категорія */}
             <div className="space-y-1">
@@ -420,6 +546,59 @@ export function DevicesTable({
               </select>
             </div>
           </div>
+
+          {/* Другий ряд розширених фільтрів, тільки для вкладки Архів */}
+          {activeTab === "archive" && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 border-t border-warm-border/50 pt-4 animate-entry">
+              {/* Статус Архіву */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Статус архіву</label>
+                <select
+                  value={archiveStatusFilter}
+                  onChange={(e) => setArchiveStatusFilter(e.target.value as any)}
+                  className="w-full rounded-lg border border-warm-border bg-warm-surface px-3 py-2 text-xs text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+                >
+                  <option value="all">Усі в архіві</option>
+                  <option value="sold">Продано</option>
+                  <option value="returned">Повернення</option>
+                  <option value="archived">Архів</option>
+                </select>
+              </div>
+
+              {/* Маржинальність */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Маржинальність / Прибуток</label>
+                <select
+                  value={marginFilter}
+                  onChange={(e) => setMarginFilter(e.target.value as any)}
+                  className="w-full rounded-lg border border-warm-border bg-warm-surface px-3 py-2 text-xs text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+                >
+                  <option value="all">Усі рівні прибутку</option>
+                  <option value="high">📈 Високомаржинальні (≥5,000₴ або ≥25%)</option>
+                  <option value="low">📉 Низькомаржинальні (0 - 2,000₴)</option>
+                  <option value="deficit">⚠️ Збиткові (&lt;0₴)</option>
+                </select>
+              </div>
+
+              {/* Період продажу */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Період продажу / оновлення</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as any)}
+                  className="w-full rounded-lg border border-warm-border bg-warm-surface px-3 py-2 text-xs text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+                >
+                  <option value="all">За весь час</option>
+                  <option value="today">Сьогодні</option>
+                  <option value="yesterday">Вчора</option>
+                  <option value="week">Останні 7 днів</option>
+                  <option value="month">Цей місяць</option>
+                  <option value="prev_month">Минулий місяць</option>
+                </select>
+              </div>
+            </div>
+          )}
+
           {hasActiveFilters && (
             <div className="mt-3 flex justify-end">
               <button
@@ -601,19 +780,19 @@ export function DevicesTable({
              АРХІВ / ПРОДАНІ (ТАБЛИЦЯ)
              ============================================================ */
           <div className="overflow-x-auto">
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <p className="text-xs text-text-muted text-center py-16">Архів порожній або нічого не знайдено</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-warm-border text-left text-xs font-semibold text-text-secondary">
-                    <th className="pb-3 pr-4 w-10">
+                     <th className="pb-3 pr-4 w-10">
                       <input
                         type="checkbox"
-                        checked={filtered.length > 0 && selectedDeviceIds.length === filtered.length}
+                        checked={sorted.length > 0 && selectedDeviceIds.length === sorted.length}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedDeviceIds(filtered.map(x => x.id));
+                            setSelectedDeviceIds(sorted.map(x => x.id));
                           } else {
                             setSelectedDeviceIds([]);
                           }
@@ -622,19 +801,19 @@ export function DevicesTable({
                       />
                     </th>
                     <th className="pb-3 pr-4">Модель / Категорія</th>
-                    <th className="pb-3 pr-4">Характеристики</th>
-                    <th className="pb-3 pr-4">Стан</th>
-                    <th className="pb-3 pr-4">IMEI</th>
-                    <th className="pb-3 pr-4">Джерело</th>
+                    <th className="pb-3 pr-4 hidden md:table-cell">Характеристики</th>
+                    <th className="pb-3 pr-4 hidden sm:table-cell">Стан</th>
+                    <th className="pb-3 pr-4 hidden md:table-cell">IMEI</th>
+                    <th className="pb-3 pr-4 hidden lg:table-cell">Джерело</th>
                     <th className="pb-3 pr-4 text-right">Ціна продажу</th>
-                    <th className="pb-3 pr-4 text-right">Собівартість</th>
+                    <th className="pb-3 pr-4 text-right hidden sm:table-cell">Собівартість</th>
                     <th className="pb-3 pr-4 text-right">Статус</th>
                     <th className="pb-3 text-right">Дії</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((d) => {
-                    const totalCost = d.cost_price + (d.needs_repair ? d.repair_cost : 0);
+                  {sorted.map((d) => {
+                    const totalCost = d.cost_price + (d.repair_cost || 0);
                     const isSelected = selectedDeviceIds.includes(d.id);
                     return (
                       <tr 
@@ -662,22 +841,22 @@ export function DevicesTable({
                             {typeLabels[d.type] || d.type}
                           </span>
                         </td>
-                        <td className="py-3 pr-4 text-xs text-text-secondary space-y-0.5">
+                        <td className="py-3 pr-4 text-xs text-text-secondary space-y-0.5 hidden md:table-cell">
                           {d.storage && <div>Нак.: <span className="text-text-primary font-medium">{d.storage}</span></div>}
                           {d.ram && <div>ОЗУ: <span className="text-text-primary font-medium">{d.ram}</span></div>}
                           {d.battery_health && <div>АКБ: <span className="text-text-primary font-medium">{d.battery_health}%</span></div>}
                         </td>
-                        <td className="py-3 pr-4 text-xs">
+                        <td className="py-3 pr-4 text-xs hidden sm:table-cell">
                           <span className={`rounded-md px-2 py-0.5 font-medium ${conditionColors[d.condition_grade ?? ""] || "bg-warm-sidebar text-text-secondary"}`}>
                             {conditionLabels[d.condition_grade ?? ""] || "—"}
                           </span>
                         </td>
-                        <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{d.imei || "—"}</td>
-                        <td className="py-3 pr-4 text-xs text-text-secondary">
+                        <td className="py-3 pr-4 font-mono text-xs text-text-secondary hidden md:table-cell">{d.imei || "—"}</td>
+                        <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">
                           {sourceLabels[d.source ?? ""] || d.source || "—"}
                         </td>
                         <td className="py-3 pr-4 text-right font-medium">{d.price.toLocaleString()} грн</td>
-                        <td className="py-3 pr-4 text-right text-text-secondary">
+                        <td className="py-3 pr-4 text-right text-text-secondary hidden sm:table-cell">
                           <div>{totalCost.toLocaleString()} грн</div>
                           {d.needs_repair && d.repair_cost > 0 && (
                             <div className="text-[9px] text-text-muted">({d.cost_price} + {d.repair_cost} рем.)</div>
@@ -744,6 +923,7 @@ export function DevicesTable({
               onSuccess={() => { setSelectedDevice(null); setIsEditingDevice(false); }} 
               device={selectedDevice} 
               parts={parts} 
+              safes={safes}
             />
           ) : (
             <DeviceDetailView 
@@ -802,7 +982,7 @@ function KanbanCard({
   isSelected?: boolean;
   onSelectToggle?: (id: string) => void;
 }) {
-  const totalCost = device.cost_price + (device.needs_repair ? device.repair_cost : 0);
+  const totalCost = device.cost_price + (device.repair_cost || 0);
   
   return (
     <div 
@@ -835,7 +1015,7 @@ function KanbanCard({
           </div>
 
           {/* Кнопки Дій */}
-          <div className="flex items-center gap-0.5 rounded-lg bg-warm-sidebar p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5 rounded-lg bg-warm-sidebar p-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             {device.status === 'in_stock' && onStatusChange && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStatusChange(device.id, "transit"); }}
@@ -997,7 +1177,7 @@ function KanbanCard({
             <span className="text-xs font-semibold text-text-secondary mt-1">
               {totalCost.toLocaleString()} грн
             </span>
-            {device.needs_repair && device.repair_cost > 0 && (
+            {device.repair_cost > 0 && (
               <span className="text-[9px] text-text-muted mt-0.5">
                 ({device.cost_price} + {device.repair_cost} рем.)
               </span>

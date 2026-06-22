@@ -4,6 +4,9 @@ import { useState } from "react";
 import { format } from "date-fns";
 import type { SaleWithDetails } from "@/lib/data-sales";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
+import { IconSpinner, IconDelete } from "@/components/icons";
+import { deleteSaleAction } from "@/lib/actions/sales";
+import { InlineError } from "@/components/ui/InlineError";
 
 const paymentMethods: Record<string, string> = {
   cash: "Готівка",
@@ -23,12 +26,38 @@ type SaleDetailViewProps = {
   onClose: () => void;
 };
 
-export function SaleDetailView({ sale }: SaleDetailViewProps) {
+export function SaleDetailView({ sale, onClose }: SaleDetailViewProps) {
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState("");
   const fallbackItems = parseItemsFromNotes(sale.notes);
 
   function handlePrintReceipt() {
     setIsPrintModalOpen(true);
+  }
+
+  async function handleDeleteSale() {
+    const confirmed = window.confirm(
+      "Ви впевнені, що хочете видалити цей продаж? Цю дію не можна скасувати.\nТовари будуть повернуті на склад, кошти виписані з каси, а транзакції анульовані."
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      const res = await deleteSaleAction(sale.id);
+      if (res.success) {
+        onClose();
+      } else {
+        setError(res.error || "Не вдалося видалити продаж.");
+      }
+    } catch (err) {
+      console.error("Failed to delete sale:", err);
+      setError("Сталася неочікувана помилка при видаленні.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -180,6 +209,35 @@ export function SaleDetailView({ sale }: SaleDetailViewProps) {
           className="btn-press rounded-xl bg-violet hover:bg-violet-hover text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors"
         >
           Друкувати чек
+        </button>
+      </div>
+
+      {error && (
+        <InlineError message={error} onClose={() => setError("")} />
+      )}
+
+      {/* Danger Zone */}
+      <div className="card p-5 border border-rose/20 bg-rose/[0.02] flex justify-between items-center">
+        <div>
+          <p className="font-semibold text-text-primary text-rose text-sm">Небезпечна зона</p>
+          <p className="text-[10px] text-text-secondary mt-0.5">Повне видалення угоди, повернення товарів та коштів</p>
+        </div>
+        <button
+          disabled={isDeleting}
+          onClick={handleDeleteSale}
+          className="btn-press rounded-xl bg-rose hover:bg-rose/90 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+        >
+          {isDeleting ? (
+            <>
+              <IconSpinner size={14} className="animate-spin" />
+              Видалення...
+            </>
+          ) : (
+            <>
+              <IconDelete size={14} />
+              Видалити
+            </>
+          )}
         </button>
       </div>
 

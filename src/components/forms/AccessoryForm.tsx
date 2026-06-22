@@ -6,7 +6,19 @@ import { Input } from "@/components/ui/Input";
 
 const initialState = { success: false, error: "" };
 
-export function AccessoryForm({ onSuccess, accessory }: { onSuccess: () => void; accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null } }) {
+import type { Database } from "@/types/database";
+
+type Safe = Database["public"]["Tables"]["safes"]["Row"];
+
+export function AccessoryForm({ 
+  onSuccess, 
+  accessory,
+  safes = []
+}: { 
+  onSuccess: () => void; 
+  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null };
+  safes?: Safe[];
+}) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -80,6 +92,26 @@ export function AccessoryForm({ onSuccess, accessory }: { onSuccess: () => void;
           <Input label="Штрих-код (EAN)" name="barcode" placeholder="4820000000000" defaultValue={accessory?.barcode ?? ""} />
           <Input label="Розташування на складі" name="warehouse_location" placeholder="Стелаж Б, полиця 1" defaultValue={accessory?.warehouse_location ?? ""} />
         </div>
+
+        {!accessory && safes.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
+              <select
+                name="safe_id"
+                required
+                defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
+                className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+              >
+                {safes.map((safe) => (
+                  <option key={safe.id} value={safe.id}>
+                    {safe.name} ({safe.balance.toLocaleString()} грн)
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       <button

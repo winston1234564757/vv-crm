@@ -65,3 +65,5 @@ test123.*
 
 # debug logs
 *.log
+
+.env*

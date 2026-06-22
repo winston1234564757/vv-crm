@@ -62,13 +62,12 @@ async function autoCreateRepairForDevice(
     device_imei: device.imei ?? null,
     issue,
     price: device.repair_cost ?? 0,
-    status: "received",
+    status: "in_progress",
     tracking_token,
     warranty_months: 0,
   });
 }
 
-type DeviceInsert = Database["public"]["Tables"]["devices"]["Insert"];
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
 type AccessoryInsert = Database["public"]["Tables"]["accessories"]["Insert"];
 type AccessoryUpdate = Database["public"]["Tables"]["accessories"]["Update"];
@@ -168,6 +167,13 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     }
 
     const supabase = await createClient();
+
+    // Get current user profile for logging
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
+    }
+
     const { data: inserted, error } = await supabase.from("devices").insert({
       type: parsed.type as string,
       brand: parsed.brand,
@@ -203,6 +209,30 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     }).select("id").single();
 
     if (error) throw error;
+
+    const safeId = formData.get("safe_id") as string | null;
+    let chosenSafeId = safeId;
+    if (!chosenSafeId) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
+    }
+
+    if (parsed.cost_price > 0 && chosenSafeId && inserted?.id) {
+      const description = `Закупівля техніки: ${parsed.brand} ${parsed.model}${parsed.imei ? ` (IMEI: ${parsed.imei})` : ""}`;
+      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+        item_type: "device",
+        item_id: inserted.id,
+        safe_id: chosenSafeId,
+        amount: parsed.cost_price,
+        description,
+        user_id: user.id,
+      });
+      if (rpcErr) throw rpcErr;
+    }
 
     // Auto-create repair card if device needs repair
     if (parsed.needs_repair && inserted?.id) {
@@ -253,7 +283,14 @@ export async function createAccessory(prevState: ActionState | null, formData: F
     const parsed = accessorySchema.parse(data);
 
     const supabase = await createClient();
-    const { error } = await supabase.from("accessories").insert({
+
+    // Get current user profile for logging
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
+    }
+
+    const { data: inserted, error } = await supabase.from("accessories").insert({
       type: parsed.type,
       name: parsed.name,
       price: parsed.price,
@@ -266,9 +303,34 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       barcode: parsed.barcode,
       warehouse_location: parsed.warehouse_location,
       status: "active"
-    } as AccessoryInsert);
+    } as AccessoryInsert).select("id").single();
 
     if (error) throw error;
+
+    const safeId = formData.get("safe_id") as string | null;
+    let chosenSafeId = safeId;
+    if (!chosenSafeId) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
+    }
+
+    const totalCost = parsed.cost_price * parsed.stock;
+    if (totalCost > 0 && chosenSafeId && inserted?.id) {
+      const description = `Закупівля аксесуарів: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
+      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+        item_type: "accessory",
+        item_id: inserted.id,
+        safe_id: chosenSafeId,
+        amount: totalCost,
+        description,
+        user_id: user.id,
+      });
+      if (rpcErr) throw rpcErr;
+    }
 
     revalidatePath("/admin/accessories");
     revalidatePath("/admin");
@@ -447,6 +509,47 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       parsed.photo_urls = existingDevice?.photo_urls || [];
     }
 
+    // Захист: якщо пристрій має активний складський ремонт, ігноруємо ручні зміни ремонтних полів форми
+    const { data: activeRepair } = await supabase
+      .from("repairs")
+      .select("id, cost, status")
+      .eq("inventory_device_id", id)
+      .not("status", "in", `("completed","handed_over","cancelled")`)
+      .limit(1)
+      .maybeSingle();
+
+    if (activeRepair) {
+      parsed.needs_repair = true;
+      
+      // Якщо вартість ремонту на формі відрізняється від поточної в БД, оновлюємо картку ремонту
+      if (parsed.repair_cost !== activeRepair.cost) {
+        await supabase
+          .from("repairs")
+          .update({ cost: parsed.repair_cost })
+          .eq("id", activeRepair.id);
+      }
+
+      let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
+      if (activeRepair.status === "awaiting_parts") {
+        mappedRepairStatus = "waiting_parts";
+      } else if (["in_progress", "diagnostics"].includes(activeRepair.status)) {
+        mappedRepairStatus = "in_progress";
+      } else if (activeRepair.status === "ready") {
+        mappedRepairStatus = "completed";
+      }
+      parsed.repair_status = mappedRepairStatus;
+
+      // Зберігаємо раніше записані деталі (вони управляються автоматично через списання)
+      const { data: currentDev } = await supabase
+        .from("devices")
+        .select("repair_parts_replaced")
+        .eq("id", id)
+        .single();
+      if (currentDev) {
+        parsed.repair_parts_replaced = (currentDev.repair_parts_replaced as unknown as { name: string; cost: number; origin: string }[]) || [];
+      }
+    }
+
     // Check previous needs_repair value before update
     const { data: prevDevice } = await supabase
       .from("devices")
@@ -547,8 +650,38 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
 
     const parsed = schema.parse(items);
 
-    const { error } = await supabase.from("accessories").insert(parsed);
+    // Get current user profile for logging
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
+    }
+
+    const { data: inserted, error } = await supabase.from("accessories").insert(parsed).select("id, name, cost_price, stock");
     if (error) throw error;
+
+    const { data: opexSafe } = await supabase
+      .from("safes")
+      .select("id")
+      .eq("type", "opex")
+      .single();
+    
+    if (opexSafe) {
+      for (const item of inserted || []) {
+        const totalCost = item.cost_price * item.stock;
+        if (totalCost > 0) {
+          const description = `Імпорт аксесуарів: ${item.name} (Кількість: ${item.stock} шт.)`;
+          const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+            item_type: "accessory",
+            item_id: item.id,
+            safe_id: opexSafe.id,
+            amount: totalCost,
+            description,
+            user_id: user.id,
+          });
+          if (rpcErr) throw rpcErr;
+        }
+      }
+    }
 
     revalidatePath("/admin/accessories");
     revalidatePath("/admin");

@@ -9,13 +9,16 @@ import DeviceFormSubmit from "./DeviceFormSubmit";
 import { DeviceFormData, WarehousePart } from "@/lib/types/device.types";
 import { useDeviceForm } from "./useDeviceForm";
 
+import type { Database } from "@/types/database";
+
 interface DeviceFormProps {
   onSuccess: () => void;
   device: DeviceFormData;
   parts?: WarehousePart[];
+  safes?: Database["public"]["Tables"]["safes"]["Row"][];
 }
 
-export function DeviceForm({ onSuccess, device, parts = [] }: DeviceFormProps) {
+export function DeviceForm({ onSuccess, device, parts = [], safes = [] }: DeviceFormProps) {
   const form = useDeviceForm({ onSuccess, device, parts });
 
   return (
@@ -33,7 +36,7 @@ export function DeviceForm({ onSuccess, device, parts = [] }: DeviceFormProps) {
 
       <DeviceFormPhotos device={device} />
 
-      <DeviceFormSource device={device} />
+      <DeviceFormSource device={device} safes={safes} />
 
       <DeviceFormCondition device={device} />
 

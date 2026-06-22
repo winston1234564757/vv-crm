@@ -11,7 +11,7 @@ const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 const migrations = [
-  "20260614030000_atomic_stock_functions.sql"
+  "20260623000000_ai_metadata_tables.sql"
 ];
 
 async function runMigration(fileName) {

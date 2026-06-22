@@ -103,3 +103,23 @@ export async function validatePromoCode(promo_code: string) {
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function deletePartner(id: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    // Delete the partner record from database
+    const { error } = await supabase
+      .from("partners")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    revalidatePath("/admin/partners");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+

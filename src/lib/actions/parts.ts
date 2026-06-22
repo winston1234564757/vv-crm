@@ -38,8 +38,40 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
     };
     const parsed = partSchema.parse(data);
     const supabase = await createClient();
-    const { error } = await supabase.from("parts").insert(parsed);
+
+    // Get current user profile for logging
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
+    }
+
+    const { data: inserted, error } = await supabase.from("parts").insert(parsed).select("id").single();
     if (error) throw error;
+
+    const safeId = formData.get("safe_id") as string | null;
+    let chosenSafeId = safeId;
+    if (!chosenSafeId) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
+    }
+
+    const totalCost = parsed.cost_price * parsed.stock;
+    if (totalCost > 0 && chosenSafeId && inserted?.id) {
+      const description = `Закупівля деталей: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
+      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+        item_type: "part",
+        item_id: inserted.id,
+        safe_id: chosenSafeId,
+        amount: totalCost,
+        description,
+        user_id: user.id,
+      });
+      if (rpcErr) throw rpcErr;
+    }
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
     return { success: true };

@@ -93,6 +93,7 @@ export function POSClient({
   
   const [activeCategory, setActiveCategory] = useState<"device" | "accessory" | "part" | "service" | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeMobileTab, setActiveMobileTab] = useState<"catalog" | "cart">("catalog");
   const [promoCode, setPromoCode] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [promoMessage, setPromoMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -171,6 +172,141 @@ export function POSClient({
     }
     return [];
   }, [activeCategory, searchQuery, inStockDevices, activeAccessories, activeParts, activeServices]);
+
+  // Smart Recommendations Engine based on cart contents
+  const recommendations = useMemo(() => {
+    if (cart.length === 0) return [];
+
+    const recs: Array<{
+      item: Accessory | Part;
+      type: "accessory" | "part";
+      reason: string;
+    }> = [];
+
+    const addedIds = new Set<string>();
+
+    const hasChargingPort = cart.some(c => c.name.toLowerCase().includes("гнізд"));
+    const hasScreen = cart.some(c => 
+      c.name.toLowerCase().includes("екран") || 
+      c.name.toLowerCase().includes("скло") || 
+      c.name.toLowerCase().includes("диспл")
+    );
+    const hasBattery = cart.some(c => 
+      c.name.toLowerCase().includes("акумул") || 
+      c.name.toLowerCase().includes("батаре")
+    );
+    const hasDevice = cart.some(c => c.item_type === "device");
+
+    const isAlreadyInCart = (id: string, type: string) => {
+      return cart.some(c => c.id === id && c.item_type === type);
+    };
+
+    // Rule 1: Charging port repair -> USB-C / Lightning Cables & Chargers
+    if (hasChargingPort) {
+      accessories.forEach(acc => {
+        if (acc.stock > 0 && acc.status === "active" && !isAlreadyInCart(acc.id, "accessory") && !addedIds.has(acc.id)) {
+          const lowerName = acc.name.toLowerCase();
+          if (
+            lowerName.includes("кабель") || 
+            lowerName.includes("зарядк") || 
+            lowerName.includes("кабел") || 
+            lowerName.includes("зарядн") || 
+            lowerName.includes("usb") || 
+            lowerName.includes("type-c") || 
+            lowerName.includes("lightning")
+          ) {
+            recs.push({ 
+              item: acc, 
+              type: "accessory", 
+              reason: "До ремонту гнізда (новий кабель / зарядний пристрій)" 
+            });
+            addedIds.add(acc.id);
+          }
+        }
+      });
+    }
+
+    // Rule 2: Screen / Glass repair -> Protective Glass / Film
+    if (hasScreen) {
+      accessories.forEach(acc => {
+        if (acc.stock > 0 && acc.status === "active" && !isAlreadyInCart(acc.id, "accessory") && !addedIds.has(acc.id)) {
+          const lowerName = acc.name.toLowerCase();
+          if (lowerName.includes("скло") || lowerName.includes("плівк") || lowerName.includes("захисн")) {
+            recs.push({ 
+              item: acc, 
+              type: "accessory", 
+              reason: "До заміни екрану (захисне скло / плівка)" 
+            });
+            addedIds.add(acc.id);
+          }
+        }
+      });
+    }
+
+    // Rule 3: Battery replacement -> Power Banks & Chargers
+    if (hasBattery) {
+      accessories.forEach(acc => {
+        if (acc.stock > 0 && acc.status === "active" && !isAlreadyInCart(acc.id, "accessory") && !addedIds.has(acc.id)) {
+          const lowerName = acc.name.toLowerCase();
+          if (
+            lowerName.includes("powerbank") || 
+            lowerName.includes("паверб") || 
+            lowerName.includes("зарядк") || 
+            lowerName.includes("зарядн") || 
+            lowerName.includes("акумулятор")
+          ) {
+            recs.push({ 
+              item: acc, 
+              type: "accessory", 
+              reason: "До нового акумулятора (павербанк / зарядка)" 
+            });
+            addedIds.add(acc.id);
+          }
+        }
+      });
+    }
+
+    // Rule 4: Physical Device -> Cases, Glass Protectors, Cables
+    if (hasDevice) {
+      accessories.forEach(acc => {
+        if (acc.stock > 0 && acc.status === "active" && !isAlreadyInCart(acc.id, "accessory") && !addedIds.has(acc.id)) {
+          const lowerName = acc.name.toLowerCase();
+          if (
+            lowerName.includes("чохол") || 
+            lowerName.includes("чехол") || 
+            lowerName.includes("скло") || 
+            lowerName.includes("кабель") || 
+            lowerName.includes("плівк")
+          ) {
+            recs.push({ 
+              item: acc, 
+              type: "accessory", 
+              reason: "Супутній аксесуар до придбаного пристрою" 
+            });
+            addedIds.add(acc.id);
+          }
+        }
+      });
+    }
+
+    // Default recommendation: suggest top accessories with highest stock
+    if (recs.length === 0) {
+      const topAccessories = [...accessories]
+        .filter(acc => acc.stock > 0 && acc.status === "active" && !isAlreadyInCart(acc.id, "accessory"))
+        .sort((a, b) => b.stock - a.stock)
+        .slice(0, 3);
+      
+      topAccessories.forEach(acc => {
+        recs.push({ 
+          item: acc, 
+          type: "accessory", 
+          reason: "Популярний аксесуар з високим запасом" 
+        });
+      });
+    }
+
+    return recs.slice(0, 3); // Limit to top 3 recommendations to keep clean
+  }, [cart, accessories, parts]);
 
   // Quick Promo validation
   const handleCheckPromo = async () => {
@@ -343,10 +479,42 @@ export function POSClient({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]">
+    <div className="flex flex-col gap-4 lg:gap-6 min-h-[calc(100vh-120px)] w-full">
       
-      {/* LEFT COLUMN: Shopping Cart Panel */}
-      <div className="w-full lg:w-[42%] flex flex-col justify-between card p-5 bg-gradient-to-br from-violet/5 to-iris/5 border-iris/15 max-h-[85vh] overflow-y-auto">
+      {/* Mobile tabs switcher */}
+      <div className="flex lg:hidden bg-warm-sidebar rounded-2xl p-1 border border-warm-border/50 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab("catalog")}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all ${
+            activeMobileTab === "catalog"
+              ? "bg-white text-text-primary shadow-sm"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          🏪 Вітрина
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab("cart")}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all relative ${
+            activeMobileTab === "cart"
+              ? "bg-white text-text-primary shadow-sm"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          🛒 Кошик
+          {cart.length > 0 && (
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-violet text-white text-[10px] font-bold px-1.5 animate-pulse">
+              {cart.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 w-full flex-1">
+        {/* LEFT COLUMN: Shopping Cart Panel */}
+        <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between card p-5 bg-gradient-to-br from-violet/5 to-iris/5 border-iris/15 max-h-[85vh] overflow-y-auto`}>
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-iris/10 pb-3">
             <h2 className="text-base font-semibold text-text-primary">Кошик замовлення</h2>
@@ -522,6 +690,55 @@ export function POSClient({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Smart Recommendations Section */}
+      {recommendations.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-violet/10 to-iris/10 border border-violet/20 space-y-3 mt-1 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs">💡</span>
+              <h3 className="text-[11px] font-extrabold text-violet tracking-tight uppercase">Допродажі та Рекомендації</h3>
+            </div>
+            <span className="text-[9px] font-bold text-violet bg-white/60 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
+              Smart POS
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {recommendations.map((rec) => {
+              const price = rec.item.price || 0;
+              return (
+                <div 
+                  key={`${rec.item.id}-${rec.type}`}
+                  onClick={() => addToCart(rec.item, rec.type)}
+                  className="flex items-center justify-between bg-white/70 hover:bg-white/90 border border-violet/10 hover:border-violet/30 p-2.5 rounded-xl transition-all duration-200 cursor-pointer group active:scale-[0.99]"
+                >
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-semibold text-text-primary truncate block max-w-[170px] group-hover:text-violet transition-colors">
+                        {rec.item.name}
+                      </span>
+                      <span className="text-[9px] text-text-secondary shrink-0 font-mono">
+                        ({rec.item.stock} шт)
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-[#A855F7] font-medium leading-tight mt-0.5">
+                      {rec.reason}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-extrabold text-violet">
+                      {price} ₴
+                    </span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-violet/10 text-violet font-bold text-xs group-hover:bg-violet group-hover:text-white transition-all">
+                      +
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
 
         {/* Totals & Payments */}
@@ -708,7 +925,7 @@ export function POSClient({
       </div>
 
       {/* RIGHT COLUMN: Bento Storefront Grid */}
-      <div className="w-full lg:w-[58%] flex flex-col gap-4 max-h-[85vh] overflow-y-auto pr-1">
+      <div className={`${activeMobileTab === "catalog" ? "flex" : "hidden lg:flex"} w-full lg:w-[58%] flex-col gap-4 max-h-[85vh] overflow-y-auto pr-1`}>
         
         {/* Bento header and Navigation */}
         <div className="flex items-center justify-between bg-white border border-warm-border/50 p-4 rounded-2xl">
@@ -958,7 +1175,7 @@ export function POSClient({
                           <span className="text-xs font-extrabold text-violet">
                             {displayPrice} ₴
                           </span>
-                          <span className="text-[10px] text-violet font-semibold bg-violet/5 rounded-lg px-2.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <span className="text-[10px] text-violet font-semibold bg-violet/5 rounded-lg px-2.5 py-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                             + Додати
                           </span>
                         </div>
@@ -970,6 +1187,8 @@ export function POSClient({
             )}
           </div>
         )}
+      </div>
+
       </div>
 
       {/* Success checkout Dialog overlay */}

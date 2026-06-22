@@ -742,6 +742,9 @@
             "$ref": "#/parameters/rowFilter.customers.last_visit"
           },
           {
+            "$ref": "#/parameters/rowFilter.customers.ai_profile"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -868,6 +871,9 @@
             "$ref": "#/parameters/rowFilter.customers.last_visit"
           },
           {
+            "$ref": "#/parameters/rowFilter.customers.ai_profile"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -944,6 +950,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.customers.last_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.customers.ai_profile"
           },
           {
             "$ref": "#/parameters/body.customers"
@@ -1682,6 +1691,9 @@
             "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
           },
           {
+            "$ref": "#/parameters/rowFilter.repairs.ai_diagnostic"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -1853,6 +1865,9 @@
             "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
           },
           {
+            "$ref": "#/parameters/rowFilter.repairs.ai_diagnostic"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -1974,6 +1989,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.repairs.inventory_device_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.repairs.ai_diagnostic"
           },
           {
             "$ref": "#/parameters/body.repairs"
@@ -3021,6 +3039,9 @@
             "$ref": "#/parameters/rowFilter.sale_items.total_price"
           },
           {
+            "$ref": "#/parameters/rowFilter.sale_items.unit_cost"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -3105,6 +3126,9 @@
             "$ref": "#/parameters/rowFilter.sale_items.total_price"
           },
           {
+            "$ref": "#/parameters/rowFilter.sale_items.unit_cost"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -3139,6 +3163,9 @@
           },
           {
             "$ref": "#/parameters/rowFilter.sale_items.total_price"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.sale_items.unit_cost"
           },
           {
             "$ref": "#/parameters/body.sale_items"
@@ -4017,6 +4044,158 @@
         ]
       }
     },
+    "/ai_entity_insights": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.insights"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.updated_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ai_entity_insights"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "ai_entity_insights"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.ai_entity_insights"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "ai_entity_insights"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.insights"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.updated_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_entity_insights"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.entity_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.insights"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.ai_entity_insights.updated_at"
+          },
+          {
+            "$ref": "#/parameters/body.ai_entity_insights"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ai_entity_insights"
+        ]
+      }
+    },
     "/accessories": {
       "get": {
         "parameters": [
@@ -4826,6 +5005,410 @@
         ]
       }
     },
+    "/rpc/adjust_accessory_stock": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "accessory_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qty": {
+                  "format": "integer",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "accessory_id",
+                "qty"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) adjust_accessory_stock"
+        ]
+      }
+    },
+    "/rpc/get_inventory_stockout_forecast": {
+      "get": {
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_inventory_stockout_forecast"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_inventory_stockout_forecast"
+        ]
+      }
+    },
+    "/rpc/sell_accessory": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "accessory_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qty": {
+                  "format": "integer",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "accessory_id",
+                "qty"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) sell_accessory"
+        ]
+      }
+    },
+    "/rpc/create_expense": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "amount": {
+                  "format": "integer",
+                  "type": "integer"
+                },
+                "category_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "description": {
+                  "format": "text",
+                  "type": "string"
+                },
+                "paid_from_safe_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "user_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "category_id",
+                "amount",
+                "paid_from_safe_id",
+                "description",
+                "user_id"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) create_expense"
+        ]
+      }
+    },
+    "/rpc/distribute_register_funds": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "amount": {
+                  "format": "integer",
+                  "type": "integer"
+                },
+                "cash_register_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "desc_text": {
+                  "format": "text",
+                  "type": "string"
+                },
+                "growth_amount": {
+                  "format": "integer",
+                  "type": "integer"
+                },
+                "net_profit_amount": {
+                  "format": "integer",
+                  "type": "integer"
+                },
+                "opex_amount": {
+                  "format": "integer",
+                  "type": "integer"
+                },
+                "user_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cash_register_id",
+                "amount",
+                "opex_amount",
+                "growth_amount",
+                "net_profit_amount",
+                "desc_text",
+                "user_id"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) distribute_register_funds"
+        ]
+      }
+    },
+    "/rpc/get_model_demand_analytics": {
+      "get": {
+        "parameters": [
+          {
+            "format": "integer",
+            "in": "query",
+            "name": "days_back",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_model_demand_analytics"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "days_back": {
+                  "format": "integer",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_model_demand_analytics"
+        ]
+      }
+    },
+    "/rpc/adjust_part_stock": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "part_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "qty": {
+                  "format": "integer",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "part_id",
+                "qty"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) adjust_part_stock"
+        ]
+      }
+    },
+    "/rpc/receive_purchase_atomic": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "p_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p_id"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) receive_purchase_atomic"
+        ]
+      }
+    },
     "/rpc/transfer_funds": {
       "post": {
         "parameters": [
@@ -4892,6 +5475,193 @@
         },
         "tags": [
           "(rpc) transfer_funds"
+        ]
+      }
+    },
+    "/rpc/get_revenue_heatmap": {
+      "get": {
+        "parameters": [
+          {
+            "format": "integer",
+            "in": "query",
+            "name": "days_back",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_revenue_heatmap"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "days_back": {
+                  "format": "integer",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_revenue_heatmap"
+        ]
+      }
+    },
+    "/rpc/pay_purchase_atomic": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "p_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "p_safe_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "user_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p_id",
+                "p_safe_id",
+                "user_id"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) pay_purchase_atomic"
+        ]
+      }
+    },
+    "/rpc/delete_sale": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "sale_id_to_delete": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sale_id_to_delete"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) delete_sale"
+        ]
+      }
+    },
+    "/rpc/delete_transaction": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "transaction_id_to_delete": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "transaction_id_to_delete"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) delete_transaction"
         ]
       }
     }
@@ -5194,6 +5964,9 @@
         "last_visit": {
           "format": "timestamp with time zone",
           "type": "string"
+        },
+        "ai_profile": {
+          "format": "jsonb"
         }
       },
       "type": "object"
@@ -5551,6 +6324,9 @@
           "description": "Note:\nThis is a Foreign Key to `devices.id`.<fk table='devices' column='id'/>",
           "format": "uuid",
           "type": "string"
+        },
+        "ai_diagnostic": {
+          "format": "jsonb"
         }
       },
       "type": "object"
@@ -5982,6 +6758,11 @@
         "total_price": {
           "format": "integer",
           "type": "integer"
+        },
+        "unit_cost": {
+          "default": 0,
+          "format": "numeric",
+          "type": "number"
         }
       },
       "type": "object"
@@ -6279,6 +7060,46 @@
         "total_price": {
           "format": "integer",
           "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ai_entity_insights": {
+      "required": [
+        "id",
+        "entity_type",
+        "entity_id",
+        "insights",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "entity_type": {
+          "format": "text",
+          "type": "string"
+        },
+        "entity_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "insights": {
+          "format": "jsonb"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "updated_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
         }
       },
       "type": "object"
@@ -6978,6 +7799,12 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.customers.ai_profile": {
+      "name": "ai_profile",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.expense_categories": {
       "name": "expense_categories",
       "description": "expense_categories",
@@ -7379,6 +8206,12 @@
     },
     "rowFilter.repairs.inventory_device_id": {
       "name": "inventory_device_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.repairs.ai_diagnostic": {
+      "name": "ai_diagnostic",
       "required": false,
       "in": "query",
       "type": "string"
@@ -7878,6 +8711,12 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.sale_items.unit_cost": {
+      "name": "unit_cost",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.purchases": {
       "name": "purchases",
       "description": "purchases",
@@ -8222,6 +9061,51 @@
     },
     "rowFilter.purchase_items.total_price": {
       "name": "total_price",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.ai_entity_insights": {
+      "name": "ai_entity_insights",
+      "description": "ai_entity_insights",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/ai_entity_insights"
+      }
+    },
+    "rowFilter.ai_entity_insights.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_entity_insights.entity_type": {
+      "name": "entity_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_entity_insights.entity_id": {
+      "name": "entity_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_entity_insights.insights": {
+      "name": "insights",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_entity_insights.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.ai_entity_insights.updated_at": {
+      "name": "updated_at",
       "required": false,
       "in": "query",
       "type": "string"

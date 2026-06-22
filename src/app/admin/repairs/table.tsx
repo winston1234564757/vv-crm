@@ -269,16 +269,16 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                   />
                 </th>
                 <th className="pb-2 pr-4">№</th>
-                <th className="pb-2 pr-4">Тип</th>
+                <th className="pb-2 pr-4 hidden md:table-cell">Тип</th>
                 <th className="pb-2 pr-4">Клієнт</th>
                 <th className="pb-2 pr-4">Пристрій</th>
-                <th className="pb-2 pr-4">Дедлайн</th>
-                <th className="pb-2 pr-4">ТТН Нової Пошти</th>
+                <th className="pb-2 pr-4 hidden md:table-cell">Дедлайн</th>
+                <th className="pb-2 pr-4 hidden md:table-cell">ТТН Нової Пошти</th>
                 <th className="pb-2 pr-4 text-right">Ціна</th>
                 <th className="pb-2 pr-4">Статус</th>
-                <th className="pb-2 pr-4">Оплата</th>
-                <th className="pb-2 pr-4">Джерело</th>
-                <th className="pb-2 pr-4">Стан</th>
+                <th className="pb-2 pr-4 hidden sm:table-cell">Оплата</th>
+                <th className="pb-2 pr-4 hidden lg:table-cell">Джерело</th>
+                <th className="pb-2 pr-4 hidden lg:table-cell">Стан</th>
               </tr>
             </thead>
             <tbody>
@@ -310,7 +310,7 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                         />
                       </td>
                       <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{r.id.substring(0, 8)}</td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4 hidden md:table-cell">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${
                           r.repair_type === "internal"
                             ? "bg-amber/10 text-amber"
@@ -330,7 +330,7 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3 pr-4 hidden md:table-cell">
                         {r.estimated_completion ? (() => {
                           const isOverdue = 
                             new Date(r.estimated_completion) < new Date() && 
@@ -364,7 +364,7 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                           <span className="text-xs text-text-muted">—</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-text-secondary">
+                      <td className="py-3 pr-4 text-text-secondary hidden md:table-cell">
                         {r.np_ttn ? (
                           <a
                             href={`https://novaposhta.ua/tracking/?cargo_number=${r.np_ttn}`}
@@ -407,13 +407,13 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                           </select>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-xs">
+                      <td className="py-3 pr-4 text-xs hidden sm:table-cell">
                         <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${paymentColors[r.payment_status ?? ""] || ""}`}>
                           {paymentLabels[r.payment_status ?? ""] || "—"}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary">{sourceLabels[r.source ?? ""] || r.source || "—"}</td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary">{conditionLabels[r.device_condition ?? ""] || "—"}</td>
+                      <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{sourceLabels[r.source ?? ""] || r.source || "—"}</td>
+                      <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{conditionLabels[r.device_condition ?? ""] || "—"}</td>
                     </tr>
                   );
                 })

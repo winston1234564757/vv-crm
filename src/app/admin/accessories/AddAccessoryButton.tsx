@@ -5,7 +5,9 @@ import Drawer from "@/components/ui/Drawer";
 import { AccessoryForm } from "@/components/forms/AccessoryForm";
 import { IconPlus } from "@/components/icons";
 
-export function AddAccessoryButton() {
+import type { Database } from "@/types/database";
+
+export function AddAccessoryButton({ safes = [] }: { safes?: Database["public"]["Tables"]["safes"]["Row"][] }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -18,7 +20,7 @@ export function AddAccessoryButton() {
       </button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Новий аксесуар">
-        <AccessoryForm onSuccess={() => setIsOpen(false)} />
+        <AccessoryForm onSuccess={() => setIsOpen(false)} safes={safes} />
       </Drawer>
     </>
   );

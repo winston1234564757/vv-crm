@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getDevices } from "@/lib/data-devices";
 import { getCustomers } from "@/lib/data-customers";
-import { getCashRegisters } from "@/lib/data-finance";
+import { getCashRegisters, getSafes } from "@/lib/data-finance";
 import { getAccessories } from "@/lib/data-accessories";
 import { getServices } from "@/lib/data-services";
 import { getParts } from "@/lib/data-parts";
@@ -14,7 +14,7 @@ import GlassCard from "@/components/GlassCard";
 import { supabaseCast } from "@/lib/utils/supabase";
 
 export default async function DevicesPage() {
-  const [devices, customers, cashRegisters, accessories, services, parts, repairs] = await Promise.all([
+  const [devices, customers, cashRegisters, accessories, services, parts, repairs, safes] = await Promise.all([
     getDevices(),
     getCustomers(),
     getCashRegisters(),
@@ -22,6 +22,7 @@ export default async function DevicesPage() {
     getServices(),
     getParts(),
     getInternalRepairs(),
+    getSafes(),
   ]);
 
   const inStockDevices = devices.filter((d) => d.status === "in_stock");
@@ -44,7 +45,7 @@ export default async function DevicesPage() {
             {devices.length} {pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі
           </p>
         </div>
-        <AddDeviceButton size="half" parts={parts} />
+        <AddDeviceButton size="half" parts={parts} safes={safes} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
@@ -76,6 +77,7 @@ export default async function DevicesPage() {
             services={services}
             parts={parts} 
             repairs={repairs}
+            safes={safes}
           />
         </GlassCard>
       </div>

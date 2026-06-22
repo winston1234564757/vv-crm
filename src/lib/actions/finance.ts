@@ -151,3 +151,48 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function deleteTransactionAction(transactionId: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Authenticate user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    // 2. Fetch user role
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Не вдалося перевірити права доступу користувача.");
+    }
+
+    // 3. Restrict access to owner or manager
+    if (profile.role !== "owner" && profile.role !== "manager") {
+      throw new Error("Недостатньо прав для видалення транзакцій. Ця дія дозволена тільки власникам та менеджерам.");
+    }
+
+    // 4. Invoke the atomic stored procedure to revert and delete transaction
+    const { error: rpcError } = await supabase.rpc("delete_transaction", {
+      transaction_id_to_delete: transactionId
+    });
+
+    if (rpcError) throw rpcError;
+
+    // 5. Revalidate cache
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+
+    return { success: true };
+  } catch (err) {
+    console.error("deleteTransactionAction Error:", err);
+    return { success: false, error: parseError(err) };
+  }
+}
+

@@ -34,21 +34,21 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {(devices.length > 0 || accessories.length > 0) && (
         <section className="mb-8 rounded-2xl border border-warm-border/60 bg-white p-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Пошук..." className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-sm outline-none focus:border-violet/40" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Пошук..." className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-base md:text-sm outline-none focus:border-violet/40 col-span-2 md:col-span-1" />
             {brands.length > 0 && (
-              <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-sm outline-none focus:border-violet/40">
+              <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-base md:text-sm outline-none focus:border-violet/40">
                 <option value="">Всі бренди</option>
                 {brands.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             )}
             {types.length > 0 && (
-              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-sm outline-none focus:border-violet/40">
+              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-base md:text-sm outline-none focus:border-violet/40">
                 <option value="">Всі типи</option>
                 {types.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
-            <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="Ціна від" className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-sm outline-none focus:border-violet/40" />
-            <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="Ціна до" className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-sm outline-none focus:border-violet/40" />
+            <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="Ціна від" className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-base md:text-sm outline-none focus:border-violet/40" />
+            <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="Ціна до" className="w-full rounded-xl border border-warm-border/60 bg-warm-bg px-4 py-2.5 text-base md:text-sm outline-none focus:border-violet/40" />
           </div>
         </section>
       )}

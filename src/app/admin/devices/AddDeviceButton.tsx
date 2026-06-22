@@ -11,12 +11,14 @@ export function AddDeviceButton({
   className = "flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer",
   children = <><IconPlus /> Додати техніку</>,
   size = "default",
-  parts = []
+  parts = [],
+  safes = []
 }: {
   className?: string;
   children?: React.ReactNode;
   size?: "default" | "full" | "half";
   parts?: Database["public"]["Tables"]["parts"]["Row"][];
+  safes?: Database["public"]["Tables"]["safes"]["Row"][];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -66,7 +68,7 @@ export function AddDeviceButton({
       </button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Новий пристрій" size={size}>
-        <DeviceForm onSuccess={() => setIsOpen(false)} device={emptyDevice} parts={parts} />
+        <DeviceForm onSuccess={() => setIsOpen(false)} device={emptyDevice} parts={parts} safes={safes} />
       </Drawer>
     </>
   );

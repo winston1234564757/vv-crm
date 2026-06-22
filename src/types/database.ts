@@ -86,6 +86,34 @@ export type Database = {
           },
         ]
       }
+      ai_entity_insights: {
+        Row: {
+          id: string
+          entity_type: string
+          entity_id: string
+          insights: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: string
+          entity_id: string
+          insights: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: string
+          entity_id?: string
+          insights?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
       cash_registers: {
         Row: {
           id: string
@@ -137,6 +165,7 @@ export type Database = {
           orders_total: number | null
           orders_completed: number | null
           last_visit: string | null
+          ai_profile: Json | null
         }
         Insert: {
           id?: string
@@ -160,6 +189,7 @@ export type Database = {
           orders_total?: number | null
           orders_completed?: number | null
           last_visit?: string | null
+          ai_profile?: Json | null
         }
         Update: {
           id?: string
@@ -183,6 +213,7 @@ export type Database = {
           orders_total?: number | null
           orders_completed?: number | null
           last_visit?: string | null
+          ai_profile?: Json | null
         }
         Relationships: [
         ]
@@ -847,6 +878,7 @@ export type Database = {
           partner_id: string | null
           promo_code_used: string | null
           inventory_device_id: string | null
+          ai_diagnostic: Json | null
         }
         Insert: {
           id?: string
@@ -885,6 +917,7 @@ export type Database = {
           partner_id?: string | null
           promo_code_used?: string | null
           inventory_device_id?: string | null
+          ai_diagnostic?: Json | null
         }
         Update: {
           id?: string
@@ -923,6 +956,7 @@ export type Database = {
           partner_id?: string | null
           promo_code_used?: string | null
           inventory_device_id?: string | null
+          ai_diagnostic?: Json | null
         }
         Relationships: [
           {
@@ -992,7 +1026,7 @@ export type Database = {
           quantity: number
           unit_price: number
           total_price: number
-          unit_cost: number
+          unit_cost: number | null
         }
         Insert: {
           id?: string
@@ -1002,7 +1036,7 @@ export type Database = {
           quantity?: number
           unit_price: number
           total_price: number
-          unit_cost?: number
+          unit_cost?: number | null
         }
         Update: {
           id?: string
@@ -1012,7 +1046,7 @@ export type Database = {
           quantity?: number
           unit_price?: number
           total_price?: number
-          unit_cost?: number
+          unit_cost?: number | null
         }
         Relationships: [
           {
@@ -1310,6 +1344,68 @@ export type Database = {
           user_id: string
         }
         Returns: undefined
+      }
+      delete_transaction: {
+        Args: {
+          transaction_id_to_delete: string
+        }
+        Returns: undefined
+      }
+      delete_sale: {
+        Args: {
+          sale_id_to_delete: string
+        }
+        Returns: undefined
+      }
+      get_model_demand_analytics: {
+        Args: {
+          days_back?: number
+        }
+        Returns: {
+          brand: string
+          model: string
+          repair_count: number
+          sold_count: number
+          avg_margin: number
+          avg_days_to_sell: number
+          demand_score: number
+        }[]
+      }
+      get_inventory_stockout_forecast: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          item_id: string
+          item_name: string
+          item_type: string
+          current_stock: number
+          avg_daily_demand: number
+          days_until_stockout: number
+          restock_urgency: string
+          margin_percent: number
+        }[]
+      }
+      purchase_inventory_item: {
+        Args: {
+          item_type: string
+          item_id: string
+          safe_id: string
+          amount: number
+          description: string
+          user_id: string
+        }
+        Returns: undefined
+      }
+      get_revenue_heatmap: {
+        Args: {
+          days_back?: number
+        }
+        Returns: {
+          dow: number
+          hour_of_day: number
+          total_revenue: number
+          tx_count: number
+          avg_check: number
+        }[]
       }
     }
     Enums: {

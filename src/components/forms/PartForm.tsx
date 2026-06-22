@@ -9,10 +9,16 @@ type PartRow = Database['public']['Tables']['parts']['Row'];
 
 const initialState = { success: false, error: "" };
 
-export function PartForm({ onSuccess, part, suppliers }: {
+export function PartForm({ 
+  onSuccess, 
+  part, 
+  suppliers,
+  safes = []
+}: {
   onSuccess: () => void;
   part?: PartRow;
   suppliers: { id: string; name: string }[];
+  safes?: Database["public"]["Tables"]["safes"]["Row"][];
 }) {
   const action = part ? updatePart.bind(null, part.id) : createPart;
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -67,6 +73,27 @@ export function PartForm({ onSuccess, part, suppliers }: {
           </select>
         </div>
       </div>
+
+      {!part && safes.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
+            <select
+              name="safe_id"
+              required
+              defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
+              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+            >
+              {safes.map((safe) => (
+                <option key={safe.id} value={safe.id}>
+                  {safe.name} ({safe.balance.toLocaleString()} грн)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       <Input label="ТТН Нової Пошти" name="np_ttn" placeholder="20450799384635" defaultValue={part?.np_ttn ?? ""} />
       <button type="submit" disabled={pending} className="btn-press mt-4 w-full rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer">
         {pending ? "Збереження..." : part ? "Зберегти зміни" : "Додати деталь"}

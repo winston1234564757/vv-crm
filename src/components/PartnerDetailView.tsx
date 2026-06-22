@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { 
-  IconEdit, IconFinance, IconBox, IconTruck 
+  IconEdit, IconFinance, IconBox, IconTruck, IconDelete, IconSpinner
 } from "./icons";
+import { deletePartner } from "@/lib/actions/partners";
+import { InlineError } from "@/components/ui/InlineError";
 
 interface Sale {
   id: string;
@@ -31,6 +34,33 @@ type PartnerDetailViewProps = {
 };
 
 export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDetailViewProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function handleDeletePartner() {
+    const confirmed = window.confirm(
+      "Ви впевнені, що хочете видалити цього партнера? Цю дію не можна скасувати.\nВсі угоди будуть відв'язані від нього."
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      const res = await deletePartner(partner.id);
+      if (res.success) {
+        onClose();
+      } else {
+        setDeleteError(res.error || "Не вдалося видалити партнера.");
+      }
+    } catch (err) {
+      console.error("Failed to delete partner:", err);
+      setDeleteError("Сталася неочікувана помилка при видаленні.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   const partnerSales = sales.filter(s => s.promo_code_used === partner.promo_code);
   const totalSalesCount = partnerSales.length;
   const totalSalesVolume = partnerSales.reduce((sum, s) => sum + s.total_amount, 0);
@@ -167,6 +197,36 @@ export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDe
           )}
         </div>
       </div>
+
+      {deleteError && (
+        <InlineError message={deleteError} onClose={() => setDeleteError("")} />
+      )}
+
+      {/* Danger Zone */}
+      <div className="card p-5 border border-rose/20 bg-rose/[0.02] flex justify-between items-center">
+        <div>
+          <p className="font-semibold text-rose text-sm">Небезпечна зона</p>
+          <p className="text-[10px] text-text-secondary mt-0.5">Повне видалення партнера. Промокод та всі нарахування будуть анульовані.</p>
+        </div>
+        <button
+          disabled={isDeleting}
+          onClick={handleDeletePartner}
+          className="btn-press rounded-xl bg-rose hover:bg-rose/90 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+        >
+          {isDeleting ? (
+            <>
+              <IconSpinner size={14} className="animate-spin" />
+              Видалення...
+            </>
+          ) : (
+            <>
+              <IconDelete size={14} />
+              Видалити партнера
+            </>
+          )}
+        </button>
+      </div>
+
     </div>
   );
 }

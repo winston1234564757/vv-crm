@@ -32,7 +32,7 @@ export default async function ReportsPage() {
         </GlassCard>
         <GlassCard>
           <h2 className="text-sm font-semibold text-text-primary">Маржа</h2>
-          <p className="mt-2 text-3xl font-light tracking-tight text-cyan">22%</p>
+          <p className="mt-2 text-3xl font-light tracking-tight text-cyan">{data.overallMarginPct}%</p>
           <p className="mt-1 text-xs text-text-secondary">валова рентабельність</p>
         </GlassCard>
       </div>
@@ -100,6 +100,45 @@ export default async function ReportsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </GlassCard>
+      </div>
+
+      {/* Device Margin Analytics */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <GlassCard className="md:col-span-2 flex flex-col justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">Ефективність продажів техніки</h2>
+            <p className="mt-1 text-xs text-text-secondary">Аналіз прибутковості та маржинальності категорії &quot;Техніка&quot;</p>
+          </div>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-text-secondary font-medium">Виручка з техніки</p>
+              <p className="text-xl font-bold text-text-primary mt-1">{data.deviceStats.revenue.toLocaleString()} ₴</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary font-medium">Прибуток з техніки</p>
+              <p className="text-xl font-bold text-violet mt-1">{data.deviceStats.profit.toLocaleString()} ₴</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary font-medium">Маржинальність категорії</p>
+              <p className="text-xl font-bold text-cyan mt-1">{data.deviceStats.marginPct}%</p>
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard className="flex flex-col justify-between bg-violet/[0.03] border border-violet/20">
+          <div>
+            <h2 className="text-sm font-semibold text-violet">Прибуток на 1 000 ₴ виручки</h2>
+            <p className="mt-1 text-xs text-text-secondary">Показник окупності проданої техніки</p>
+          </div>
+          <div className="mt-4">
+            <p className="text-3xl font-extrabold text-violet tracking-tight">
+              {data.deviceStats.profitPer1k.toLocaleString()} ₴
+            </p>
+            <p className="mt-2 text-[10px] text-text-secondary leading-relaxed">
+              Кожна 1 000 ₴ отриманої виручки з продажу техніки приносить <span className="font-semibold text-text-primary">{data.deviceStats.profitPer1k} ₴</span> чистого прибутку після вирахування її собівартості.
+            </p>
           </div>
         </GlassCard>
       </div>

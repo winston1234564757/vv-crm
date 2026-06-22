@@ -80,7 +80,7 @@ export async function getFinanceReport() {
   const supabase = await createClient();
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, sale_items(quantity, unit_cost)"),
+    supabase.from("sales").select("total_amount, sale_items(item_type, item_id, quantity, unit_cost)"),
     supabase.from("purchases").select("total_amount"),
     supabase.from("expenses").select("amount, category_id"),
     supabase.from("expense_categories").select("*"),
@@ -92,12 +92,44 @@ export async function getFinanceReport() {
   const totalPurchases = (purchasesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
   const totalExpenses = (expensesRes.data ?? []).reduce((s, r) => s + r.amount, 0);
 
-  // Calculate Cost of Goods Sold (COGS) from sale_items
+  // 1. Gather all sold device IDs
+  const deviceIds: string[] = [];
+  for (const sale of salesData) {
+    const items = supabaseCast<{ item_type: string; item_id: string; quantity: number; unit_cost: number }[]>(sale.sale_items ?? []);
+    for (const item of items) {
+      if (item.item_type === "device" && item.item_id) {
+        deviceIds.push(item.item_id);
+      }
+    }
+  }
+
+  // 2. Fetch costs and repair costs for these devices
+  const deviceCostsMap = new Map<string, { cost_price: number; repair_cost: number }>();
+  if (deviceIds.length > 0) {
+    const { data: devicesCosts } = await supabase
+      .from("devices")
+      .select("id, cost_price, repair_cost")
+      .in("id", deviceIds);
+    if (devicesCosts) {
+      for (const d of devicesCosts) {
+        deviceCostsMap.set(d.id, { cost_price: d.cost_price, repair_cost: d.repair_cost });
+      }
+    }
+  }
+
+  // 3. Calculate Cost of Goods Sold (COGS) from sale_items, adding device cost + repair cost
   const salesCost = salesData.reduce((sum, sale) => {
-    const items = supabaseCast<{ quantity: number; unit_cost: number }[]>(sale.sale_items ?? []);
+    const items = supabaseCast<{ item_type: string; item_id: string; quantity: number; unit_cost: number }[]>(sale.sale_items ?? []);
     const itemsCost = items.reduce((itemSum, item) => {
-      const uCost = Number(item.unit_cost) || 0;
       const qty = Number(item.quantity) || 1;
+      if (item.item_type === "device" && item.item_id) {
+        const dev = deviceCostsMap.get(item.item_id);
+        if (dev) {
+          const uCost = (dev.cost_price ?? 0) + (dev.repair_cost ?? 0);
+          return itemSum + (uCost * qty);
+        }
+      }
+      const uCost = Number(item.unit_cost) || 0;
       return itemSum + (uCost * qty);
     }, 0);
     return sum + itemsCost;

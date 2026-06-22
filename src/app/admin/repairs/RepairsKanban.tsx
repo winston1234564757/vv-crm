@@ -4,7 +4,7 @@ import { useTransition, useState } from "react";
 import { format } from "date-fns";
 import { uk } from "date-fns/locale";
 import {
-  IconRepair, IconCheck, IconWarning, IconEdit, IconSpinner
+  IconWarning, IconEdit, IconSpinner
 } from "@/components/icons";
 import { updateRepairStatus } from "@/lib/actions/repairs";
 import type { RepairRow } from "./RepairsClient";
@@ -146,7 +146,22 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
                       new Date(repair.estimated_completion).getTime() - Date.now() < 86_400_000 &&
                       !["ready", "completed", "handed_over", "cancelled"].includes(repair.status);
 
-                    const action = nextStatusActions[repair.status];
+                    let action = nextStatusActions[repair.status];
+                    if (repair.repair_type === "internal") {
+                      if (repair.status === "ready") {
+                        action = {
+                          target: "completed",
+                          label: "На склад ✓",
+                          bgClass: "bg-cyan/10 text-cyan hover:bg-cyan/20 border border-cyan/20"
+                        };
+                      } else if (["received", "diagnostics"].includes(repair.status)) {
+                        action = {
+                          target: "in_progress",
+                          label: "В роботу",
+                          bgClass: "bg-violet/10 text-violet hover:bg-violet/20 border border-violet/20"
+                        };
+                      }
+                    }
                     const payment = paymentBadge[repair.payment_status ?? ""];
                     const isLoading = isPending && actionId === repair.id;
 
@@ -183,7 +198,7 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
                             </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); onEditClick(repair); }}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-violet/10 hover:text-violet transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-violet/10 hover:text-violet transition-colors cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100"
                               title="Редагувати"
                             >
                               <IconEdit size={12} />

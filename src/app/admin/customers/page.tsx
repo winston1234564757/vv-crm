@@ -30,6 +30,12 @@ export default async function CustomersPage() {
 
     return {
       ...c,
+      ai_profile: c.ai_profile as {
+        psychotype: string;
+        tips: string[];
+        retention_risk: "low" | "medium" | "high";
+        summary: string;
+      } | null,
       total_spent: salesSpent + repairsSpent,
       total_visits: salesCount + repairsCount,
     };

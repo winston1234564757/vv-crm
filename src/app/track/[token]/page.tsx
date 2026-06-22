@@ -59,6 +59,17 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
       if (val.company_name) shopName = val.company_name;
     }
   }
+  
+  // Intelligent Telegram link formatting
+  const cleanPhone = shopPhone.trim();
+  let tgLink = "";
+  if (cleanPhone.startsWith("@")) {
+    tgLink = `https://t.me/${cleanPhone.substring(1)}`;
+  } else if (cleanPhone.includes("t.me/")) {
+    tgLink = cleanPhone.startsWith("http") ? cleanPhone : `https://${cleanPhone}`;
+  } else {
+    tgLink = `tg://resolve?phone=${cleanPhone.replace(/[^\d]/g, "")}`;
+  }
 
   return (
     <div className="min-h-screen bg-warm-bg">
@@ -122,20 +133,20 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
         <div className="mb-6 rounded-2xl border border-violet/10 bg-violet/[0.02] p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
           <div>
             <h4 className="text-xs font-bold text-text-primary">Потрібна консультація щодо ремонту?</h4>
-            <p className="text-[11px] text-text-secondary mt-0.5">Зв'яжіться з менеджером нашого сервісного центру {shopName}</p>
+            <p className="text-[11px] text-text-secondary mt-0.5">Зв&apos;яжіться з менеджером нашого сервісного центру {shopName}</p>
           </div>
-          <div className="flex gap-2 text-xs">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto text-xs shrink-0">
             <a
               href={`tel:${shopPhone.replace(/\s+/g, "")}`}
-              className="btn-press rounded-xl bg-violet px-4 py-2.5 font-semibold text-white transition-colors hover:bg-violet-hover flex items-center justify-center text-center"
+              className="btn-press w-full sm:w-auto rounded-xl bg-violet px-4 py-2.5 font-semibold text-white transition-colors hover:bg-violet-hover flex items-center justify-center text-center"
             >
               📞 Зателефонувати
             </a>
             <a
-              href={`https://t.me/${shopPhone.replace(/[^\d]/g, "")}`}
+              href={tgLink}
               target="_blank"
               rel="noreferrer"
-              className="btn-press rounded-xl bg-white border border-warm-border text-violet font-semibold px-4 py-2.5 transition-colors hover:bg-iris/5 flex items-center justify-center text-center"
+              className="btn-press w-full sm:w-auto rounded-xl bg-white border border-warm-border text-violet font-semibold px-4 py-2.5 transition-colors hover:bg-iris/5 flex items-center justify-center text-center"
             >
               💬 Telegram підтримка
             </a>

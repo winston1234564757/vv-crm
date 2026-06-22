@@ -32,8 +32,49 @@ function hasCustomerTelegram(obj: unknown): obj is CustomerWithTelegram {
 async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: string | null, repairStatus: string, repairCost: number) {
   if (!deviceId) return;
 
+  // 1. Зчитуємо поточний статус пристрою
+  const { data: device, error: fetchErr } = await supabase
+    .from("devices")
+    .select("status, repair_cost")
+    .eq("id", deviceId)
+    .single();
+
+  if (fetchErr || !device) return;
+
+  // 2. Мапимо статус ремонту на repair_status пристрою
+  let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
+  let needsRepair = true;
+
+  if (["completed", "handed_over", "cancelled"].includes(repairStatus)) {
+    mappedRepairStatus = "completed";
+    needsRepair = false;
+  } else if (repairStatus === "ready") {
+    mappedRepairStatus = "completed";
+    needsRepair = false; // ремонт виконано
+  } else if (repairStatus === "awaiting_parts") {
+    mappedRepairStatus = "waiting_parts";
+  } else if (["in_progress", "diagnostics"].includes(repairStatus)) {
+    mappedRepairStatus = "in_progress";
+  }
+
+  // 3. Якщо пристрій вже продано або заархівовано, не міняємо його загальний статус на складі
+  if (["sold", "archived"].includes(device.status)) {
+    const { error } = await supabase
+      .from("devices")
+      .update({
+        repair_status: mappedRepairStatus,
+        needs_repair: needsRepair,
+        repair_cost: ["completed", "handed_over"].includes(repairStatus) ? repairCost : (repairStatus === "cancelled" ? 0 : device.repair_cost)
+      })
+      .eq("id", deviceId);
+
+    if (error) throw error;
+    return;
+  }
+
+  // 4. Для пристроїв в наявності/в ремонті оновлюємо загальний статус та ремонтні поля
   let deviceStatus = "service";
-  let finalRepairCost = 0;
+  let finalRepairCost = device.repair_cost;
 
   if (["completed", "handed_over"].includes(repairStatus)) {
     deviceStatus = "in_stock";
@@ -47,11 +88,60 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
     .from("devices")
     .update({ 
       status: deviceStatus,
-      repair_cost: finalRepairCost
+      repair_cost: finalRepairCost,
+      repair_status: mappedRepairStatus,
+      needs_repair: needsRepair
     })
     .eq("id", deviceId);
 
   if (error) throw error;
+}
+
+// Допоміжна функція для синхронізації списаних запчастин ремонту в картку пристрою на складі
+async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repairId: string) {
+  // 1. Отримуємо linked inventory_device_id
+  const { data: repair, error: repairErr } = await supabase
+    .from("repairs")
+    .select("inventory_device_id")
+    .eq("id", repairId)
+    .single();
+
+  if (repairErr || !repair || !repair.inventory_device_id) return;
+
+  // 2. Отримуємо всі запчастини, списані на цей ремонт
+  const { data: repairParts, error: partsErr } = await supabase
+    .from("repair_parts")
+    .select(`
+      quantity,
+      unit_cost,
+      parts (
+        name,
+        origin_type
+      )
+    `)
+    .eq("repair_id", repairId);
+
+  if (partsErr) throw partsErr;
+
+  // 3. Форматуємо для JSONB поля пристрою
+  const replacedParts = (repairParts ?? []).map((rp) => {
+    const partInfo = rp.parts as any;
+    return {
+      name: partInfo?.name || "Невідома деталь",
+      cost: rp.unit_cost,
+      origin: partInfo?.origin_type || "Copy"
+    };
+  });
+
+  // 4. Оновлюємо масив замінених деталей у картці пристрою
+  const { error: updateErr } = await supabase
+    .from("devices")
+    .update({
+      repair_parts_replaced: replacedParts
+    })
+    .eq("id", repair.inventory_device_id);
+
+  if (updateErr) throw updateErr;
 }
 
 const repairSchema = z.object({
@@ -517,6 +607,9 @@ export async function addPartToRepairAction(prevState: ActionState | null, formD
       notes: `Додано деталь зі складу: ${part.name} (${parsed.quantity} шт) на суму ${parsed.unitCost * parsed.quantity} грн`
     });
 
+    // Синхронізуємо деталі в картку пристрою на складі
+    await syncDeviceReplacedParts(supabase, parsed.repairId);
+
     revalidatePath("/admin/repairs");
     return { success: true };
   } catch (err) {
@@ -595,10 +688,102 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
       notes: `Вилучено деталь: ${partName} (${repairPart.quantity} шт). Повернуто на склад.`
     });
 
+    // Синхронізуємо деталі в картку пристрою на складі
+    await syncDeviceReplacedParts(supabase, repairPart.repair_id);
+
     revalidatePath("/admin/repairs");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function deleteRepair(id: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Get repair info (to check if there is a linked inventory device)
+    const { data: repair, error: fetchErr } = await supabase
+      .from("repairs")
+      .select("inventory_device_id")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !repair) {
+      throw new Error("Ремонт не знайдено");
+    }
+
+    // 2. Retrieve all allocated parts for this repair
+    const { data: allocatedParts, error: partsErr } = await supabase
+      .from("repair_parts")
+      .select("part_id, quantity")
+      .eq("repair_id", id);
+
+    if (partsErr) throw partsErr;
+
+    // 3. Return all allocated parts back to warehouse stock
+    if (allocatedParts && allocatedParts.length > 0) {
+      for (const item of allocatedParts) {
+        const { data: part, error: partErr } = await supabase
+          .from("parts")
+          .select("stock")
+          .eq("id", item.part_id)
+          .single();
+
+        if (!partErr && part) {
+          await supabase
+            .from("parts")
+            .update({ stock: part.stock + item.quantity })
+            .eq("id", item.part_id);
+        }
+      }
+    }
+
+    // 4. Update warehouse device status if one was linked to this repair
+    if (repair.inventory_device_id) {
+      const { data: dev } = await supabase
+        .from("devices")
+        .select("status")
+        .eq("id", repair.inventory_device_id)
+        .single();
+
+      if (dev) {
+        const updatePayload: any = {
+          repair_cost: 0,
+          needs_repair: false,
+          repair_status: "completed"
+        };
+
+        if (!["sold", "archived"].includes(dev.status)) {
+          updatePayload.status = "in_stock";
+        }
+
+        const { error: deviceErr } = await supabase
+          .from("devices")
+          .update(updatePayload)
+          .eq("id", repair.inventory_device_id);
+
+        if (deviceErr) throw deviceErr;
+      }
+    }
+
+    // 5. Delete the main repair record (repair_status_log and repair_parts delete cascade)
+    const { error: deleteErr } = await supabase
+      .from("repairs")
+      .delete()
+      .eq("id", id);
+
+    if (deleteErr) throw deleteErr;
+
+    // 6. Revalidate all dependent routes
+    revalidatePath("/admin/repairs");
+    revalidatePath("/admin/devices");
+    revalidatePath("/admin");
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
 

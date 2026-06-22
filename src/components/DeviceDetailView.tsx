@@ -93,7 +93,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
   const [selectedRepair, setSelectedRepair] = useState<RepairRow | null>(null);
   const [isEditingRepair, setIsEditingRepair] = useState(false);
 
-  const totalCost = device.cost_price + (device.needs_repair ? device.repair_cost : 0);
+  const totalCost = device.cost_price + (device.repair_cost || 0);
   const margin = device.price - totalCost;
 
   // Safe parse replaced parts
@@ -324,7 +324,20 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
                     </div>
                     <div className="flex justify-between py-1 border-t border-warm-border/40">
                       <span className="text-text-muted">Статус на складі:</span>
-                      <span className="font-semibold text-rose capitalize">{device.status === 'service' ? "В ремонті" : "На складі"}</span>
+                      <div className="flex items-center gap-1.5 font-semibold text-rose">
+                        <span className="capitalize">{device.status === 'service' ? "В ремонті" : "На складі"}</span>
+                        {device.status === 'service' && repairs.length > 0 && (
+                          <button
+                            onClick={() => {
+                              const active = repairs.find(r => !["completed", "handed_over", "cancelled"].includes(r.status));
+                              if (active) setSelectedRepair(active);
+                            }}
+                            className="text-[10px] text-violet hover:underline cursor-pointer shrink-0 font-medium"
+                          >
+                            (Перейти ↗)
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {device.repair_node && (
                       <div className="flex justify-between py-1 border-t border-warm-border/40">

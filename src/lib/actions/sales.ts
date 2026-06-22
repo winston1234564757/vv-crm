@@ -124,20 +124,29 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
 
     // 4. Process the item
     if (parsed.item_category === "device" && parsed.item_id) {
+      // 1. Fetch device cost price
+      const { data: dev } = await supabase
+        .from("devices")
+        .select("cost_price")
+        .eq("id", parsed.item_id)
+        .single();
+      const costPrice = dev?.cost_price || 0;
+
       await supabase.from("sale_items").insert({
         sale_id: sale.id,
         item_type: "device",
         item_id: parsed.item_id,
         quantity: 1,
         unit_price: parsed.amount,
-        total_price: parsed.amount
+        total_price: parsed.amount,
+        unit_cost: costPrice
       });
       await supabase.from("devices").update({ status: "sold" }).eq("id", parsed.item_id);
     } else if (parsed.item_category === "accessory" && parsed.item_id) {
-      // 1. Read current stock
+      // 1. Read current stock and cost price
       const { data: acc, error: accReadErr } = await supabase
         .from("accessories")
-        .select("stock")
+        .select("stock, cost_price")
         .eq("id", parsed.item_id)
         .single();
 
@@ -164,7 +173,8 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
         item_id: parsed.item_id,
         quantity: 1,
         unit_price: parsed.amount,
-        total_price: parsed.amount
+        total_price: parsed.amount,
+        unit_cost: acc.cost_price || 0
       });
     }
 
@@ -544,3 +554,53 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function deleteSaleAction(saleId: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Authenticate user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    // 2. Fetch user role
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Не вдалося перевірити права доступу користувача.");
+    }
+
+    // 3. Enforce authorization rules (only owner or manager)
+    if (profile.role !== "owner" && profile.role !== "manager") {
+      throw new Error("Недостатньо прав для видалення продажів. Ця дія дозволена тільки власникам та менеджерам.");
+    }
+
+    // 4. Invoke the atomic stored procedure to delete the sale and revert all dependencies
+    const { error: rpcError } = await supabase.rpc("delete_sale", {
+      sale_id_to_delete: saleId
+    });
+
+    if (rpcError) throw rpcError;
+
+    // 5. Revalidate cache for layouts and tables
+    revalidatePath("/admin");
+    revalidatePath("/admin/sales");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin/reports");
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin/parts");
+    revalidatePath("/admin/devices");
+
+    return { success: true };
+  } catch (err) {
+    console.error("deleteSaleAction Error:", err);
+    return { success: false, error: parseError(err) };
+  }
+}
+

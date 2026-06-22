@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import {
   IconGrid, IconDevice, IconAccessory, IconRepair,
   IconCustomer, IconReport, IconFinance, IconLogo,
-  IconMenu, IconClose, IconLogout, IconBox, IconSettings
+  IconLogout, IconBox, IconSettings
 } from "./icons";
 
 // Unique semantic icons for each nav section
@@ -81,7 +80,6 @@ const roleLabels: Record<string, string> = {
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("vlasnyk@vv-crm.com");
   const [userRole, setUserRole] = useState("Адміністратор");
   const [shopName, setShopName] = useState("VV CRM");
@@ -116,10 +114,7 @@ export default function AdminSidebar() {
       });
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+
 
   async function handleLogout() {
     const supabase = createClient();
@@ -144,7 +139,6 @@ export default function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => setMobileOpen(false)}
               className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2 ${
                 active
                   ? "bg-violet-subtle text-violet"
@@ -184,110 +178,16 @@ export default function AdminSidebar() {
     <>
       {/* Desktop sidebar */}
       <aside className="hidden md:flex inset-y-0 left-0 z-40 w-72 flex-col bg-warm-sidebar transition-[transform] duration-200 ease-out border-r border-warm-border">
-        <SidebarContent />
+        {SidebarContent()}
       </aside>
 
-      {/* Mobile: sticky top bar with hamburger */}
+      {/* Mobile: sticky top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between bg-warm-surface border-b border-warm-border px-4">
         <div className="flex items-center gap-2">
           <span className="text-violet"><IconLogo size={20} /></span>
           <span className="text-base font-semibold tracking-tight text-text-primary">{shopName}</span>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="btn-press flex h-9 w-9 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-warm-hover hover:text-text-primary"
-          aria-label="Відкрити меню"
-        >
-          <IconMenu />
-        </button>
       </div>
-
-      {/* Mobile: full-screen overlay drawer */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setMobileOpen(false)}
-              className="md:hidden fixed inset-0 z-50 bg-warm-bg/80 backdrop-blur-sm"
-              aria-hidden="true"
-            />
-            {/* Drawer panel */}
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-              className="md:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-warm-sidebar border-r border-warm-border shadow-xl"
-            >
-              <div className="flex items-center justify-between h-16 px-6 border-b border-warm-border">
-                <div className="flex items-center gap-3">
-                  <span className="text-violet"><IconLogo /></span>
-                  <span className="text-lg font-semibold tracking-tight text-text-primary">{shopName}</span>
-                </div>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  className="btn-press flex h-9 w-9 items-center justify-center rounded-full bg-violet/5 text-text-secondary transition-colors hover:bg-violet/10 hover:text-violet"
-                  aria-label="Закрити меню"
-                >
-                  <IconClose />
-                </button>
-              </div>
-
-              <nav className="flex-1 space-y-0.5 px-3 pt-4 overflow-y-auto">
-                {navItems.map((item, i) => {
-                  const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
-                  return (
-                    <motion.div
-                      key={item.href}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03, duration: 0.2 }}
-                    >
-                      <Link
-                        href={item.href}
-                        onClick={() => setMobileOpen(false)}
-                        className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 ${
-                          active
-                            ? "bg-violet-subtle text-violet"
-                            : "text-text-secondary hover:bg-warm-hover hover:text-text-primary"
-                        }`}
-                      >
-                        <span className="w-5 flex items-center justify-center shrink-0">
-                          {item.icon}
-                        </span>
-                        {item.label}
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-              </nav>
-
-              <div className="border-t border-warm-border px-6 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-subtle text-xs font-semibold text-violet capitalize">
-                    {userRole[0] ?? "А"}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{userRole}</p>
-                    <p className="text-xs text-text-secondary truncate max-w-[160px]" title={userEmail}>{userEmail}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="btn-press mt-3 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"
-                >
-                  <IconLogout /> Вийти
-                </button>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
     </>
   );
 }

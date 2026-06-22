@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getAccessories } from "@/lib/data-accessories";
 import { getSales } from "@/lib/data-sales";
+import { getSafes } from "@/lib/data-finance";
 import { IconPlus } from "@/components/icons";
 import { AccessoriesTable } from "./table";
 import { AddAccessoryButton } from "./AddAccessoryButton";
@@ -11,9 +12,10 @@ import { pluralUk } from "@/lib/utils/plural";
 import GlassCard from "@/components/GlassCard";
 
 export default async function AccessoriesPage() {
-  const [accessories, sales] = await Promise.all([
+  const [accessories, sales, safes] = await Promise.all([
     getAccessories(),
-    getSales()
+    getSales(),
+    getSafes()
   ]);
 
   const totalItems = accessories.reduce((s, a) => s + a.stock, 0);
@@ -32,7 +34,7 @@ export default async function AccessoriesPage() {
         </div>
         <div className="flex gap-2">
           <ImportAccessoriesButton />
-          <AddAccessoryButton />
+          <AddAccessoryButton safes={safes} />
         </div>
       </div>
 

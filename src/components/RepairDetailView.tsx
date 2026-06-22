@@ -5,11 +5,41 @@ import { format } from "date-fns";
 import { uk } from "date-fns/locale";
 import { 
   IconClose, IconEdit, IconCheck, IconEye, IconEyeOff, 
-  IconCustomer, IconDevice, IconFinance, IconBox, IconSpinner
+  IconCustomer, IconDevice, IconFinance, IconBox, IconSpinner,
+  IconDelete
 } from "./icons";
 import { createClient } from "@/lib/supabase/client";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
-import { addPartToRepairAction, removePartFromRepairAction } from "@/lib/actions/repairs";
+import { addPartToRepairAction, removePartFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
+import { InlineError } from "@/components/ui/InlineError";
+import AICopilotDrawer from "@/components/ai/AICopilotDrawer";
+
+interface AIDiagnosticData {
+  possible_causes: string[];
+  required_parts: string[];
+  estimated_difficulty: "easy" | "medium" | "hard";
+  step_by_step_guide: string[];
+  time_estimate_hours: number;
+}
+
+interface AllocatedPart {
+  id: string;
+  quantity: number;
+  unit_cost: number;
+  part_id: string;
+  parts: {
+    name: string;
+    compatible_with: string | null;
+  } | null;
+}
+
+interface AvailablePart {
+  id: string;
+  name: string;
+  compatible_with: string | null;
+  cost_price: number;
+  stock: number;
+}
 
 type RepairDetailViewProps = {
   repair: {
@@ -41,6 +71,7 @@ type RepairDetailViewProps = {
     created_at: string;
     estimated_completion?: string | null;
     tracking_token?: string | null;
+    ai_diagnostic?: AIDiagnosticData | null;
   };
   onEdit: () => void;
   onClose: () => void;
@@ -78,10 +109,65 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const [aiDiagnostic, setAiDiagnostic] = useState<AIDiagnosticData | null>((repair.ai_diagnostic as AIDiagnosticData | null) || null);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+
+  useEffect(() => {
+    setAiDiagnostic(repair.ai_diagnostic || null);
+  }, [repair.id, repair.ai_diagnostic]);
+
+  async function handleDiagnose() {
+    setIsDiagnosing(true);
+    try {
+      const res = await fetch("/api/ai-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "diagnose_repair", entityId: repair.id })
+      });
+      if (!res.ok) throw new Error("Помилка діагностики");
+      const data = await res.json();
+      setAiDiagnostic(data.diagnostic);
+      repair.ai_diagnostic = data.diagnostic;
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      alert("Не вдалося виконати ШІ-діагностику: " + errMessage);
+    } finally {
+      setIsDiagnosing(false);
+    }
+  }
+
+  async function handleDeleteRepair() {
+    const confirmed = window.confirm(
+      "Ви впевнені, що хочете видалити цей ремонт? Цю дію не можна скасувати.\nЗапчастини будуть повернуті на склад, а пристрій буде переведено в статус продажу."
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      const res = await deleteRepair(repair.id);
+      if (res.success) {
+        onClose();
+      } else {
+        setDeleteError(res.error || "Не вдалося видалити ремонт.");
+      }
+    } catch (err) {
+      console.error("Failed to delete repair:", err);
+      setDeleteError("Сталася неочікувана помилка при видаленні.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   // States for warehouse parts
   const [currentCost, setCurrentCost] = useState(repair.cost);
-  const [allocatedParts, setAllocatedParts] = useState<any[]>([]);
-  const [availableParts, setAvailableParts] = useState<any[]>([]);
+  const [allocatedParts, setAllocatedParts] = useState<AllocatedPart[]>([]);
+  const [availableParts, setAvailableParts] = useState<AvailablePart[]>([]);
   const [loadingParts, setLoadingParts] = useState(false);
   const [partsError, setPartsError] = useState("");
 
@@ -259,6 +345,12 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setIsCopilotOpen(true)}
+            className="btn-press flex items-center gap-1.5 rounded-xl border border-violet/20 bg-violet/[0.03] hover:bg-violet/10 text-violet px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            ✨ AI Copilot Чат
+          </button>
+          <button
             onClick={onEdit}
             className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-white hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
           >
@@ -270,6 +362,104 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
       {/* Bento Grid Content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
+        {/* AI Diagnostics Card */}
+        <div className="card p-5 space-y-4 md:col-span-2">
+          <div className="flex items-center justify-between border-b border-warm-border pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-violet">✨</span>
+              <h3 className="font-semibold text-sm text-text-primary">ШІ-діагностика та рекомендації (VV Intelligence)</h3>
+            </div>
+            {aiDiagnostic && (
+              <button
+                onClick={handleDiagnose}
+                disabled={isDiagnosing}
+                className="text-xs text-violet hover:text-violet-hover font-medium flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isDiagnosing ? "Аналіз..." : "Оновити аналіз"}
+              </button>
+            )}
+          </div>
+
+          {isDiagnosing ? (
+            <div className="rounded-2xl border border-violet/15 bg-violet/[0.02] p-6 flex flex-col items-center justify-center space-y-3 text-center">
+              <div className="animate-spin text-violet"><IconSpinner size={24} /></div>
+              <p className="text-xs text-text-secondary">Аналізуємо симптоми, історію ремонтів та залишки деталей на складі...</p>
+            </div>
+          ) : aiDiagnostic ? (
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Difficulty & Time */}
+                <div className="bg-warm-bg rounded-xl p-3 space-y-1">
+                  <span className="text-[10px] text-text-muted font-medium">Рівень складності</span>
+                  <p className="text-xs font-bold text-text-primary capitalize">
+                    {aiDiagnostic.estimated_difficulty === "easy" ? "🟢 Легкий" :
+                     aiDiagnostic.estimated_difficulty === "medium" ? "🟡 Середній" : "🔴 Складний"}
+                  </p>
+                </div>
+                <div className="bg-warm-bg rounded-xl p-3 space-y-1">
+                  <span className="text-[10px] text-text-muted font-medium">Очікуваний час роботи</span>
+                  <p className="text-xs font-bold text-text-primary">{aiDiagnostic.time_estimate_hours} год.</p>
+                </div>
+                <div className="bg-violet-subtle rounded-xl p-3 space-y-1">
+                  <span className="text-[10px] text-violet font-medium">Рекомендація</span>
+                  <p className="text-xs font-bold text-violet">Перевірте склад</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Possible causes */}
+                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-white">
+                  <h4 className="font-bold text-text-primary text-xs tracking-wide">Ймовірні причини поломки:</h4>
+                  <ul className="space-y-1.5 list-disc list-inside text-text-secondary">
+                    {aiDiagnostic.possible_causes?.map((cause: string, i: number) => (
+                      <li key={i}>{cause}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Recommended parts */}
+                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-white">
+                  <h4 className="font-bold text-text-primary text-xs tracking-wide">Необхідні деталі:</h4>
+                  <ul className="space-y-1.5 list-disc list-inside text-text-secondary">
+                    {aiDiagnostic.required_parts?.map((part: string, i: number) => (
+                      <li key={i} className={part.includes("(Є на складі)") ? "text-violet font-semibold" : ""}>
+                        {part}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Steps guide */}
+              <div className="rounded-xl border border-violet/10 bg-violet/[0.02] p-4 space-y-2">
+                <h4 className="font-bold text-text-primary text-xs tracking-wide">Покроковий гайд для майстра:</h4>
+                <ol className="space-y-2">
+                  {aiDiagnostic.step_by_step_guide?.map((step: string, i: number) => (
+                    <li key={i} className="flex gap-2.5 items-start text-text-primary">
+                      <span className="bg-violet/10 text-violet rounded-full flex h-4.5 w-4.5 items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-violet/20 p-6 flex flex-col items-center justify-center text-center space-y-3">
+              <p className="text-xs text-text-secondary max-w-xs">
+                Створіть інтелектуальну діагностику для цього ремонту. ШІ проаналізує проблему та підбере потрібні деталі зі складу.
+              </p>
+              <button
+                onClick={handleDiagnose}
+                className="rounded-xl bg-violet hover:bg-violet-hover text-white text-xs font-semibold px-5 py-2.5 transition-colors cursor-pointer flex items-center gap-1"
+              >
+                Діагностувати ШІ
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Device State Info Card */}
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
@@ -635,6 +825,37 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
           </div>
         </div>
 
+        {deleteError && (
+          <div className="md:col-span-2">
+            <InlineError message={deleteError} onClose={() => setDeleteError("")} />
+          </div>
+        )}
+
+        {/* Danger Zone */}
+        <div className="card p-5 border border-rose/20 bg-rose/[0.02] flex justify-between items-center md:col-span-2">
+          <div>
+            <p className="font-semibold text-rose text-sm">Небезпечна зона</p>
+            <p className="text-[10px] text-text-secondary mt-0.5">Повне видалення ремонту, повернення деталей на склад та оновлення статусу пристрою</p>
+          </div>
+          <button
+            disabled={isDeleting}
+            onClick={handleDeleteRepair}
+            className="btn-press rounded-xl bg-rose hover:bg-rose/90 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+          >
+            {isDeleting ? (
+              <>
+                <IconSpinner size={14} className="animate-spin" />
+                Видалення...
+              </>
+            ) : (
+              <>
+                <IconDelete size={14} />
+                Видалити ремонт
+              </>
+            )}
+          </button>
+        </div>
+
       </div>
 
       {/* Reusable Print Modal for Repair Receipts */}
@@ -665,13 +886,22 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
               unit_price: repair.price - allocatedParts.reduce((s: number, p: { unit_cost: number; quantity: number }) => s + (p.unit_cost * p.quantity), 0),
             }] : []),
             // Allocated warehouse parts
-            ...allocatedParts.map((p: { parts: { name: string; compatible_with: string | null }; quantity: number; unit_cost: number }) => ({
-              name: p.parts?.name + (p.parts?.compatible_with ? ` (${p.parts.compatible_with})` : ""),
+            ...allocatedParts.map((p) => ({
+              name: (p.parts?.name || "Запчастина") + (p.parts?.compatible_with ? ` (${p.parts.compatible_with})` : ""),
               quantity: p.quantity,
               unit_price: p.unit_cost,
             })),
           ].filter(item => item.unit_price > 0),
         }}
+      />
+
+      {/* AI Copilot Drawer */}
+      <AICopilotDrawer
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        entityType="repair"
+        entityId={repair.id}
+        entityName={repair.device_name}
       />
     </div>
   );
