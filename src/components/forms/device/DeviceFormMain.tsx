@@ -28,12 +28,6 @@ function DeviceFormMain({
 }: DeviceFormMainProps) {
   return (
     <div className="space-y-5 p-2">
-      {state.error && (
-        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
-          {state.error}
-        </div>
-      )}
-      
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="w-full">
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Тип пристрою</label>

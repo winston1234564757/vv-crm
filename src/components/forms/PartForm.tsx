@@ -27,7 +27,26 @@ export function PartForm({
 
   return (
     <form action={formAction} className="space-y-4 p-2">
-      {state.error && <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">{state.error}</div>}
+      {state.error && (
+        <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="flex items-start gap-3">
+            <span className="text-rose text-base mt-0.5">⚠️</span>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-text-primary">{state.error}</p>
+              {state.error.toLowerCase().includes("недостатньо коштів") && (
+                <div className="pt-1">
+                  <a
+                    href="/admin/finance"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
+                  >
+                    Перейти до фінансів ↗
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <Input label="Назва деталі" name="name" required placeholder="Display iPhone 13" defaultValue={part?.name ?? ""} />
       <div className="grid grid-cols-2 gap-4">
         <Input label="Part Number" name="part_number" placeholder="LP134-1" defaultValue={part?.part_number ?? ""} />

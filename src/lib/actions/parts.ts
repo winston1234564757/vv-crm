@@ -45,9 +45,7 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
-    const { data: inserted, error } = await supabase.from("parts").insert(parsed).select("id").single();
-    if (error) throw error;
-
+    // 1. Determine safe and check balance BEFORE insert
     const safeId = formData.get("safe_id") as string | null;
     let chosenSafeId = safeId;
     if (!chosenSafeId) {
@@ -60,17 +58,44 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
     }
 
     const totalCost = parsed.cost_price * parsed.stock;
+    if (totalCost > 0 && chosenSafeId) {
+      const { data: safeData } = await supabase
+        .from("safes")
+        .select("balance, name")
+        .eq("id", chosenSafeId)
+        .single();
+
+      if (!safeData) {
+        throw new Error("Сейф для списання коштів не знайдено");
+      }
+
+      if (safeData.balance < totalCost) {
+        throw new Error(`Недостатньо коштів на сейфі "${safeData.name}". Доступно: ${safeData.balance} грн`);
+      }
+    }
+
+    // 2. Perform insert
+    const { data: inserted, error } = await supabase.from("parts").insert(parsed).select("id").single();
+    if (error) throw error;
+
+    // 3. Perform safe balance deduction
     if (totalCost > 0 && chosenSafeId && inserted?.id) {
-      const description = `Закупівля деталей: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
-      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
-        item_type: "part",
-        item_id: inserted.id,
-        safe_id: chosenSafeId,
-        amount: totalCost,
-        description,
-        user_id: user.id,
-      });
-      if (rpcErr) throw rpcErr;
+      try {
+        const description = `Закупівля деталей: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
+        const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+          item_type: "part",
+          item_id: inserted.id,
+          safe_id: chosenSafeId,
+          amount: totalCost,
+          description,
+          user_id: user.id,
+        });
+        if (rpcErr) throw rpcErr;
+      } catch (rpcError) {
+        // Rollback insert on failure
+        await supabase.from("parts").delete().eq("id", inserted.id);
+        throw rpcError;
+      }
     }
     revalidatePath("/admin/parts");
     revalidatePath("/admin");

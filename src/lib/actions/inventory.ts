@@ -174,6 +174,35 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
+    // 1. Determine safe and check balance BEFORE insert
+    const safeId = formData.get("safe_id") as string | null;
+    let chosenSafeId = safeId;
+    if (!chosenSafeId) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
+    }
+
+    if (parsed.cost_price > 0 && chosenSafeId) {
+      const { data: safeData } = await supabase
+        .from("safes")
+        .select("balance, name")
+        .eq("id", chosenSafeId)
+        .single();
+
+      if (!safeData) {
+        throw new Error("Сейф для списання коштів не знайдено");
+      }
+
+      if (safeData.balance < parsed.cost_price) {
+        throw new Error(`Недостатньо коштів на сейфі "${safeData.name}". Доступно: ${safeData.balance} грн`);
+      }
+    }
+
+    // 2. Perform insert
     const { data: inserted, error } = await supabase.from("devices").insert({
       type: parsed.type as string,
       brand: parsed.brand,
@@ -210,28 +239,24 @@ export async function createDevice(prevState: ActionState | null, formData: Form
 
     if (error) throw error;
 
-    const safeId = formData.get("safe_id") as string | null;
-    let chosenSafeId = safeId;
-    if (!chosenSafeId) {
-      const { data: opexSafe } = await supabase
-        .from("safes")
-        .select("id")
-        .eq("type", "opex")
-        .single();
-      chosenSafeId = opexSafe?.id ?? null;
-    }
-
+    // 3. Perform safe balance deduction
     if (parsed.cost_price > 0 && chosenSafeId && inserted?.id) {
-      const description = `Закупівля техніки: ${parsed.brand} ${parsed.model}${parsed.imei ? ` (IMEI: ${parsed.imei})` : ""}`;
-      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
-        item_type: "device",
-        item_id: inserted.id,
-        safe_id: chosenSafeId,
-        amount: parsed.cost_price,
-        description,
-        user_id: user.id,
-      });
-      if (rpcErr) throw rpcErr;
+      try {
+        const description = `Закупівля техніки: ${parsed.brand} ${parsed.model}${parsed.imei ? ` (IMEI: ${parsed.imei})` : ""}`;
+        const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+          item_type: "device",
+          item_id: inserted.id,
+          safe_id: chosenSafeId,
+          amount: parsed.cost_price,
+          description,
+          user_id: user.id,
+        });
+        if (rpcErr) throw rpcErr;
+      } catch (rpcError) {
+        // Rollback insert on failure
+        await supabase.from("devices").delete().eq("id", inserted.id);
+        throw rpcError;
+      }
     }
 
     // Auto-create repair card if device needs repair
@@ -290,6 +315,36 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
+    // 1. Determine safe and check balance BEFORE insert
+    const safeId = formData.get("safe_id") as string | null;
+    let chosenSafeId = safeId;
+    if (!chosenSafeId) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
+    }
+
+    const totalCost = parsed.cost_price * parsed.stock;
+    if (totalCost > 0 && chosenSafeId) {
+      const { data: safeData } = await supabase
+        .from("safes")
+        .select("balance, name")
+        .eq("id", chosenSafeId)
+        .single();
+
+      if (!safeData) {
+        throw new Error("Сейф для списання коштів не знайдено");
+      }
+
+      if (safeData.balance < totalCost) {
+        throw new Error(`Недостатньо коштів на сейфі "${safeData.name}". Доступно: ${safeData.balance} грн`);
+      }
+    }
+
+    // 2. Perform insert
     const { data: inserted, error } = await supabase.from("accessories").insert({
       type: parsed.type,
       name: parsed.name,
@@ -307,29 +362,24 @@ export async function createAccessory(prevState: ActionState | null, formData: F
 
     if (error) throw error;
 
-    const safeId = formData.get("safe_id") as string | null;
-    let chosenSafeId = safeId;
-    if (!chosenSafeId) {
-      const { data: opexSafe } = await supabase
-        .from("safes")
-        .select("id")
-        .eq("type", "opex")
-        .single();
-      chosenSafeId = opexSafe?.id ?? null;
-    }
-
-    const totalCost = parsed.cost_price * parsed.stock;
+    // 3. Perform safe balance deduction
     if (totalCost > 0 && chosenSafeId && inserted?.id) {
-      const description = `Закупівля аксесуарів: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
-      const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
-        item_type: "accessory",
-        item_id: inserted.id,
-        safe_id: chosenSafeId,
-        amount: totalCost,
-        description,
-        user_id: user.id,
-      });
-      if (rpcErr) throw rpcErr;
+      try {
+        const description = `Закупівля аксесуарів: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
+        const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+          item_type: "accessory",
+          item_id: inserted.id,
+          safe_id: chosenSafeId,
+          amount: totalCost,
+          description,
+          user_id: user.id,
+        });
+        if (rpcErr) throw rpcErr;
+      } catch (rpcError) {
+        // Rollback insert on failure
+        await supabase.from("accessories").delete().eq("id", inserted.id);
+        throw rpcError;
+      }
     }
 
     revalidatePath("/admin/accessories");
@@ -656,30 +706,50 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
+    // 1. Calculate total import cost and check balance
+    const { data: opexSafe } = await supabase
+      .from("safes")
+      .select("id, balance, name")
+      .eq("type", "opex")
+      .single();
+
+    if (!opexSafe) {
+      throw new Error("Сейф OPEX для списання коштів не знайдено");
+    }
+
+    const totalImportCost = parsed.reduce((sum, item) => sum + (item.cost_price * item.stock), 0);
+    if (totalImportCost > 0 && opexSafe.balance < totalImportCost) {
+      throw new Error(`Недостатньо коштів на сейфі "${opexSafe.name}". Необхідно: ${totalImportCost} грн, доступно: ${opexSafe.balance} грн`);
+    }
+
+    // 2. Perform insert
     const { data: inserted, error } = await supabase.from("accessories").insert(parsed).select("id, name, cost_price, stock");
     if (error) throw error;
 
-    const { data: opexSafe } = await supabase
-      .from("safes")
-      .select("id")
-      .eq("type", "opex")
-      .single();
-    
-    if (opexSafe) {
-      for (const item of inserted || []) {
-        const totalCost = item.cost_price * item.stock;
-        if (totalCost > 0) {
-          const description = `Імпорт аксесуарів: ${item.name} (Кількість: ${item.stock} шт.)`;
-          const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
-            item_type: "accessory",
-            item_id: item.id,
-            safe_id: opexSafe.id,
-            amount: totalCost,
-            description,
-            user_id: user.id,
-          });
-          if (rpcErr) throw rpcErr;
+    // 3. Perform safe balance deduction
+    if (inserted && inserted.length > 0) {
+      const processedIds: string[] = [];
+      try {
+        for (const item of inserted) {
+          const totalCost = item.cost_price * item.stock;
+          if (totalCost > 0) {
+            const description = `Імпорт аксесуарів: ${item.name} (Кількість: ${item.stock} шт.)`;
+            const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
+              item_type: "accessory",
+              item_id: item.id,
+              safe_id: opexSafe.id,
+              amount: totalCost,
+              description,
+              user_id: user.id,
+            });
+            if (rpcErr) throw rpcErr;
+            processedIds.push(item.id);
+          }
         }
+      } catch (rpcError) {
+        // Rollback: delete all successfully inserted items from this batch
+        await supabase.from("accessories").delete().in("id", inserted.map(i => i.id));
+        throw rpcError;
       }
     }
 
