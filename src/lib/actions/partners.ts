@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -106,6 +107,7 @@ export async function validatePromoCode(promo_code: string) {
 
 export async function deletePartner(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
 
     // Delete the partner record from database

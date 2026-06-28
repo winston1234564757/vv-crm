@@ -99,6 +99,7 @@ export function useSaleForm({
   const [discount, setDiscount] = useState<number>(0);
   const [basePrice, setBasePrice] = useState<number>(initialPrice);
   const [isSplit, setIsSplit] = useState<boolean>(false);
+  const [isWarranty, setIsWarranty] = useState<boolean>(false);
   const [cashAmount, setCashAmount] = useState<string>(initialPrice > 0 ? initialPrice.toString() : "");
   const [cardAmount, setCardAmount] = useState<string>("0");
 
@@ -217,6 +218,7 @@ export function useSaleForm({
     formData.set("customer_id", selectedCustomerId);
     formData.set("discount", discount.toString());
     formData.set("is_split", isSplit ? "true" : "false");
+    formData.set("is_warranty", isWarranty ? "true" : "false");
     if (isSplit) {
       formData.set("cash_amount", cashAmount);
       formData.set("card_amount", cardAmount);
@@ -354,6 +356,7 @@ export function useSaleForm({
   const remainingSplit = calculateRemainingSplit(totalAmountVal, cashAmountVal, cardAmountVal);
 
   const resetForm = () => {
+    setIsWarranty(false);
     setItemId("");
     setBasePrice(0);
     setAmount("");
@@ -377,6 +380,8 @@ export function useSaleForm({
     discount,
     isSplit,
     setIsSplit,
+    isWarranty,
+    setIsWarranty,
     cashAmount,
     cardAmount,
     showNewCustomer,

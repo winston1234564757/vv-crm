@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createPart, updatePart } from "@/lib/actions/parts";
 import { Input } from "@/components/ui/Input";
 import type { Database } from "@/types/database";
@@ -22,8 +22,18 @@ export function PartForm({
 }) {
   const action = part ? updatePart.bind(null, part.id) : createPart;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [status, setStatus] = useState<"in_stock" | "transit">(
+    (part?.status as "in_stock" | "transit") ?? "in_stock"
+  );
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "deferred">("paid");
+  const [defaultDueDate] = useState(() => {
+    return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  });
 
   useEffect(() => { if (state.success) onSuccess(); }, [state.success, onSuccess]);
+
+  const isTransit = status === "transit";
+  const isCreating = !part;
 
   return (
     <form action={formAction} className="space-y-4 p-2">
@@ -65,12 +75,55 @@ export function PartForm({
         </div>
       </div>
       <Input label="Сумісність (моделі)" name="compatible_with" placeholder="iPhone 13, 14, 15..." defaultValue={part?.compatible_with ?? ""} />
+      
+      {/* Status selector — only when creating */}
+      {isCreating && (
+        <div>
+          <label className="mb-2 block text-xs font-medium text-text-secondary">Де знаходиться деталь?</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setStatus("in_stock")}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+                !isTransit
+                  ? "border-emerald/60 bg-emerald/5 text-emerald"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+              }`}
+            >
+              <span>📦</span>
+              <span>На складі</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatus("transit")}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
+                isTransit
+                  ? "border-amber/60 bg-amber/5 text-amber"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+              }`}
+            >
+              <span>🚚</span>
+              <span>В дорозі</span>
+            </button>
+          </div>
+          <input type="hidden" name="status" value={status} />
+          {isTransit && (
+            <p className="mt-2 text-[11px] text-amber bg-amber/5 rounded-lg px-3 py-2 border border-amber/20">
+              Гроші з сейфу НЕ списуються. Прийомка на склад — після отримання посилки.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <Input label="Собівартість (грн)" name="cost_price" type="number" required placeholder="500" defaultValue={part?.cost_price.toString() ?? ""} />
         <Input label="Ціна продажу (грн)" name="price" type="number" placeholder="800" defaultValue={part?.price?.toString() ?? ""} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="На складі (шт)" name="stock" type="number" required placeholder="5" defaultValue={part?.stock.toString() ?? "0"} />
+        {/* Hide stock input for transit parts (server forces stock=0) */}
+        {!isTransit && (
+          <Input label="На складі (шт)" name="stock" type="number" required placeholder="5" defaultValue={part?.stock.toString() ?? "0"} />
+        )}
         <Input label="Мін. залишок" name="min_stock" type="number" placeholder="3" defaultValue={part?.min_stock.toString() ?? "3"} />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -93,29 +146,104 @@ export function PartForm({
         </div>
       </div>
 
-      {!part && safes.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
-            <select
-              name="safe_id"
-              required
-              defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
-              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+      {/* Safe deduction / Deferred payment — only when in_stock (not transit) and creating */}
+      {isCreating && !isTransit && (
+        <div className="space-y-3">
+          <label className="block text-xs font-medium text-text-secondary">Спосіб оплати</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentStatus("paid")}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                paymentStatus === "paid"
+                  ? "border-violet bg-violet/5 text-violet"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+              }`}
             >
-              {safes.map((safe) => (
-                <option key={safe.id} value={safe.id}>
-                  {safe.name} ({safe.balance.toLocaleString()} грн)
-                </option>
-              ))}
-            </select>
+              <span>💳</span>
+              <span>Оплатити зараз</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentStatus("deferred")}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+                paymentStatus === "deferred"
+                  ? "border-rose bg-rose/5 text-rose"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+              }`}
+            >
+              <span>📅</span>
+              <span>Відкладена оплата</span>
+            </button>
           </div>
+          <input type="hidden" name="payment_status" value={paymentStatus} />
+
+          {paymentStatus === "paid" && safes.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Списати з сейфу</label>
+              <select
+                name="safe_id"
+                required
+                defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
+                className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
+              >
+                {safes.map((safe) => (
+                  <option key={safe.id} value={safe.id}>
+                    {safe.name} ({safe.balance.toLocaleString()} грн)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {paymentStatus === "deferred" && (
+            <div>
+              <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Дата оплати постачальнику</label>
+              <input
+                type="date"
+                name="payment_due_date"
+                required
+                defaultValue={defaultDueDate}
+                className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* When editing a deferred payment part, allow editing the due date */}
+      {!isCreating && part?.payment_status === "deferred" && (
+        <div className="rounded-xl border border-rose/20 bg-rose/[0.01] p-3 space-y-2">
+          <div className="flex justify-between text-xs text-text-secondary">
+            <span>Статус оплати:</span>
+            <span className="font-semibold text-rose uppercase tracking-wider text-[10px]">Відкладена оплата</span>
+          </div>
+          <div className="flex justify-between text-xs text-text-secondary">
+            <span>Сума боргу:</span>
+            <span className="font-bold text-text-primary">{part.debt_amount?.toLocaleString() || 0} ₴</span>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-text-secondary">Дата оплати постачальнику</label>
+            <input
+              type="date"
+              name="payment_due_date"
+              defaultValue={part.payment_due_date ? part.payment_due_date.split('T')[0] : ""}
+              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40"
+            />
+          </div>
+        </div>
+      )}
+
+      {!isCreating && part?.payment_status === "paid" && (
+        <div className="rounded-xl border border-emerald/20 bg-emerald/[0.01] p-3 flex justify-between text-xs text-text-secondary">
+          <span>Статус оплати:</span>
+          <span className="font-semibold text-emerald uppercase tracking-wider text-[10px]">Оплачено</span>
         </div>
       )}
 
       <Input label="ТТН Нової Пошти" name="np_ttn" placeholder="20450799384635" defaultValue={part?.np_ttn ?? ""} />
       <button type="submit" disabled={pending} className="btn-press mt-4 w-full rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer">
-        {pending ? "Збереження..." : part ? "Зберегти зміни" : "Додати деталь"}
+        {pending ? "Збереження..." : part ? "Зберегти зміни" : isTransit ? "Додати деталь (в дорозі 🚚)" : "Додати деталь"}
       </button>
     </form>
   );

@@ -10,7 +10,7 @@ export async function getCustomers() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data ?? [];
 }
 
 export async function getSalesForHistory() {

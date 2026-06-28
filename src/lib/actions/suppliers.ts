@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -58,6 +59,7 @@ export async function updateSupplier(id: string, prevState: ActionState | null, 
 
 export async function deleteSupplier(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     const { error } = await supabase.from("suppliers").delete().eq("id", id);
     if (error) throw error;

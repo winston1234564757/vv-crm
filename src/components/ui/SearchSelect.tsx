@@ -63,7 +63,7 @@ export default function SearchSelect({
       
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full rounded-xl border border-iris/20 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors cursor-pointer flex justify-between items-center focus-within:border-violet"
+        className="w-full rounded-xl border border-iris/20 bg-warm-surface px-4 py-3 text-base md:text-sm text-text-primary outline-none transition-colors cursor-pointer flex justify-between items-center focus-within:border-violet"
       >
         <span className={selectedOption ? "text-text-primary" : "text-iris/30"}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -90,7 +90,7 @@ export default function SearchSelect({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Пошук..."
               onClick={(e) => e.stopPropagation()}
-              className="w-full rounded-lg border border-iris/20 bg-warm-surface pl-8 pr-3 py-2 text-xs text-text-primary outline-none focus:border-violet"
+              className="w-full rounded-lg border border-iris/20 bg-warm-surface pl-8 pr-3 py-2 text-base md:text-xs text-text-primary outline-none focus:border-violet"
             />
           </div>
           <div className="space-y-0.5">

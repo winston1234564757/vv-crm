@@ -15,10 +15,12 @@ export interface SaleWithDetails {
   delivery_tracking: string | null;
   warranty_start: string | null;
   warranty_end: string | null;
+  status: string;
   return_reason: string | null;
   monobank_payment_id: string | null;
   partner_id: string | null;
   promo_code_used: string | null;
+  is_warranty?: boolean | null;
   customer_name: string;
   customer_phone: string;
   seller_name: string;
@@ -197,7 +199,7 @@ export async function getSales(limit?: number): Promise<SaleWithDetails[]> {
       created_by: sale.created_by,
       created_at: sale.created_at,
       sale_type: sale.sale_type,
-      delivery_needed: sale.delivery_needed,
+      delivery_needed: sale.delivery_needed, status,
       delivery_address: sale.delivery_address,
       delivery_tracking: sale.delivery_tracking,
       warranty_start: sale.warranty_start,

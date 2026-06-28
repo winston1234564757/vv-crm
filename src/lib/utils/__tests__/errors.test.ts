@@ -46,4 +46,32 @@ describe("Error Parser", () => {
     
     expect(parseError(serializedZodError)).toBe("Невалідний email; Обов'язкове поле");
   });
+
+  it("should parse and translate PostgreSQL foreign key constraints", () => {
+    // 1. As standard Error objects
+    const errPart = new Error('update or delete on table "parts" violates foreign key constraint "repair_parts_part_id_fkey" on table "repair_parts"');
+    expect(parseError(errPart)).toContain("Неможливо видалити деталь, оскільки вона вже використана у виконаних чи поточних ремонтах");
+
+    const errCustomer = new Error('update or delete on table "customers" violates foreign key constraint "repairs_customer_id_fkey" on table "repairs"');
+    expect(parseError(errCustomer)).toContain("Неможливо видалити клієнта, оскільки він має пов'язані ремонти");
+
+    // 2. As plain database/Supabase error objects with code or message
+    const dbErrExpenseCat = {
+      code: "23503",
+      message: 'update or delete on table "expense_categories" violates foreign key constraint "expenses_category_id_fkey" on table "expenses"'
+    };
+    expect(parseError(dbErrExpenseCat)).toContain("Неможливо видалити категорію витрат, оскільки вона містить записані витрати");
+
+    const dbErrSafe = {
+      code: "23503",
+      message: 'update or delete on table "safes" violates foreign key constraint "expenses_paid_from_safe_id_fkey" on table "expenses"'
+    };
+    expect(parseError(dbErrSafe)).toContain("Неможливо видалити цей сейф, оскільки з нього здійснювалися витрати");
+
+    const genericFkErr = {
+      code: "23503",
+      message: 'some generic foreign key violation'
+    };
+    expect(parseError(genericFkErr)).toBe("Неможливо видалити цей запис, оскільки він пов'язаний з іншими даними в системі.");
+  });
 });

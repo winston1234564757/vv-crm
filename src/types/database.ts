@@ -1,4 +1,4 @@
-export type Json =
+﻿﻿﻿﻿﻿﻿export type Json =
   | string
   | number
   | boolean
@@ -144,6 +144,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          device_name: string | null
           id: string
           name: string
           phone: string
@@ -168,6 +169,7 @@ export type Database = {
           ai_profile: Json | null
         }
         Insert: {
+          device_name?: string | null
           id?: string
           name: string
           phone: string
@@ -192,6 +194,7 @@ export type Database = {
           ai_profile?: Json | null
         }
         Update: {
+          device_name?: string | null
           id?: string
           name?: string
           phone?: string
@@ -518,6 +521,12 @@ export type Database = {
       }
       parts: {
         Row: {
+          debt_amount: number
+          paid_from_safe_id: string | null
+          paid_at: string | null
+          status: string
+          payment_status: string
+          payment_due_date: string | null
           id: string
           name: string
           part_number: string | null
@@ -534,6 +543,12 @@ export type Database = {
           origin_type: string | null
         }
         Insert: {
+          debt_amount?: number
+          paid_from_safe_id?: string | null
+          paid_at?: string | null
+          status?: string
+          payment_status?: string
+          payment_due_date?: string | null
           id?: string
           name: string
           part_number?: string | null
@@ -550,6 +565,12 @@ export type Database = {
           origin_type?: string | null
         }
         Update: {
+          debt_amount?: number
+          paid_from_safe_id?: string | null
+          paid_at?: string | null
+          status?: string
+          payment_status?: string
+          payment_due_date?: string | null
           id?: string
           name?: string
           part_number?: string | null
@@ -696,6 +717,7 @@ export type Database = {
           order_number: string | null
           expected_delivery: string | null
           payment_terms: string | null
+          payment_type: string
         }
         Insert: {
           id?: string
@@ -712,6 +734,7 @@ export type Database = {
           order_number?: string | null
           expected_delivery?: string | null
           payment_terms?: string | null
+          payment_type?: string
         }
         Update: {
           id?: string
@@ -728,6 +751,7 @@ export type Database = {
           order_number?: string | null
           expected_delivery?: string | null
           payment_terms?: string | null
+          payment_type?: string
         }
         Relationships: [
           {
@@ -842,6 +866,7 @@ export type Database = {
       }
       repairs: {
         Row: {
+          is_warranty: boolean | null
           id: string
           customer_id: string | null
           device_name: string
@@ -868,6 +893,7 @@ export type Database = {
           device_accessories_included: string | null
           source: string | null
           estimated_completion: string | null
+          warranty_for_repair_id: string | null
           payment_status: string | null
           diagnosis_result: string | null
           technician_notes_internal: string | null
@@ -881,6 +907,7 @@ export type Database = {
           ai_diagnostic: Json | null
         }
         Insert: {
+          is_warranty?: boolean | null
           id?: string
           customer_id?: string | null
           device_name: string
@@ -907,6 +934,7 @@ export type Database = {
           device_accessories_included?: string | null
           source?: string | null
           estimated_completion?: string | null
+          warranty_for_repair_id?: string | null
           payment_status?: string | null
           diagnosis_result?: string | null
           technician_notes_internal?: string | null
@@ -920,6 +948,7 @@ export type Database = {
           ai_diagnostic?: Json | null
         }
         Update: {
+          is_warranty?: boolean | null
           id?: string
           customer_id?: string | null
           device_name?: string
@@ -946,6 +975,7 @@ export type Database = {
           device_accessories_included?: string | null
           source?: string | null
           estimated_completion?: string | null
+          warranty_for_repair_id?: string | null
           payment_status?: string | null
           diagnosis_result?: string | null
           technician_notes_internal?: string | null
@@ -1060,6 +1090,8 @@ export type Database = {
       }
       sales: {
         Row: {
+          is_warranty: boolean | null
+          status: string
           id: string
           customer_id: string | null
           total_amount: number
@@ -1079,6 +1111,8 @@ export type Database = {
           warranty_end: string | null
         }
         Insert: {
+          is_warranty?: boolean | null
+          status?: string
           id?: string
           customer_id?: string | null
           total_amount: number
@@ -1098,6 +1132,8 @@ export type Database = {
           warranty_end?: string | null
         }
         Update: {
+          is_warranty?: boolean | null
+          status?: string
           id?: string
           customer_id?: string | null
           total_amount?: number
@@ -1351,7 +1387,20 @@ export type Database = {
         }
         Returns: undefined
       }
-      delete_sale: {
+      
+        top_up_safe: {
+          Args: { p_safe_id: string, p_amount: number, p_desc_text?: string }
+          Returns: undefined
+        }
+        receive_part_transit: {
+          Args: { p_part_id: string }
+          Returns: undefined
+        }
+        refund_sale: {
+          Args: { sale_id_to_refund: string }
+          Returns: undefined
+        }
+        delete_sale: {
         Args: {
           sale_id_to_delete: string
         }

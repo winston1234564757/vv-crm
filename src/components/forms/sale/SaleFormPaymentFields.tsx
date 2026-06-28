@@ -6,6 +6,8 @@ interface SaleFormPaymentFieldsProps {
   discount: number;
   isSplit: boolean;
   setIsSplit: (val: boolean) => void;
+  isWarranty: boolean;
+  setIsWarranty: (val: boolean) => void;
   cashAmount: string;
   onCashAmountChange: (val: string) => void;
   cardAmount: string;
@@ -19,6 +21,8 @@ export default function SaleFormPaymentFields({
   discount,
   isSplit,
   setIsSplit,
+  isWarranty,
+  setIsWarranty,
   cashAmount,
   onCashAmountChange,
   cardAmount,
@@ -29,25 +33,27 @@ export default function SaleFormPaymentFields({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="amount"
-            className="mb-1.5 block text-xs font-medium text-text-secondary"
-          >
-            Сума до оплати (грн){" "}
-            {discount > 0 && (
-              <span className="text-cyan font-semibold">(-{discount}%)</span>
-            )}
-          </label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="amount" className="block text-xs font-medium text-text-secondary">
+              Сума до оплати (грн){" "}
+              {discount > 0 && <span className="text-cyan font-semibold">(-{discount}%)</span>}
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={isWarranty} onChange={e => setIsWarranty(e.target.checked)} className="rounded text-violet focus:ring-violet" />
+              <span className="text-[10px] font-bold text-violet uppercase tracking-wider">🛡️ Гарантія</span>
+            </label>
+          </div>
           <input
             id="amount"
             name="amount"
             type="number"
             min="0"
             required
-            value={amount}
+            value={isWarranty ? 0 : amount}
             onChange={(e) => onAmountChange(e.target.value)}
             placeholder="0"
-            className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
+            disabled={isWarranty}
+            className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet disabled:opacity-60 disabled:bg-iris/5"
           />
         </div>
         {!isSplit && (

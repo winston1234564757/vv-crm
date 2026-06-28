@@ -97,6 +97,7 @@ export function POSClient({
   const [promoCode, setPromoCode] = useState<string>("");
   const [partnerId, setPartnerId] = useState<string>("");
   const [promoMessage, setPromoMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [linkDeviceToCustomer, setLinkDeviceToCustomer] = useState<boolean>(true);
 
   // New customer creation state
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -437,6 +438,7 @@ export function POSClient({
       delivery_needed: false,
       partner_id: partnerId || null,
       promo_code_used: promoCode.trim() || null,
+      link_device_to_customer: linkDeviceToCustomer,
       items: cart.map(c => ({
         item_type: c.item_type,
         item_id: c.id,
@@ -778,6 +780,18 @@ export function POSClient({
                 className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2 text-xs outline-none focus:border-violet"
               />
             </div>
+
+            {selectedCustomerId && cart.some(c => c.item_type === "device") && (
+              <label className="flex items-center gap-2 text-xs text-text-primary cursor-pointer p-2 rounded-xl bg-violet/5 border border-violet/10">
+                <input
+                  type="checkbox"
+                  checked={linkDeviceToCustomer}
+                  onChange={(e) => setLinkDeviceToCustomer(e.target.checked)}
+                  className="rounded border-iris/30 text-violet focus:ring-violet/30 cursor-pointer w-4 h-4"
+                />
+                <span className="font-medium">Прив'язати телефон до клієнта</span>
+              </label>
+            )}
 
             {/* Split payments calculator */}
             <div className="p-3.5 bg-white dark:bg-zinc-900 rounded-2xl border border-warm-border/60 text-xs space-y-3.5 shadow-sm">

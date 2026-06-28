@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -8,6 +9,7 @@ import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
 
 const saleSchema = z.object({
+  is_warranty: z.boolean().optional().default(false),
   customer_id: z.string().uuid().nullable().optional(),
   amount: z.coerce.number().min(0, "Сума не може бути від'ємною"),
   discount: z.coerce.number().min(0).max(100).optional().default(0),
@@ -34,6 +36,7 @@ const saleSchema = z.object({
 export async function createQuickSale(prevState: ActionState | null, formData: FormData): Promise<ActionState<{ saleId: string }>> {
   try {
     const data = {
+      is_warranty: formData.get("is_warranty") === "true",
       customer_id: formData.get("customer_id") || null,
       amount: formData.get("amount"),
       discount: formData.get("discount") || 0,
@@ -58,6 +61,11 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
     };
 
     const parsed = saleSchema.parse(data);
+    if (parsed.is_warranty) {
+      parsed.amount = 0;
+      parsed.cash_amount = 0;
+      parsed.card_amount = 0;
+    }
     const supabase = await createClient();
 
     // 1. Get the current user profile ID for created_by
@@ -101,6 +109,7 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
     const { data: sale, error: saleError } = await supabase
       .from("sales")
       .insert({
+        is_warranty: parsed.is_warranty,
         customer_id: parsed.customer_id,
         total_amount: parsed.amount,
         discount: parsed.discount,
@@ -302,6 +311,7 @@ const multiSaleSchema = z.object({
   warranty_end: z.string().nullable().optional(),
   partner_id: z.string().uuid().nullable().optional(),
   promo_code_used: z.string().nullable().optional(),
+  link_device_to_customer: z.coerce.boolean().optional().default(false),
   items: z.array(multiSaleItemSchema).min(1, "Кошик не може бути порожнім"),
 });
 
@@ -318,6 +328,8 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       throw new Error("Unauthorized: " + (authError?.message || "User not found"));
     }
     const userId = user.id;
+
+    let deviceNameToLink: string | null = null;
 
     // 2. Calculate final amounts
     const subtotal = parsed.items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
@@ -352,6 +364,10 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
           .single();
         if (devErr || !device) throw new Error(`Пристрій не знайдено в системі.`);
         if (device.status !== "in_stock") throw new Error(`Пристрій вже продано або заброньовано.`);
+
+        if (parsed.link_device_to_customer && !deviceNameToLink) {
+          deviceNameToLink = `${device.brand || ""} ${device.model || ""}`.trim();
+        }
 
         const { data: updatedDev, error: devUpErr } = await supabase
           .from("devices")
@@ -544,6 +560,14 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
 
+    if (parsed.customer_id && deviceNameToLink) {
+      await supabase
+        .from("customers")
+        .update({ device_name: deviceNameToLink })
+        .eq("id", parsed.customer_id);
+      revalidatePath("/admin/customers");
+    }
+
     return { success: true, data: { saleId: sale.id } };
   } catch (err) {
     console.error("MultiSaleAction Error:", err);
@@ -555,8 +579,34 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
   }
 }
 
+export async function processRefundAction(saleId: string): Promise<ActionState> {
+  try {
+    await requireRole(["owner", "manager"]);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+
+    const { error } = await supabase.rpc("refund_sale", {
+      sale_id_to_refund: saleId
+    });
+
+    if (error) throw error;
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/sales");
+    revalidatePath("/admin/finance");
+
+    return { success: true };
+  } catch (err) {
+    console.error("processRefundAction Error:", err);
+    return { success: false, error: parseError(err) };
+  }
+}
+
 export async function deleteSaleAction(saleId: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
 
     // 1. Authenticate user

@@ -24,7 +24,7 @@ export default async function PurchasesPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Закупівлі</h1>
           <p className="mt-0.5 text-sm text-text-secondary">{purchases.length} {pluralUk(purchases.length, "закупівля", "закупівлі", "закупівель")}</p>
         </div>
-        <AddPurchaseButton />
+        <AddPurchaseButton safes={safes} />
       </div>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <GlassCard>

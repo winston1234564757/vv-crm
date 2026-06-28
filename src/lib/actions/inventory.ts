@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -69,6 +70,7 @@ async function autoCreateRepairForDevice(
 }
 
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
+type RepairUpdate = Database["public"]["Tables"]["repairs"]["Update"];
 type AccessoryInsert = Database["public"]["Tables"]["accessories"]["Insert"];
 type AccessoryUpdate = Database["public"]["Tables"]["accessories"]["Update"];
 type ServiceInsert = Database["public"]["Tables"]["services"]["Insert"];
@@ -97,7 +99,8 @@ const deviceSchema = z.object({
     z.object({
       name: z.string(),
       cost: z.number(),
-      origin: z.string()
+      origin: z.string(),
+      part_id: z.string().nullable().optional()
     })
   ).optional().default([]),
   description: z.string().nullable().optional(),
@@ -483,6 +486,7 @@ export async function updateService(id: string, prevState: ActionState | null, f
 
 export async function deleteService(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     const { error } = await supabase.from("services").delete().eq("id", id);
     if (error) throw error;
@@ -498,7 +502,7 @@ export async function deleteService(id: string): Promise<ActionState> {
 export async function updateDevice(id: string, prevState: ActionState | null, formData: FormData): Promise<ActionState> {
   try {
     const rawParts = formData.get("repair_parts_replaced");
-    let parsedParts = [];
+    let parsedParts: Array<{ name: string; cost: number; origin: string; part_id?: string | null }> = [];
     try {
       parsedParts = rawParts ? JSON.parse(rawParts as string) : [];
     } catch {
@@ -559,6 +563,8 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       parsed.photo_urls = existingDevice?.photo_urls || [];
     }
 
+    const updatePayload: DeviceUpdate = { ...parsed };
+
     // Захист: якщо пристрій має активний складський ремонт, ігноруємо ручні зміни ремонтних полів форми
     const { data: activeRepair } = await supabase
       .from("repairs")
@@ -569,35 +575,203 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       .maybeSingle();
 
     if (activeRepair) {
-      parsed.needs_repair = true;
-      
-      // Якщо вартість ремонту на формі відрізняється від поточної в БД, оновлюємо картку ремонту
-      if (parsed.repair_cost !== activeRepair.cost) {
+      const wantToComplete = !parsed.needs_repair || parsed.repair_status === "completed";
+
+      if (wantToComplete) {
+        // Завершуємо активний ремонт
         await supabase
           .from("repairs")
-          .update({ cost: parsed.repair_cost })
+          .update({ 
+            status: "completed",
+            completed_at: new Date().toISOString()
+          })
           .eq("id", activeRepair.id);
+
+        await supabase.from("repair_status_log").insert({
+          repair_id: activeRepair.id,
+          from_status: activeRepair.status,
+          to_status: "completed",
+          notes: "Ремонт завершено через картку пристрою"
+        });
+
+        updatePayload.needs_repair = false;
+        updatePayload.repair_status = "completed";
+        updatePayload.repair_cost = activeRepair.cost || 0;
+
+        // Якщо пристрій у статусі "service" (в ремонті), переводимо його в "in_stock" (в наявності)
+        const { data: currentDevStatus } = await supabase
+          .from("devices")
+          .select("status")
+          .eq("id", id)
+          .single();
+        if (currentDevStatus?.status === "service") {
+          updatePayload.status = "in_stock";
+        }
+      } else {
+        // Ремонт продовжується, але статус міг змінитися
+        let targetDbStatus = activeRepair.status;
+        if (parsed.repair_status === "pending") {
+          targetDbStatus = "received";
+        } else if (parsed.repair_status === "waiting_parts") {
+          targetDbStatus = "awaiting_parts";
+        } else if (parsed.repair_status === "in_progress") {
+          targetDbStatus = "in_progress";
+        }
+
+        const statusChanged = targetDbStatus !== activeRepair.status;
+
+        if (statusChanged) {
+          await supabase
+            .from("repairs")
+            .update({ status: targetDbStatus })
+            .eq("id", activeRepair.id);
+
+          await supabase.from("repair_status_log").insert({
+            repair_id: activeRepair.id,
+            from_status: activeRepair.status,
+            to_status: targetDbStatus,
+            notes: "Оновлення статусу через картку пристрою"
+          });
+        }
+
+        updatePayload.needs_repair = true;
+        updatePayload.repair_cost = activeRepair.cost || 0;
+        
+        // Синхронізуємо parsed.repair_status назад
+        let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
+        if (targetDbStatus === "awaiting_parts") {
+          mappedRepairStatus = "waiting_parts";
+        } else if (["in_progress", "diagnostics", "received"].includes(targetDbStatus)) {
+          mappedRepairStatus = "in_progress";
+        } else if (targetDbStatus === "ready" || targetDbStatus === "completed") {
+          mappedRepairStatus = "completed";
+        }
+        updatePayload.repair_status = mappedRepairStatus;
       }
 
-      let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
-      if (activeRepair.status === "awaiting_parts") {
-        mappedRepairStatus = "waiting_parts";
-      } else if (["in_progress", "diagnostics"].includes(activeRepair.status)) {
-        mappedRepairStatus = "in_progress";
-      } else if (activeRepair.status === "ready") {
-        mappedRepairStatus = "completed";
-      }
-      parsed.repair_status = mappedRepairStatus;
+      // 1. Отримуємо вже списані запчастини з таблиці repair_parts для активного ремонту
+      const { data: dbRepairParts } = await supabase
+        .from("repair_parts")
+        .select("id, part_id, quantity, unit_cost")
+        .eq("repair_id", activeRepair.id);
 
-      // Зберігаємо раніше записані деталі (вони управляються автоматично через списання)
-      const { data: currentDev } = await supabase
-        .from("devices")
-        .select("repair_parts_replaced")
-        .eq("id", id)
-        .single();
-      if (currentDev) {
-        parsed.repair_parts_replaced = (currentDev.repair_parts_replaced as unknown as { name: string; cost: number; origin: string }[]) || [];
+      const existingDbParts = dbRepairParts || [];
+
+      // Фільтруємо деталі з форми (ті, які прийшли через parsedParts)
+      const formPartsWithId = (parsedParts || []).filter(p => p.part_id) as Array<{ name: string; cost: number; origin: string; part_id: string }>;
+      const formPartsManual = (parsedParts || []).filter(p => !p.part_id) as Array<{ name: string; cost: number; origin: string; part_id?: string | null }>;
+
+      // 2. Визначаємо, які деталі треба ДОДАТИ на склад (списати)
+      for (const fp of formPartsWithId) {
+        const hasDb = existingDbParts.some(ep => ep.part_id === fp.part_id);
+        if (!hasDb) {
+          // Отримуємо stock запчастини на складі
+          const { data: part, error: fetchPartErr } = await supabase
+            .from("parts")
+            .select("stock, name")
+            .eq("id", fp.part_id)
+            .single();
+
+          if (fetchPartErr || !part) {
+            throw new Error(`Запчастину з ID ${fp.part_id} не знайдено на складі`);
+          }
+
+          if (part.stock < 1) {
+            throw new Error(`Недостатньо запчастин "${part.name}" на складі (в наявності: 0 шт). Оприбуткуйте її на складі перед списанням.`);
+          }
+
+          // Зменшуємо stock
+          await supabase
+            .from("parts")
+            .update({ stock: part.stock - 1 })
+            .eq("id", fp.part_id);
+
+          // Записуємо у repair_parts
+          await supabase
+            .from("repair_parts")
+            .insert({
+              repair_id: activeRepair.id,
+              part_id: fp.part_id,
+              quantity: 1,
+              unit_cost: fp.cost
+            });
+
+          // Додаємо запис у лог статусів ремонту
+          await supabase.from("repair_status_log").insert({
+            repair_id: activeRepair.id,
+            to_status: activeRepair.status,
+            notes: `Списано деталь зі складу при редагуванні пристрою: ${part.name} (1 шт) на суму ${fp.cost} грн`
+          });
+        }
       }
+
+      // 3. Визначаємо, які деталі треба ВИДАЛИТИ (повернути на склад)
+      for (const ep of existingDbParts) {
+        const stillExists = formPartsWithId.some(fp => fp.part_id === ep.part_id);
+        if (!stillExists) {
+          // Повертаємо деталь на склад
+          const { data: part } = await supabase
+            .from("parts")
+            .select("stock, name")
+            .eq("id", ep.part_id)
+            .single();
+
+          if (part) {
+            // Збільшуємо stock
+            await supabase
+              .from("parts")
+              .update({ stock: part.stock + ep.quantity })
+              .eq("id", ep.part_id);
+
+            // Видаляємо з repair_parts
+            await supabase
+              .from("repair_parts")
+              .delete()
+              .eq("id", ep.id);
+
+            // Додаємо запис у лог
+            await supabase.from("repair_status_log").insert({
+              repair_id: activeRepair.id,
+              to_status: activeRepair.status,
+              notes: `Повернуто деталь на склад при редагуванні пристрою: ${part.name} (${ep.quantity} шт)`
+            });
+          }
+        }
+      }
+
+      // 4. Оновлюємо загальну вартість активного ремонту
+      const { data: updatedDbParts } = await supabase
+        .from("repair_parts")
+        .select("quantity, unit_cost")
+        .eq("repair_id", activeRepair.id);
+
+      const totalPartsCost = (updatedDbParts || []).reduce((sum, rp) => sum + (rp.unit_cost * rp.quantity), 0);
+
+      await supabase
+        .from("repairs")
+        .update({ cost: totalPartsCost })
+        .eq("id", activeRepair.id);
+
+      updatePayload.repair_cost = totalPartsCost;
+
+      // 5. Оновлюємо payload пристрою об'єднаним списком деталей
+      const { data: finalDbParts } = await supabase
+        .from("repair_parts")
+        .select("unit_cost, parts(name, origin_type, id)")
+        .eq("repair_id", activeRepair.id);
+
+      const mappedDbParts = (finalDbParts || []).map(rp => {
+        const partInfo = rp.parts as unknown as { name: string; origin_type: string | null; id: string };
+        return {
+          name: partInfo?.name || "Невідома деталь",
+          cost: rp.unit_cost,
+          origin: partInfo?.origin_type || "Copy",
+          part_id: partInfo?.id || null
+        };
+      });
+
+      // Об'єднуємо деталі з бази (складські) та деталі вручну (без part_id)
+      updatePayload.repair_parts_replaced = [...formPartsManual, ...mappedDbParts];
     }
 
     // Check previous needs_repair value before update
@@ -607,11 +781,11 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       .eq("id", id)
       .single();
 
-    const { error } = await supabase.from("devices").update(parsed as DeviceUpdate).eq("id", id);
+    const { error } = await supabase.from("devices").update(updatePayload).eq("id", id);
     if (error) throw error;
 
     // Auto-create repair if needs_repair just turned true
-    if (parsed.needs_repair && !prevDevice?.needs_repair) {
+    if (updatePayload.needs_repair && !prevDevice?.needs_repair) {
       await autoCreateRepairForDevice(supabase, id);
     }
 
@@ -626,6 +800,7 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
 
 export async function deleteDevice(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     const { error } = await supabase.from("devices").delete().eq("id", id);
     if (error) throw error;
@@ -670,6 +845,7 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
 
 export async function deleteAccessory(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     const { error } = await supabase.from("accessories").delete().eq("id", id);
     if (error) throw error;
@@ -907,4 +1083,62 @@ export async function bulkUpdateDevicesTtn(ids: string[], ttn: string): Promise<
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function receiveDeviceFromTransit(
+  deviceId: string,
+  safeId?: string | null
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || ""));
+
+    // 1. Отримуємо дані про пристрій
+    const { data: device, error: devErr } = await supabase
+      .from("devices")
+      .select("id, brand, model, status, cost_price")
+      .eq("id", deviceId)
+      .single();
+
+    if (devErr || !device) throw new Error("Пристрій не знайдено");
+    if (device.status !== "transit") {
+      throw new Error("Пристрій не перебуває в дорозі (transit)");
+    }
+
+    // 2. Оновлюємо статус пристрою на складі
+    const { error: updateErr } = await supabase
+      .from("devices")
+      .update({ status: "in_stock" })
+      .eq("id", deviceId);
+
+    if (updateErr) throw updateErr;
+
+    // 3. Якщо вказано сейф та ціна закупівлі більша за 0, списуємо кошти
+    if (safeId) {
+      const amount = device.cost_price;
+      if (amount > 0) {
+        const description = `Прийняття пристрою на склад: ${device.brand} ${device.model}`;
+        const { error: deductErr } = await supabase.rpc("purchase_inventory_item", {
+          item_type: "device",
+          item_id: deviceId,
+          safe_id: safeId,
+          amount: amount,
+          description,
+          user_id: user.id,
+        });
+        if (deductErr) throw deductErr;
+      }
+    }
+
+    revalidatePath("/admin/devices");
+    revalidatePath("/admin");
+    revalidatePath("/admin/repairs");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+
+
 

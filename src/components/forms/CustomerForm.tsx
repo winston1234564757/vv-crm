@@ -19,6 +19,7 @@ interface Customer {
   source: string | null;
   preferred_contact: string | null;
   tags: string[] | string | null;
+  device_name: string | null;
 }
 
 interface CustomerFormProps {
@@ -124,12 +125,20 @@ export function CustomerForm({ onSuccess, customer }: CustomerFormProps) {
         error={emailTouched && emailError ? emailError : undefined}
       />
       
-      <Input
-        label="Telegram ID"
-        name="telegram_id"
-        placeholder="@username (опціонально)"
-        defaultValue={customer?.telegram_id ?? ""}
-      />
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Telegram ID"
+          name="telegram_id"
+          placeholder="@username (опціонально)"
+          defaultValue={customer?.telegram_id ?? ""}
+        />
+        <Input
+          label="Смартфон / Пристрій"
+          name="device_name"
+          placeholder="iPhone 13 Pro (опціонально)"
+          defaultValue={customer?.device_name ?? ""}
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>

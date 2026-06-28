@@ -7,6 +7,6 @@ export async function getDevices() {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data ?? [];
 }
 

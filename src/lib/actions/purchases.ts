@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -22,6 +23,8 @@ const purchaseSchema = z.object({
   status: z.string().optional().default("pending"),
   paid_from_safe_id: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  payment_type: z.enum(["transit", "prepaid", "on_receipt"]).default("transit"),
+  prepaid_safe_id: z.string().nullable().optional(),
 });
 
 export async function createPurchase(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -30,8 +33,10 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
       supplier_id: formData.get("supplier_id") || null,
       total_amount: formData.get("total_amount") || 0,
       status: "pending",
-      paid_from_safe_id: formData.get("paid_from_safe_id") || null,
+      paid_from_safe_id: null,
       notes: formData.get("notes") || null,
+      payment_type: formData.get("payment_type") || "transit",
+      prepaid_safe_id: formData.get("prepaid_safe_id") || null,
     };
     const parsed = purchaseSchema.parse(data);
 
@@ -40,7 +45,11 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
     if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
 
     const { data: purchase, error } = await supabase.from("purchases").insert({
-      ...parsed,
+      supplier_id: parsed.supplier_id ?? null,
+      total_amount: parsed.total_amount,
+      status: "pending",
+      notes: parsed.notes ?? null,
+      payment_type: parsed.payment_type,
       created_by: user.id,
     }).select().single();
 
@@ -146,6 +155,15 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
         if (itemError) throw itemError;
       }
     }
+    // If payment_type = 'prepaid' and a safe was selected — pay immediately
+    if (parsed.payment_type === "prepaid" && parsed.prepaid_safe_id) {
+      const { error: payError } = await supabase.rpc("pay_purchase_atomic", {
+        p_id: purchase.id,
+        p_safe_id: parsed.prepaid_safe_id,
+        user_id: user.id,
+      });
+      if (payError) throw payError;
+    }
 
     revalidatePath("/admin/purchases");
     revalidatePath("/admin/devices");
@@ -198,6 +216,7 @@ export async function updatePurchaseStatus(id: string, status: string, safeId?: 
 
 export async function deletePurchase(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     
     // 1. Отримуємо поточний статус закупівлі

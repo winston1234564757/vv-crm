@@ -110,9 +110,16 @@ export default function AICopilotDrawer({
         })
       });
 
-      if (!res.ok) throw new Error("Помилка зв'язку з ШІ");
+      const data = await res.json().catch(() => ({}));
 
-      const data = await res.json();
+      if (!res.ok) {
+        const serverError = data?.error;
+        if (res.status === 429) {
+          throw new Error("⏳ " + (serverError || "AI тимчасово недоступний: ліміт запитів вичерпано. Спробуй за хвилину."));
+        }
+        throw new Error(serverError || "Помилка зв'язку з ШІ");
+      }
+
       const modelMsg: Message = {
         id: Math.random().toString(),
         role: "model",
@@ -127,12 +134,15 @@ export default function AICopilotDrawer({
         {
           id: Math.random().toString(),
           role: "model",
-          content: `❌ Помилка: ${errMessage || "Не вдалося підключитися до ШІ-помічника. Спробуйте пізніше."}`
+          content: errMessage.startsWith("⏳")
+            ? errMessage
+            : `❌ Помилка: ${errMessage || "Не вдалося підключитися до ШІ-помічника. Спробуйте пізніше."}`
         }
       ]);
     } finally {
       setLoading(false);
     }
+
   }
 
   return (

@@ -50,7 +50,19 @@ export function DeviceFormRepair({
   handleSelectWarehousePart,
   parts,
 }: DeviceFormRepairProps) {
+  const deviceBrand = (device.brand || "").trim().toLowerCase();
 
+  const sortedParts = [...parts]
+    .filter(p => p.stock > 0)
+    .sort((a, b) => {
+      if (deviceBrand) {
+        const aMatches = a.name.toLowerCase().includes(deviceBrand);
+        const bMatches = b.name.toLowerCase().includes(deviceBrand);
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <div className="border-t border-warm-border/50 pt-4">
@@ -147,11 +159,13 @@ export function DeviceFormRepair({
                     className="w-full rounded-lg border border-warm-border/60 bg-warm-sidebar px-3 py-2 text-xs text-text-primary outline-none cursor-pointer"
                   >
                     <option value="">-- Ввести вручну --</option>
-                    {parts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.origin_type ? `(${p.origin_type})` : ""} — {p.cost_price} грн (залишок: {p.stock} шт)
-                      </option>
-                    ))}
+                    {sortedParts.map((p) => {
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.origin_type ? `(${p.origin_type})` : ""} — {p.cost_price} грн (залишок: {p.stock} шт)
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -213,9 +227,13 @@ export function DeviceFormRepair({
               placeholder="1500" 
               value={repairCost}
               onChange={(e) => setRepairCost(Number(e.target.value))}
+              readOnly={!!device?.id && repairStatus !== "completed"}
+              className={!!device?.id && repairStatus !== "completed" ? "bg-slate-100/50 cursor-not-allowed" : ""}
             />
             <p className="mt-1 text-[10px] text-text-secondary">
-              * Вартість автоматично збільшується при додаванні деталей з списку вище, але ви можете відредагувати її вручну.
+              {!!device?.id && repairStatus !== "completed"
+                ? "* Розраховується автоматично на основі списаних деталей у розділі 'Ремонти'."
+                : "* Вартість автоматично збільшується при додаванні деталей з списку вище."}
             </p>
           </div>
         </div>

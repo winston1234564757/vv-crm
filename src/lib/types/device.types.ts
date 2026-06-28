@@ -12,6 +12,7 @@ export interface ReplacedPart {
   name: string;
   cost: number;
   origin: string;
+  part_id?: string;
 }
 
 // Repair parts data structure type for type safety
@@ -19,6 +20,7 @@ export interface RepairPartsData {
   name: string;
   cost: number;
   origin: string;
+  part_id?: string | null;
 }
 
 // Device type for form

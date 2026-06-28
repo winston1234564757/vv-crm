@@ -28,6 +28,7 @@ type CustomerRow = {
   created_at: string;
   discount_percent: number;
   notes: string | null;
+  device_name: string | null;
   telegram_id: string | null;
   ai_profile?: {
     psychotype: string;
@@ -154,89 +155,162 @@ export function CustomersTable({
           className="w-full rounded-xl border border-warm-border bg-warm-surface pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40"
         />
       </div>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-              <th className="pb-2 pr-4">Ім&apos;я</th>
-              <th className="pb-2 pr-4">Телефон</th>
-              <th className="pb-2 pr-4 text-left text-xs font-medium text-text-secondary">VIP</th>
-              <th className="pb-2 pr-4 text-right">Візитів</th>
-              <th className="pb-2 pr-4 text-right">Витрачено</th>
-              <th className="pb-2 pr-4 text-right">Дата</th>
-              <th className="pb-2 text-right">Дії</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
-              </tr>
-            ) : (
-              filtered.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedCustomer(c);
-                    setIsEditingCustomer(false);
-                    setAiProfile(c.ai_profile || null);
-                    setGeneratedMessage(null);
-                    setIsCopilotOpen(false);
-                  }}
-                  className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
-                >
-                  <td className="py-3 pr-4 font-medium">
-                    <div className="flex items-center gap-2">
-                       {c.name}
+      <div className="mt-4">
+        {/* Мобільний список карток клієнтів */}
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {filtered.length === 0 ? (
+            <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
+          ) : (
+            filtered.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => {
+                  setSelectedCustomer(c);
+                  setIsEditingCustomer(false);
+                  setAiProfile(c.ai_profile || null);
+                  setGeneratedMessage(null);
+                  setIsCopilotOpen(false);
+                }}
+                className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-text-primary flex items-center gap-1.5 flex-wrap">
+                      {c.name}
                       {c.discount_percent > 0 && (
-                        <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan">-{c.discount_percent}%</span>
+                        <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] font-bold text-cyan">-{c.discount_percent}%</span>
                       )}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 text-text-secondary font-mono text-xs">
-                    <a
-                      href={`tel:${c.phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-violet hover:underline"
+                    </h4>
+                    <p className="text-xs text-text-secondary mt-1 font-mono">
+                      <a href={`tel:${c.phone}`} onClick={(e) => e.stopPropagation()} className="text-violet hover:underline">
+                        {c.phone}
+                      </a>
+                    </p>
+                  </div>
+                  <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0 ${(c.vip_status && vipColors[c.vip_status]) || ""}`}>
+                    {c.vip_status ? (vipLabels[c.vip_status] || c.vip_status) : "Звичайний"}
+                  </span>
+                </div>
+
+                <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                  <span>Статистика:</span>
+                  <span className="text-text-primary font-medium">{c.total_visits} візитів / {c.total_spent.toLocaleString()} грн</span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xxs text-text-muted">
+                  <span>Реєстрація: {c.created_at.split("T")[0]}</span>
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => {
+                        setSelectedCustomer(c);
+                        setIsEditingCustomer(true);
+                        setAiProfile(c.ai_profile || null);
+                        setGeneratedMessage(null);
+                        setIsCopilotOpen(false);
+                      }}
+                      className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"
                     >
-                      {c.phone}
-                    </a>
-                  </td>
-                  <td className="py-3 pr-4 text-xs">
-                    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${(c.vip_status && vipColors[c.vip_status]) || ""}`}>
-                      {c.vip_status ? (vipLabels[c.vip_status] || c.vip_status) : "—"}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-right">{c.total_visits}</td>
-                  <td className="py-3 pr-4 text-right font-medium">{c.total_spent.toLocaleString()} грн</td>
-                  <td className="py-3 pr-4 text-right text-text-secondary text-xs">{c.created_at.split("T")[0]}</td>
-                  <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => {
-                          setSelectedCustomer(c);
-                          setIsEditingCustomer(true);
-                          setAiProfile(c.ai_profile || null);
-                          setGeneratedMessage(null);
-                          setIsCopilotOpen(false);
-                        }}
-                        className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet"
-                      >
-                        <IconEdit />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c.id)}
-                        className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"
-                      >
-                        <IconDelete />
-                      </button>
-                    </div>
-                  </td>
+                      <IconEdit size={14} />
+                      <span>Ред.</span>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose/5 hover:bg-rose/10 text-rose transition-colors cursor-pointer"
+                    >
+                      <IconDelete size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Десктопна таблиця */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
+                <th className="pb-2 pr-4">Ім&apos;я</th>
+                <th className="pb-2 pr-4">Телефон</th>
+                <th className="pb-2 pr-4 text-left text-xs font-medium text-text-secondary">VIP</th>
+                <th className="pb-2 pr-4 text-right">Візитів</th>
+                <th className="pb-2 pr-4 text-right">Витрачено</th>
+                <th className="pb-2 pr-4 text-right">Дата</th>
+                <th className="pb-2 text-right">Дії</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCustomer(c);
+                      setIsEditingCustomer(false);
+                      setAiProfile(c.ai_profile || null);
+                      setGeneratedMessage(null);
+                      setIsCopilotOpen(false);
+                    }}
+                    className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
+                  >
+                    <td className="py-3 pr-4 font-medium">
+                      <div className="flex items-center gap-2">
+                         {c.name}
+                        {c.discount_percent > 0 && (
+                          <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan">-{c.discount_percent}%</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4 text-text-secondary font-mono text-xs">
+                      <a
+                        href={`tel:${c.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-violet hover:underline"
+                      >
+                        {c.phone}
+                      </a>
+                    </td>
+                    <td className="py-3 pr-4 text-xs">
+                      <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${(c.vip_status && vipColors[c.vip_status]) || ""}`}>
+                        {c.vip_status ? (vipLabels[c.vip_status] || c.vip_status) : "—"}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-right">{c.total_visits}</td>
+                    <td className="py-3 pr-4 text-right font-medium">{c.total_spent.toLocaleString()} грн</td>
+                    <td className="py-3 pr-4 text-right text-text-secondary text-xs">{c.created_at.split("T")[0]}</td>
+                    <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            setSelectedCustomer(c);
+                            setIsEditingCustomer(true);
+                            setAiProfile(c.ai_profile || null);
+                            setGeneratedMessage(null);
+                            setIsCopilotOpen(false);
+                          }}
+                          className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet"
+                        >
+                          <IconEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"
+                        >
+                          <IconDelete />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Detail & Edit Drawer */}

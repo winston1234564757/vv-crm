@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -18,6 +19,7 @@ const customerSchema = z.object({
   tags: z.array(z.string()).nullable().optional(),
   preferred_contact: z.string().optional().default("phone"),
   source: z.string().optional().default("walk_in"),
+  device_name: z.string().nullable().optional(),
 });
 
 export async function createCustomer(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -36,6 +38,7 @@ export async function createCustomer(prevState: ActionState | null, formData: Fo
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: formData.get("preferred_contact") || "phone",
       source: formData.get("source") || "walk_in",
+      device_name: formData.get("device_name") || null,
     };
 
     const parsed = customerSchema.parse(data);
@@ -52,6 +55,7 @@ export async function createCustomer(prevState: ActionState | null, formData: Fo
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: parsed.preferred_contact,
       source: parsed.source,
+      device_name: parsed.device_name,
       // orders_total, orders_completed, last_visit are computed by the system — not user inputs
     })
     .select("id, name, phone, discount_percent")
@@ -84,6 +88,7 @@ export async function updateCustomer(id: string, prevState: ActionState | null, 
       tags: tagsArray.length ? tagsArray : null,
       preferred_contact: formData.get("preferred_contact") || "phone",
       source: formData.get("source") || "walk_in",
+      device_name: formData.get("device_name") || null,
     };
 
     const parsed = customerSchema.parse(data);
@@ -106,6 +111,7 @@ export async function updateCustomer(id: string, prevState: ActionState | null, 
 
 export async function deleteCustomer(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
     const { error } = await supabase.from("customers").delete().eq("id", id);
     if (error) throw error;

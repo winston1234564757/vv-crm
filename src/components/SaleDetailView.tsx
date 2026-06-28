@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import type { SaleWithDetails } from "@/lib/data-sales";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 import { IconSpinner, IconDelete } from "@/components/icons";
-import { deleteSaleAction } from "@/lib/actions/sales";
+import { deleteSaleAction, processRefundAction } from "@/lib/actions/sales";
 import { InlineError } from "@/components/ui/InlineError";
 
 const paymentMethods: Record<string, string> = {
@@ -29,11 +29,35 @@ type SaleDetailViewProps = {
 export function SaleDetailView({ sale, onClose }: SaleDetailViewProps) {
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
   const [error, setError] = useState("");
   const fallbackItems = parseItemsFromNotes(sale.notes);
 
   function handlePrintReceipt() {
     setIsPrintModalOpen(true);
+  }
+
+  async function handleRefundSale() {
+    const confirmed = window.confirm(
+      "Оформити повернення? Товари будуть повернуті на склад, а кошти виписані з каси. Статус продажу зміниться на 'Повернено'."
+    );
+    if (!confirmed) return;
+
+    setIsRefunding(true);
+    setError("");
+
+    try {
+      const res = await processRefundAction(sale.id);
+      if (res.success) {
+        onClose();
+      } else {
+        setError(res.error || "Не вдалося оформити повернення.");
+      }
+    } catch (err) {
+      setError("Сталася неочікувана помилка.");
+    } finally {
+      setIsRefunding(false);
+    }
   }
 
   async function handleDeleteSale() {
@@ -66,7 +90,9 @@ export function SaleDetailView({ sale, onClose }: SaleDetailViewProps) {
       <div className="rounded-2xl bg-violet/5 border border-violet/10 p-5 flex justify-between items-center text-xs">
         <div>
           <p className="text-text-secondary">Номер укладеної угоди</p>
-          <p className="text-sm font-mono font-bold text-text-primary mt-1">#{sale.id.substring(0, 8)}</p>
+          <p className="text-sm font-mono font-bold text-text-primary mt-1 flex items-center gap-2">#{sale.id.substring(0, 8)}
+            {sale.status === "refunded" && <span className="px-2 py-0.5 rounded-md bg-rose/10 text-rose text-[10px] uppercase font-bold tracking-wider">Повернення</span>}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-text-secondary">Сума продажу</p>

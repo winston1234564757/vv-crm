@@ -15,10 +15,14 @@ interface DrawerProps {
 
 export default function Drawer({ isOpen, onClose, title, children, size = "half" }: DrawerProps) {
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(() => {
@@ -47,11 +51,15 @@ export default function Drawer({ isOpen, onClose, title, children, size = "half"
             aria-hidden="true"
           />
           <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            initial={isMobile ? { y: "100%", x: 0 } : { x: "100%", y: 0 }}
+            animate={{ x: 0, y: 0 }}
+            exit={isMobile ? { y: "100%", x: 0 } : { x: "100%", y: 0 }}
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-warm-surface shadow-sm shadow-[0_0_40px_oklch(0%_0_0/0.1)] ${
+            className={`fixed z-50 flex w-full flex-col bg-warm-surface shadow-sm shadow-[0_0_40px_oklch(0%_0_0/0.1)] ${
+              isMobile 
+                ? "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-3xl border-t border-warm-border/50" 
+                : "inset-y-0 right-0"
+            } ${
               size === "full" 
                 ? "max-w-full" 
                 : size === "half" 
@@ -59,7 +67,10 @@ export default function Drawer({ isOpen, onClose, title, children, size = "half"
                   : "max-w-md md:max-w-lg"
             }`}
           >
-            <div className="flex items-center justify-between border-b border-warm-border/50 p-6">
+            {isMobile && (
+              <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto mt-4 shrink-0" />
+            )}
+            <div className={`flex items-center justify-between border-b border-warm-border/50 p-6 ${isMobile ? "pt-3 pb-4" : ""}`}>
               <h2 className="text-xl font-semibold tracking-tight text-text-primary">{title}</h2>
               <button
                 onClick={onClose}

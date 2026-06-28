@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+import { createClient } from "@/lib/supabase/server";
+import { fetchGemini, GeminiRateLimitError, safeParseJSON } from "@/lib/utils/gemini";
+import { buildInsightsPrompt } from "@/lib/ai-prompts";
 
 export interface SmartInsight {
   type: "opportunity" | "warning" | "achievement" | "info";
@@ -45,11 +44,11 @@ export interface AIInsightsPayload {
 }
 
 export async function POST(request: NextRequest) {
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY not configured" },
-      { status: 500 }
-    );
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   let payload: AIInsightsPayload;
@@ -85,89 +84,44 @@ export async function POST(request: NextRequest) {
 
   const peakDayName = DOW_NAMES[payload.peakRevenueDow] ?? "?";
 
-  const prompt = `Ти — AI-аналітик для невеликого магазину електроніки та майстерні в Україні. 
-Тебе звати VV Intelligence. Твоя мета — допомагати власнику приймати рішення, які збільшать прибуток.
-
-Поточні дані бізнесу за сьогодні та останні 30-90 днів:
-
-ПРОДАЖІ:
-- Сьогоднішній виторг: ${payload.todaySalesTotal.toLocaleString()} ₴ (план: ${payload.salesTarget.toLocaleString()} ₴, ${payload.salesProgress}%)
-- Повторні клієнти за 90 днів: ${payload.customerReturnRate}%
-- Крос-продажі: конверсія ${payload.crossSellConversionRate}%, дохід ${payload.crossSellRevenue30Days.toLocaleString()} ₴/30д
-
-РЕМОНТИ:
-- Активних ремонтів: ${payload.activeRepairs}
-- Чекають деталі: ${payload.awaitingParts}
-- Затримка логістики: ${payload.supplyChainDelayRate}% ремонтів заблоковано
-
-ФІНАНСИ:
-- OPEX резерв: ${payload.opexRunwayDays} днів (витрати ${payload.dailyOpexRunRate.toLocaleString()} ₴/день)
-- B2B партнери: ${payload.partnerVolumeShare}% обороту
-
-ТОП МОДЕЛЕЙ (попит):
-${topModelsText}
-
-КРИТИЧНІ ЗАЛИШКИ (закінчуються):
-${stockoutText}
-
-ПІКОВІ ГОДИНИ ПРОДАЖІВ:
-- Найприбутковіший день: ${peakDayName}
-- Найприбутковіша година: ${payload.peakRevenueHour}:00
-- Середній чек у пік: ${payload.peakAvgCheck.toLocaleString()} ₴
-
-Згенеруй 4-5 конкретних, actionable бізнес-інсайтів для власника. 
-Формат відповіді — тільки валідний JSON масив об'єктів, без жодного Markdown та пояснень. 
-Кожен об'єкт МУСИТЬ мати поля:
-- "type": одне з "opportunity" | "warning" | "achievement" | "info"  
-- "title": короткий заголовок (до 7 слів), починається з емодзі
-- "description": 2-3 речення. Конкретні цифри. Конкретна дія.
-- "action": кнопка-підказка (до 5 слів)
-- "impact": "high" | "medium" | "low"
-
-Приклад одного об'єкта:
-{"type":"opportunity","title":"💰 Піковий день — четвер","description":"Найбільші чеки фіксуються в четвер о 15:00. Середній чек 2,300 ₴ — вдвічі більший за решту днів. Плануйте поставки та акції саме на четвер.","action":"Запланувати поставку","impact":"high"}
-
-Відповідай ТІЛЬКИ JSON масивом.`;
+  const prompt = buildInsightsPrompt({
+    todaySalesTotal: payload.todaySalesTotal,
+    salesTarget: payload.salesTarget,
+    salesProgress: payload.salesProgress,
+    activeRepairs: payload.activeRepairs,
+    awaitingParts: payload.awaitingParts,
+    crossSellConversionRate: payload.crossSellConversionRate,
+    crossSellRevenue30Days: payload.crossSellRevenue30Days,
+    supplyChainDelayRate: payload.supplyChainDelayRate,
+    customerReturnRate: payload.customerReturnRate,
+    partnerVolumeShare: payload.partnerVolumeShare,
+    opexRunwayDays: payload.opexRunwayDays,
+    dailyOpexRunRate: payload.dailyOpexRunRate,
+    topModelsText,
+    stockoutText,
+    peakDayName,
+    peakRevenueHour: payload.peakRevenueHour,
+    peakAvgCheck: payload.peakAvgCheck,
+  });
 
   try {
-    const geminiResponse = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        },
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!geminiResponse.ok) {
-      const errText = await geminiResponse.text();
-      console.error("[ai-insights] Gemini API error:", errText);
-      return NextResponse.json(
-        { error: "Gemini API request failed", insights: buildFallbackInsights(payload) },
-        { status: 200 }
-      );
-    }
-
-    const geminiData = await geminiResponse.json();
+    const config = {
+      responseMimeType: "application/json" as const,
+    };
+    const geminiData = await fetchGemini([{ role: "user", parts: [{ text: prompt }] }], config);
     const rawText: string =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
 
-    let insights: SmartInsight[] = [];
-    try {
-      const parsed = JSON.parse(rawText);
-      insights = Array.isArray(parsed) ? parsed : buildFallbackInsights(payload);
-    } catch {
-      insights = buildFallbackInsights(payload);
-    }
+    const parsed = safeParseJSON<SmartInsight[] | unknown>(rawText, null);
+    const insights: SmartInsight[] = Array.isArray(parsed) ? parsed as SmartInsight[] : buildFallbackInsights(payload);
 
     return NextResponse.json({ insights });
   } catch (err) {
     console.error("[ai-insights] fetch error:", err);
+    // При rate limit або будь-якій іншій помилці — повертаємо rule-based fallback (без 500)
+    if (err instanceof GeminiRateLimitError) {
+      return NextResponse.json({ insights: buildFallbackInsights(payload), rateLimited: true });
+    }
     return NextResponse.json({
       insights: buildFallbackInsights(payload),
     });

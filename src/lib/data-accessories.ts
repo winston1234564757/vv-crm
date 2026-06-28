@@ -7,6 +7,6 @@ export async function getAccessories() {
     .select("*")
     .order("name");
   if (error) throw error;
-  return data;
+  return data ?? [];
 }
 

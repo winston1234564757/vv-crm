@@ -97,56 +97,98 @@ export function SalesTable({ sales }: { sales: SaleWithDetails[] }) {
       </div>
 
       {/* Sales Table list */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-              <th className="pb-2 pr-4">ID</th>
-              <th className="pb-2 pr-4">Дата</th>
-              <th className="pb-2 pr-4">Клієнт</th>
-              <th className="pb-2 pr-4">Товари</th>
-              <th className="pb-2 pr-4">Метод оплати</th>
-              <th className="pb-2 pr-4 text-right">Сума</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Продажів не знайдено</td>
+      <div>
+        {/* Мобільний список карток */}
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {filtered.length === 0 ? (
+            <p className="py-12 text-center text-sm text-text-secondary">Продажів не знайдено</p>
+          ) : (
+            filtered.map((sale) => {
+              const date = new Date(sale.created_at);
+              const formattedDate = format(date, "dd.MM.yyyy HH:mm");
+              const paymentsList = sale.payments.map(p => paymentMethods[p.method] || p.method).join(" + ");
+              const itemsSummary = sale.items.length > 0 
+                ? sale.items.map(i => `${i.name} (x${i.quantity})`).join(", ")
+                : sale.notes || "Товар / Послуга";
+
+              return (
+                <div
+                  key={sale.id}
+                  onClick={() => setSelectedSale(sale)}
+                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="font-mono text-xs font-bold text-slate-800">#{sale.id.substring(0, 8)}</span>
+                      <h4 className="font-bold text-sm text-text-primary mt-1">{sale.customer_name}</h4>
+                    </div>
+                    <span className="text-[11px] text-text-secondary font-mono bg-warm-sidebar px-2 py-0.5 rounded">
+                      {paymentsList || "—"}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-text-secondary border-t border-slate-100/60 pt-2.5">
+                    <span className="font-medium text-text-primary">{itemsSummary}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
+                    <span className="text-[10px] text-text-muted">{formattedDate}</span>
+                    <span className="font-bold text-sm text-emerald-600">{sale.is_warranty ? <span className="text-violet flex items-center gap-1"><span className="text-[10px]">🛡️</span> Гарантія</span> : `${sale.total_amount.toLocaleString()} ₴`}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Десктопна таблиця */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
+                <th className="pb-2 pr-4">ID</th>
+                <th className="pb-2 pr-4">Дата</th>
+                <th className="pb-2 pr-4">Клієнт</th>
+                <th className="pb-2 pr-4">Товари</th>
+                <th className="pb-2 pr-4">Метод оплати</th>
+                <th className="pb-2 pr-4 text-right">Сума</th>
               </tr>
-            ) : (
-              filtered.map((sale) => {
-                const date = new Date(sale.created_at);
-                const formattedDate = format(date, "dd.MM.yyyy HH:mm");
-                
-                // Construct payment labels
-                const paymentsList = sale.payments.map(p => paymentMethods[p.method] || p.method).join(" + ");
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Продажів не знайдено</td>
+                </tr>
+              ) : (
+                filtered.map((sale) => {
+                  const date = new Date(sale.created_at);
+                  const formattedDate = format(date, "dd.MM.yyyy HH:mm");
+                  const paymentsList = sale.payments.map(p => paymentMethods[p.method] || p.method).join(" + ");
+                  const itemsSummary = sale.items.length > 0 
+                    ? sale.items.map(i => `${i.name} (x${i.quantity})`).join(", ")
+                    : sale.notes || "Товар / Послуга";
 
-                // Summary items list
-                const itemsSummary = sale.items.length > 0 
-                  ? sale.items.map(i => `${i.name} (x${i.quantity})`).join(", ")
-                  : sale.notes || "Товар / Послуга";
-
-                return (
-                  <tr
-                    key={sale.id}
-                    onClick={() => setSelectedSale(sale)}
-                    className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
-                  >
-                    <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{sale.id.substring(0, 8)}</td>
-                    <td className="py-3 pr-4 text-xs text-text-secondary">{formattedDate}</td>
-                    <td className="py-3 pr-4 font-medium">{sale.customer_name}</td>
-                    <td className="py-3 pr-4 max-w-[240px] truncate text-xs" title={itemsSummary}>{itemsSummary}</td>
-                    <td className="py-3 pr-4 text-xs text-text-secondary">{paymentsList || "—"}</td>
-                    <td className="py-3 pr-4 text-right font-semibold text-text-primary">
-                      {sale.total_amount.toLocaleString()} ₴
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  return (
+                    <tr
+                      key={sale.id}
+                      onClick={() => setSelectedSale(sale)}
+                      className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
+                    >
+                      <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{sale.id.substring(0, 8)}</td>
+                      <td className="py-3 pr-4 text-xs text-text-secondary">{formattedDate}</td>
+                      <td className="py-3 pr-4 font-medium">{sale.customer_name}</td>
+                      <td className="py-3 pr-4 max-w-[240px] truncate text-xs" title={itemsSummary}>{itemsSummary}</td>
+                      <td className="py-3 pr-4 text-xs text-text-secondary">{paymentsList || "—"}</td>
+                      <td className="py-3 pr-4 text-right font-semibold text-text-primary">
+                        {sale.is_warranty ? <span className="inline-flex items-center gap-1 rounded bg-violet/10 px-2 py-0.5 text-[10px] font-bold text-violet">🛡️ Гарантія</span> : `${sale.total_amount.toLocaleString()} ₴`}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Sale Detail Drawer */}

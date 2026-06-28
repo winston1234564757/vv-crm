@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -154,6 +155,7 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
 
 export async function deleteTransactionAction(transactionId: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
 
     // 1. Authenticate user
@@ -195,4 +197,47 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     return { success: false, error: parseError(err) };
   }
 }
+
+const topUpSchema = z.object({
+  safe_id: z.string().uuid("Оберіть сейф для поповнення"),
+  amount: z.coerce.number().min(1, "Сума поповнення має бути більше 0"),
+  description: z.string().optional(),
+});
+
+export async function topUpSafeAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+  try {
+    const data = {
+      safe_id: formData.get("safe_id"),
+      amount: formData.get("amount"),
+      description: formData.get("description") || "",
+    };
+
+    const parsed = topUpSchema.parse(data);
+    const supabase = await createClient();
+
+    // 1. Authenticate user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    // 2. Execute atomic RPC function
+    const { error: rpcError } = await supabase.rpc("top_up_safe", {
+      p_safe_id: parsed.safe_id,
+      p_amount: parsed.amount,
+      p_desc_text: parsed.description || "Поповнення з особистого гаманця",
+      p_user_id: user.id
+    });
+
+    if (rpcError) throw rpcError;
+
+    // 3. Revalidate paths
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
 

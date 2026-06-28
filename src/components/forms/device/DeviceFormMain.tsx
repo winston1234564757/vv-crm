@@ -36,7 +36,7 @@ function DeviceFormMain({
             required
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+            className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-base md:text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
           >
             <option value="phone">Телефон (Смартфон)</option>
             <option value="tablet">Планшет</option>
@@ -60,7 +60,7 @@ function DeviceFormMain({
           <select
             value={storageType}
             onChange={(e) => setStorageType(e.target.value as StorageType)}
-            className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+            className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-base md:text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
           >
             {PREDEFINED_STORAGES.map(storage => (
               <option key={storage} value={storage}>{storage}</option>

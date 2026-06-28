@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+import { fetchGemini, GeminiRateLimitError, safeParseJSON } from "@/lib/utils/gemini";
+import { buildCustomerProfilePrompt, buildCustomerMessagePrompt, buildRepairDiagnosePrompt } from "@/lib/ai-prompts";
+import type { Json } from "@/types/database";
 
 export async function POST(request: NextRequest) {
   // 1. Guard check: Must be authenticated user
@@ -13,13 +12,6 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY not configured" },
-      { status: 500 }
-    );
   }
 
   let body: { action: string; entityId: string };
@@ -75,55 +67,25 @@ export async function POST(request: NextRequest) {
         return `- Покупка від ${s.created_at.split('T')[0]}: сума ${s.total_amount} ₴, товари: [${itemsText}]. Замітки: ${s.notes ?? "—"}`;
       }).join("\n");
 
-      const prompt = `Ти — AI-аналітик VV CRM (магазин електроніки та сервісний центр в Україні).
-Твоє завдання — скласти інтелектуальний психографічний профіль клієнта на основі його контактних даних та історії взаємодії з бізнесом.
+      const prompt = buildCustomerProfilePrompt(
+        {
+          name: customer.name,
+          notes: customer.notes,
+          total_visits: customer.total_visits,
+          total_spent: customer.total_spent,
+          vip_status: customer.vip_status,
+          notes_about_preferences: customer.notes_about_preferences,
+        },
+        repairsText,
+        salesText
+      );
 
-Дані клієнта:
-- Ім'я: ${customer.name}
-- Нотатки: ${customer.notes ?? "немає"}
-- Візитів усього: ${customer.total_visits}
-- Витрачено всього: ${customer.total_spent} ₴
-- VIP статус: ${customer.vip_status ?? "звичайний"}
-- Нотатки про вподобання: ${customer.notes_about_preferences ?? "немає"}
-
-Історія ремонтів:
-${repairsText || "Немає попередніх ремонтів"}
-
-Історія покупок:
-${salesText || "Немає попередніх покупок"}
-
-Сформуй об'єкт JSON зі структурою:
-{
-  "psychotype": "Короткий опис психотипу клієнта (до 5 слів, наприклад: 'Цінує якість та оригінальні деталі')",
-  "tips": [
-    "3 короткі поради для менеджера, як спілкуватися з цим клієнтом для успішного продажу або сервісу"
-  ],
-  "retention_risk": "low" або "medium" або "high" (оцінка ризику втрати клієнта),
-  "summary": "Коротке резюме профілю та уподобань клієнта (2-3 речення, конкретно про історію покупок/ремонтів)"
-}
-
-Відповідай виключно валідним JSON об'єктом. Мова відповіді — українська.`;
-
-      const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-          },
-        }),
-      });
-
-      if (!geminiRes.ok) {
-        throw new Error(`Gemini API returned ${geminiRes.status}`);
-      }
-
-      const resData = await geminiRes.json();
+      const config = {
+        responseMimeType: "application/json" as const,
+      };
+      const resData = await fetchGemini([{ role: "user", parts: [{ text: prompt }] }], config);
       const rawJsonText = resData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const parsedProfile = JSON.parse(rawJsonText);
+      const parsedProfile = safeParseJSON<Json>(rawJsonText, {});
 
       // Cache / Save back to database
       const { error: updateErr } = await adminClient
@@ -182,48 +144,19 @@ ${trackingUrl ? `- Посилання для детального перегля
 Запропонуй клієнту вигідну послугу або аксесуар, враховуючи, що він ремонтував ${deviceName}.`;
       }
 
-      const prompt = `Ти — привітний менеджер магазину та сервісного центру VV CRM.
-Тобі потрібно написати повідомлення у Telegram/Viber для клієнта на ім'я ${customer.name}.
-
-Психотип клієнта: ${psychotype}
-Рекомендації для комунікації з ним: ${tips}
-
-${contextPrompt}
-
-Напиши персоналізоване повідомлення українською мовою. 
-Вимоги до повідомлення:
-1. Воно повинно максимально враховувати психотип (якщо клієнт цінує швидкість/стислість — пиши коротко і по суті; якщо техно-ентузіаст або прискіпливий — розпиши детальніше і підкресли якість; якщо чутливий до ціни — зроби акцент на вигоді та гарантії).
-2. Має містити відповідні емодзі (наприклад, 📱, ✅, 💰).
-3. Має бути повністю готовим до копіювання та відправки.
-4. Не пиши жодних вступних фраз від себе, віддавай ТІЛЬКИ текст повідомлення у форматі JSON.
-
-Поверни JSON у форматі:
-{
-  "message": "Текст повідомлення тут"
-}
-
-Відповідай виключно валідним JSON.`;
-
-      const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-          },
-        }),
+      const prompt = buildCustomerMessagePrompt({
+        customerName: customer.name,
+        psychotype,
+        tips,
+        contextPrompt,
       });
 
-      if (!geminiRes.ok) {
-        throw new Error(`Gemini API returned ${geminiRes.status}`);
-      }
-
-      const resData = await geminiRes.json();
+      const config = {
+        responseMimeType: "application/json" as const,
+      };
+      const resData = await fetchGemini([{ role: "user", parts: [{ text: prompt }] }], config);
       const rawJsonText = resData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const parsedMessage = JSON.parse(rawJsonText);
+      const parsedMessage = safeParseJSON<{ message?: string }>(rawJsonText, {});
 
       return NextResponse.json({ message: parsedMessage?.message || "" });
 
@@ -249,54 +182,21 @@ ${contextPrompt}
         `- ${p.name} (в наявності: ${p.stock} шт, ціна: ${p.price} ₴, сумісність: ${p.compatible_with ?? "не вказано"})`
       ).join("\n");
 
-      const prompt = `Ти — провідний AI-майстер та технічний експерт у VV CRM.
-Твоє завдання — проаналізувати опис поломки пристрою та надати технічні рекомендації, можливі причини, кроки для діагностики, та підібрати сумісні деталі, які зараз є на складі.
+      const prompt = buildRepairDiagnosePrompt(
+        {
+          device_name: repair.device_name,
+          issue: repair.issue,
+          notes: repair.notes,
+        },
+        partsText
+      );
 
-Пристрій у ремонті:
-- Назва: ${repair.device_name}
-- Несправність: ${repair.issue}
-- Замітки до ремонту: ${repair.notes ?? "немає"}
-
-Запчастини, які зараз є НА НАШОМУ СКЛАДІ в наявності:
-${partsText || "На складі деталей немає"}
-
-Сформуй об'єкт JSON зі структурою:
-{
-  "possible_causes": [
-    "3 найбільш ймовірні причини несправності"
-  ],
-  "required_parts": [
-    "Перелік рекомендованих запчастин. Якщо на нашому складі вище є сумісна деталь — напиши її точну назву з позначкою '(Є на складі)', інакше вкажи загальну назву необхідної деталі"
-  ],
-  "estimated_difficulty": "easy" або "medium" або "hard",
-  "step_by_step_guide": [
-    "Покроковий гайд для майстра (4-5 кроків) з діагностики та усунення цієї конкретної проблеми на цьому пристрої"
-  ],
-  "time_estimate_hours": 2 (число, очікуваний чистий час роботи в годинах на ремонт)
-}
-
-Відповідай виключно валідним JSON об'єктом. Мова відповіді — українська.`;
-
-      const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-          },
-        }),
-      });
-
-      if (!geminiRes.ok) {
-        throw new Error(`Gemini API returned ${geminiRes.status}`);
-      }
-
-      const resData = await geminiRes.json();
+      const config = {
+        responseMimeType: "application/json" as const,
+      };
+      const resData = await fetchGemini([{ role: "user", parts: [{ text: prompt }] }], config);
       const rawJsonText = resData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const parsedDiagnostic = JSON.parse(rawJsonText);
+      const parsedDiagnostic = safeParseJSON<Json>(rawJsonText, {});
 
       // Cache / Save back to database
       const { error: updateErr } = await adminClient
@@ -315,6 +215,11 @@ ${partsText || "На складі деталей немає"}
     }
   } catch (error) {
     console.error("Error in ai-action route:", error);
+
+    if (error instanceof GeminiRateLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
+
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

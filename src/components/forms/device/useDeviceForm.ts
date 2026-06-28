@@ -44,6 +44,7 @@ export function useDeviceForm({ onSuccess, device, parts = [] }: UseDeviceFormPr
           name: String(p?.name || ""),
           cost: Number(p?.cost || 0),
           origin: String(p?.origin || ""),
+          part_id: p?.part_id ? String(p.part_id) : undefined,
         }))
       : []
   );
@@ -68,10 +69,11 @@ export function useDeviceForm({ onSuccess, device, parts = [] }: UseDeviceFormPr
 
   const handleAddPart = () => {
     if (!newPartName.trim()) return;
-    const added = {
+    const added: ReplacedPart = {
       name: newPartName.trim(),
       cost: newPartCost,
       origin: newPartOrigin,
+      part_id: selectedPartId || undefined,
     };
     try {
       validatePart(added);

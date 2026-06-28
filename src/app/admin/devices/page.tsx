@@ -12,6 +12,67 @@ import { AddDeviceButton } from "./AddDeviceButton";
 import { pluralUk } from "@/lib/utils/plural";
 import GlassCard from "@/components/GlassCard";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { IconDevice, IconBox, IconFinance } from "@/components/icons";
+
+function StatCard({
+  label,
+  value,
+  accent,
+  sub,
+  icon,
+  delay = 0,
+}: {
+  label: string;
+  value: string | number;
+  accent: "violet" | "cyan" | "rose" | "amber" | "iris";
+  sub?: string;
+  icon: React.ReactNode;
+  delay?: number;
+}) {
+  const accentColors = {
+    violet: { bg: "bg-violet/[0.06] border-violet/10", text: "text-violet" },
+    cyan:   { bg: "bg-cyan/[0.06] border-cyan/10",   text: "text-cyan" },
+    rose:   { bg: "bg-rose/[0.06] border-rose/10",   text: "text-rose" },
+    amber:  { bg: "bg-amber/[0.06] border-amber/10",  text: "text-amber" },
+    iris:   { bg: "bg-iris/[0.06] border-iris/10",   text: "text-iris" },
+  };
+  const c = accentColors[accent];
+
+  return (
+    <div 
+      className={`rounded-[2rem] border border-slate-100 bg-slate-50/40 p-1.5 shadow-sm shadow-slate-100/30 flex flex-col transition-all duration-500 hover:shadow-md hover:border-slate-200/80 animate-entry-stagger delay-${delay}`}
+    >
+      <div 
+        className="rounded-[calc(2rem-0.375rem)] bg-white p-5 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,1)] relative overflow-hidden"
+      >
+        {/* Subtle background glow orb */}
+        <div className={`absolute -right-4 -bottom-4 w-12 h-12 rounded-full blur-2xl opacity-20 ${c.bg}`} />
+        
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-slate-400 mb-1 block">Склад</span>
+            <p className="text-xs font-semibold text-slate-600 leading-tight">{label}</p>
+          </div>
+          <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${c.bg} ${c.text} shrink-0 border shadow-sm`}>
+            {icon}
+          </span>
+        </div>
+        
+        <div>
+          <p className="text-3xl font-extrabold tracking-tight text-slate-900 font-mono">
+            {value}
+          </p>
+          {sub && (
+            <p className="mt-1 text-[10px] text-slate-400 font-medium flex items-center gap-1 font-mono">
+              <span>●</span>
+              <span>{sub}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default async function DevicesPage() {
   const [devices, customers, cashRegisters, accessories, services, parts, repairs, safes] = await Promise.all([
@@ -37,34 +98,57 @@ export default async function DevicesPage() {
   const expectedProfit = totalValue - totalCost;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Техніка</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
+              <IconDevice size={18} />
+            </span>
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Техніка</h1>
+          </div>
+          <p className="text-sm text-text-secondary pl-[46px]">
             {devices.length} {pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі
           </p>
         </div>
-        <AddDeviceButton size="half" parts={parts} safes={safes} />
+        <div className="flex items-center gap-2">
+          <AddDeviceButton size="half" parts={parts} safes={safes} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">В наявності</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{inStock} шт</p>
-        </GlassCard>
-        <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Сума запасів (виручка)</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalValue.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Вкладено (собівартість + ремонт)</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalCost.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
-          <p className="text-xs font-medium tracking-wider text-text-secondary">Очікуваний чистий прибуток</p>
-          <p className="mt-2 text-3xl font-light tracking-tight text-violet font-medium">{expectedProfit.toLocaleString()} грн</p>
-        </GlassCard>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="В наявності"
+          value={`${inStock} шт`}
+          accent="cyan"
+          sub="усі пристрої"
+          icon={<IconDevice size={16} />}
+          delay={0}
+        />
+        <StatCard
+          label="Сума запасів (виручка)"
+          value={`${totalValue.toLocaleString()} ₴`}
+          accent="iris"
+          sub="ціна продажу"
+          icon={<IconFinance size={16} />}
+          delay={1}
+        />
+        <StatCard
+          label="Вкладено"
+          value={`${totalCost.toLocaleString()} ₴`}
+          accent="amber"
+          sub="собів. + ремонт"
+          icon={<IconBox size={16} />}
+          delay={2}
+        />
+        <StatCard
+          label="Очікуваний прибуток"
+          value={`${expectedProfit.toLocaleString()} ₴`}
+          accent="violet"
+          sub="очікувана маржа"
+          icon={<IconFinance size={16} />}
+          delay={3}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-5">

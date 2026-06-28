@@ -5,6 +5,7 @@ import SearchSelect from "@/components/ui/SearchSelect";
 import { validatePhone, validateEmail } from "@/lib/validation/validation";
 
 interface Customer {
+  notes?: string | null;
   id: string;
   name: string;
   phone: string;
@@ -60,6 +61,24 @@ export default function SaleFormCustomerSection({
         onChange={onChange}
         placeholder="Не вказано"
       />
+      {selectedCustomerId && selectedCustomerId !== "__new__" && (
+        (() => {
+          const selectedCust = customers.find(c => c.id === selectedCustomerId);
+          if (selectedCust && selectedCust.notes) {
+            return (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-amber/10 p-3 text-sm text-amber-700 animate-entry">
+                <span className="text-amber mt-0.5">⚠️</span>
+                <div>
+                  <p className="font-semibold mb-0.5 text-amber">Нотатка про клієнта</p>
+                  <p className="text-amber-800 leading-snug">{selectedCust.notes}</p>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()
+      )}
+  
 
       {showNewCustomer && (
         <NewCustomerFields

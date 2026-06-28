@@ -34,6 +34,7 @@ type RepairRow = {
   price: number;
   cost: number;
   warranty_months: number;
+  is_warranty?: boolean | null;
   notes: string | null;
   np_ttn: string | null;
   is_external_sc: boolean;
@@ -56,10 +57,17 @@ const paymentColors: Record<string, string> = { unpaid: "text-rose bg-rose/10", 
 const sourceLabels: Record<string, string> = { walk_in: "Візит", phone: "Телефон", online: "Онлайн", marketplace: "Маркетплейс" };
 const conditionLabels: Record<string, string> = { new: "Новий", like_new: "Як новий", good: "Добрий", fair: "Задовільний", poor: "Поганий" };
 
-export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
+export function RepairsTable({ 
+  repairs,
+  viewMode,
+  setViewMode
+}: { 
+  repairs: RepairRow[];
+  viewMode: "kanban" | "table";
+  setViewMode: (mode: "kanban" | "table") => void;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [selectedRepair, setSelectedRepair] = useState<RepairRow | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -250,144 +258,64 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
           />
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-                <th className="pb-2 pr-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(filtered.map(r => r.id));
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                    className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
-                  />
-                </th>
-                <th className="pb-2 pr-4">№</th>
-                <th className="pb-2 pr-4 hidden md:table-cell">Тип</th>
-                <th className="pb-2 pr-4">Клієнт</th>
-                <th className="pb-2 pr-4">Пристрій</th>
-                <th className="pb-2 pr-4 hidden md:table-cell">Дедлайн</th>
-                <th className="pb-2 pr-4 hidden md:table-cell">ТТН Нової Пошти</th>
-                <th className="pb-2 pr-4 text-right">Ціна</th>
-                <th className="pb-2 pr-4">Статус</th>
-                <th className="pb-2 pr-4 hidden sm:table-cell">Оплата</th>
-                <th className="pb-2 pr-4 hidden lg:table-cell">Джерело</th>
-                <th className="pb-2 pr-4 hidden lg:table-cell">Стан</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
-                </tr>
-              ) : (
-                filtered.map((r) => {
-                  const isSelected = selectedIds.includes(r.id);
-                  return (
-                    <tr 
-                      key={r.id} 
-                      onClick={() => { setSelectedRepair(r); setIsEditing(false); }}
-                      className={`border-b border-iris/5 text-text-primary transition-colors cursor-pointer ${isSelected ? "bg-violet/[0.04]" : "hover:bg-violet/[0.02]"}`}
-                    >
-                      <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-4">
+          {/* Мобільні картки ремонтів */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            {filtered.length === 0 ? (
+              <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
+            ) : (
+              filtered.map((r) => {
+                const isSelected = selectedIds.includes(r.id);
+                const isOverdue = r.estimated_completion &&
+                  new Date(r.estimated_completion) < new Date() &&
+                  !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
+                
+                return (
+                  <div
+                    key={r.id}
+                    onClick={() => { setSelectedRepair(r); setIsEditing(false); }}
+                    className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-3 transition-colors ${
+                      isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-2.5">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={(e) => {
+                            e.stopPropagation();
                             if (e.target.checked) {
                               setSelectedIds([...selectedIds, r.id]);
                             } else {
                               setSelectedIds(selectedIds.filter(id => id !== r.id));
                             }
                           }}
-                          className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                          className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer mt-1"
                         />
-                      </td>
-                      <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{r.id.substring(0, 8)}</td>
-                      <td className="py-3 pr-4 hidden md:table-cell">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                          r.repair_type === "internal"
-                            ? "bg-amber/10 text-amber"
-                            : "bg-violet/10 text-violet"
-                        }`}>
-                          {r.repair_type === "internal" ? "📦 Склад" : "👤 Клієнт"}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4 font-medium">{r.customer_name}</td>
-                      <td className="py-3 pr-4">
-                        <div className="flex flex-col">
-                          <span>{r.device_name}</span>
-                          {r.is_external_sc && (
-                            <span className="mt-1 self-start rounded bg-amber/10 px-2 py-0.5 text-[9px] font-semibold text-amber">
-                              Сторонній СЦ
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-slate-800">#{r.id.substring(0, 8)}</span>
+                            <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[8px] font-bold ${
+                              r.repair_type === "internal"
+                                ? "bg-amber/10 text-amber"
+                                : "bg-violet/10 text-violet"
+                            }`}>
+                              {r.repair_type === "internal" ? "Склад" : "Клієнт"}
                             </span>
-                          )}
+                          </div>
+                          <h4 className="font-bold text-sm text-text-primary mt-1">{r.customer_name}</h4>
+                          <p className="text-xs text-text-secondary mt-0.5">{r.device_name}</p>
                         </div>
-                      </td>
-                      <td className="py-3 pr-4 hidden md:table-cell">
-                        {r.estimated_completion ? (() => {
-                          const isOverdue = 
-                            new Date(r.estimated_completion) < new Date() && 
-                            !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
-                          
-                          const isClose = 
-                            !isOverdue &&
-                            (new Date(r.estimated_completion).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) &&
-                            !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
+                      </div>
 
-                          const formattedDate = format(new Date(r.estimated_completion), "dd.MM.yyyy", { locale: uk });
-
-                          if (isOverdue) {
-                            return (
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-rose" title="Прострочено!">
-                                <span className="shrink-0 animate-pulse"><IconWarning size={13} /></span>
-                                {formattedDate}
-                              </span>
-                            );
-                          }
-                          if (isClose) {
-                            return (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber" title="Дедлайн менше ніж за добу">
-                                <span className="shrink-0"><IconWarning size={13} /></span>
-                                {formattedDate}
-                              </span>
-                            );
-                          }
-                          return <span className="text-xs text-text-secondary">{formattedDate}</span>;
-                        })() : (
-                          <span className="text-xs text-text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 text-text-secondary hidden md:table-cell">
-                        {r.np_ttn ? (
-                          <a
-                            href={`https://novaposhta.ua/tracking/?cargo_number=${r.np_ttn}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-violet hover:underline font-semibold text-xs"
-                            onClick={(e) => e.stopPropagation()} // Prevent opening drawer
-                          >
-                            {r.np_ttn} ↗
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 text-right font-medium">{r.price.toLocaleString()} грн</td>
-                      <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-col items-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {r.status === "handed_over" || r.status === "cancelled" ? (
-                          <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium border-0`}
+                          <span className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-semibold"
                                 style={{ 
                                   background: `color-mix(in oklch, ${statusColors[r.status]} 18%, transparent)`, 
                                   color: statusColors[r.status] 
                                 }}>
-                            {r.status === "handed_over" ? <IconCheck size={12} /> : null}
                             {statusLabels[r.status]}
                           </span>
                         ) : (
@@ -395,7 +323,7 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                             value={r.status}
                             disabled={isPending}
                             onChange={(e) => handleStatusChange(r.id, e.target.value, e)}
-                            className="rounded-lg px-2.5 py-1 text-[11px] font-medium border-0 outline-none cursor-pointer"
+                            className="rounded-lg px-2 py-0.5 text-[10px] font-semibold border-0 outline-none cursor-pointer"
                             style={{ 
                               background: `color-mix(in oklch, ${statusColors[r.status]} 18%, transparent)`, 
                               color: statusColors[r.status] 
@@ -406,20 +334,219 @@ export function RepairsTable({ repairs }: { repairs: RepairRow[] }) {
                             ))}
                           </select>
                         )}
-                      </td>
-                      <td className="py-3 pr-4 text-xs hidden sm:table-cell">
-                        <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${paymentColors[r.payment_status ?? ""] || ""}`}>
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${paymentColors[r.payment_status ?? ""] || ""}`}>
                           {paymentLabels[r.payment_status ?? ""] || "—"}
                         </span>
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{sourceLabels[r.source ?? ""] || r.source || "—"}</td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{conditionLabels[r.device_condition ?? ""] || "—"}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                      <span>Вартість ремонту:</span>
+                      <span className="text-text-primary font-bold">{r.is_warranty ? <span className="text-violet flex items-center gap-1"><span className="text-[10px]">🛡️</span> Гарантія</span> : `${r.price.toLocaleString()} грн`}</span>
+                    </div>
+
+                    {r.estimated_completion && (
+                      <div className="text-xs text-text-secondary flex justify-between">
+                        <span>Дедлайн:</span>
+                        <span className={`font-semibold ${isOverdue ? "text-rose" : "text-text-primary"}`}>
+                          {format(new Date(r.estimated_completion), "dd.MM.yyyy", { locale: uk })}
+                          {isOverdue && " (Прострочено!)"}
+                        </span>
+                      </div>
+                    )}
+
+                    {r.np_ttn && (
+                      <div className="text-xs text-text-secondary flex justify-between">
+                        <span>ТТН:</span>
+                        <a
+                          href={`https://novaposhta.ua/tracking/?cargo_number=${r.np_ttn}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-violet hover:underline font-semibold font-mono"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {r.np_ttn} ↗
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Десктопна таблиця */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
+                  <th className="pb-2 pr-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(filtered.map(r => r.id));
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                      className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                    />
+                  </th>
+                  <th className="pb-2 pr-4">№</th>
+                  <th className="pb-2 pr-4 hidden md:table-cell">Тип</th>
+                  <th className="pb-2 pr-4">Клієнт</th>
+                  <th className="pb-2 pr-4">Пристрій</th>
+                  <th className="pb-2 pr-4 hidden md:table-cell">Дедлайн</th>
+                  <th className="pb-2 pr-4 hidden md:table-cell">ТТН Нової Пошти</th>
+                  <th className="pb-2 pr-4 text-right">Ціна</th>
+                  <th className="pb-2 pr-4">Статус</th>
+                  <th className="pb-2 pr-4 hidden sm:table-cell">Оплата</th>
+                  <th className="pb-2 pr-4 hidden lg:table-cell">Джерело</th>
+                  <th className="pb-2 pr-4 hidden lg:table-cell">Стан</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
+                  </tr>
+                ) : (
+                  filtered.map((r) => {
+                    const isSelected = selectedIds.includes(r.id);
+                    return (
+                      <tr 
+                        key={r.id} 
+                        onClick={() => { setSelectedRepair(r); setIsEditing(false); }}
+                        className={`border-b border-iris/5 text-text-primary transition-colors cursor-pointer ${isSelected ? "bg-violet/[0.04]" : "hover:bg-violet/[0.02]"}`}
+                      >
+                        <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedIds([...selectedIds, r.id]);
+                              } else {
+                                setSelectedIds(selectedIds.filter(id => id !== r.id));
+                              }
+                            }}
+                            className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                          />
+                        </td>
+                        <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{r.id.substring(0, 8)}</td>
+                        <td className="py-3 pr-4 hidden md:table-cell">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                            r.repair_type === "internal"
+                              ? "bg-amber/10 text-amber"
+                              : "bg-violet/10 text-violet"
+                          }`}>
+                            {r.repair_type === "internal" ? "📦 Склад" : "👤 Клієнт"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 font-medium">{r.customer_name}</td>
+                        <td className="py-3 pr-4">
+                          <div className="flex flex-col">
+                            <span>{r.device_name}</span>
+                            {r.is_external_sc && (
+                              <span className="mt-1 self-start rounded bg-amber/10 px-2 py-0.5 text-[9px] font-semibold text-amber">
+                                Сторонній СЦ
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 hidden md:table-cell">
+                          {r.estimated_completion ? (() => {
+                            const isOverdue = 
+                              new Date(r.estimated_completion) < new Date() && 
+                              !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
+                            
+                            const isClose = 
+                              !isOverdue &&
+                              (new Date(r.estimated_completion).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) &&
+                              !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
+  
+                            const formattedDate = format(new Date(r.estimated_completion), "dd.MM.yyyy", { locale: uk });
+  
+                            if (isOverdue) {
+                              return (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-rose" title="Прострочено!">
+                                  <span className="shrink-0 animate-pulse"><IconWarning size={13} /></span>
+                                  {formattedDate}
+                                </span>
+                              );
+                            }
+                            if (isClose) {
+                              return (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber" title="Дедлайн менше ніж за добу">
+                                  <span className="shrink-0"><IconWarning size={13} /></span>
+                                  {formattedDate}
+                                </span>
+                              );
+                            }
+                            return <span className="text-xs text-text-secondary">{formattedDate}</span>;
+                          })() : (
+                            <span className="text-xs text-text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-text-secondary hidden md:table-cell">
+                          {r.np_ttn ? (
+                            <a
+                              href={`https://novaposhta.ua/tracking/?cargo_number=${r.np_ttn}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-violet hover:underline font-semibold text-xs"
+                              onClick={(e) => e.stopPropagation()} // Prevent opening drawer
+                            >
+                              {r.np_ttn} ↗
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-right font-medium">{r.is_warranty ? <span className="inline-flex items-center gap-1 rounded bg-violet/10 px-2 py-0.5 text-[10px] font-bold text-violet">🛡️ Гарантія</span> : `${r.price.toLocaleString()} грн`}</td>
+                        <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {r.status === "handed_over" || r.status === "cancelled" ? (
+                            <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium border-0`}
+                                  style={{ 
+                                    background: `color-mix(in oklch, ${statusColors[r.status]} 18%, transparent)`, 
+                                    color: statusColors[r.status] 
+                                  }}>
+                              {r.status === "handed_over" ? <IconCheck size={12} /> : null}
+                              {statusLabels[r.status]}
+                            </span>
+                          ) : (
+                            <select
+                              value={r.status}
+                              disabled={isPending}
+                              onChange={(e) => handleStatusChange(r.id, e.target.value, e)}
+                              className="rounded-lg px-2.5 py-1 text-[11px] font-medium border-0 outline-none cursor-pointer"
+                              style={{ 
+                                background: `color-mix(in oklch, ${statusColors[r.status]} 18%, transparent)`, 
+                                color: statusColors[r.status] 
+                              }}
+                            >
+                              {Object.entries(statusLabels).map(([val, label]) => (
+                                <option key={val} value={val} className="text-text-primary bg-white">{label}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-xs hidden sm:table-cell">
+                          <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${paymentColors[r.payment_status ?? ""] || ""}`}>
+                            {paymentLabels[r.payment_status ?? ""] || "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{sourceLabels[r.source ?? ""] || r.source || "—"}</td>
+                        <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">{conditionLabels[r.device_condition ?? ""] || "—"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

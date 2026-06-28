@@ -45,9 +45,10 @@ export interface DashboardData {
     salesTarget: number;
     salesProgress: number;
 
-    // Advanced Business Intelligence Metrics
     refurbishmentCapital: number;
     refurbishmentMargin: number;
+    refurbishmentCapitalDevices?: any[];
+    refurbishmentMarginDevices?: any[];
     supplyChainDelayRate: number;
     expressPartsOrderList: Array<{ name: string; quantity: number }>;
     partnerVolumeShare: number;
@@ -163,8 +164,8 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
       supabase.from("customers").select("id").gte("created_at", start).lt("created_at", end),
       supabase.from("sales").select("total_amount, created_at").gte("created_at", weekAgo),
       getSales(5),
-      supabase.from("repairs").select("status"),
-      supabase.from("sales").select("total_amount"),
+      supabase.from("repairs").select("status").not("status", "in", '("completed","handed_over","cancelled")'),
+      supabase.from("sales").select("total_amount").gte("created_at", ninetyDaysAgo),
       supabase.from("cash_registers").select("*"),
       supabase.from("safes").select("*"),
       supabase
@@ -179,9 +180,9 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
       supabase.from("parts").select("name, stock, min_stock"),
 
       // Refurbishment Capital (Devices currently under restoration)
-      supabase.from("devices").select("cost_price, repair_cost").eq("status", "service"),
+      supabase.from("devices").select("id, brand, model, imei, price, cost_price, repair_cost, repair_parts_replaced, updated_at").eq("status", "service"),
       // Completed Refurbishments Margin (Added value of completed device restorations)
-      supabase.from("devices").select("repair_cost").in("status", ["in_stock", "sold"]).gt("repair_cost", 0).gte("updated_at", thirtyDaysAgo),
+      supabase.from("devices").select("id, brand, model, imei, status, price, cost_price, repair_cost, repair_parts_replaced, updated_at").in("status", ["in_stock", "sold"]).gt("repair_cost", 0).gte("updated_at", thirtyDaysAgo),
       // Supply chain delays (Awaiting parts log)
       supabase
         .from("repairs")
@@ -200,7 +201,7 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
       // OPEX run-rate
       supabase.from("expenses").select("amount").gte("created_at", thirtyDaysAgo),
       // Sales Velocity Matrix
-      supabase.from("sale_items").select("item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
+      supabase.from("sale_items").select("item_id, item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
       // Customer Retention Rate (Sales 90d)
       supabase.from("sales").select("customer_id").gte("created_at", ninetyDaysAgo),
       // Customer Retention Rate (Repairs 90d)
@@ -217,9 +218,7 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
     ]);
 
     const todaySalesTotal = (todaySalesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
-    const activeRepairs = (repairStatusesRes.data ?? []).filter(
-      (r) => !["completed", "handed_over", "cancelled"].includes(r.status)
-    ).length;
+    const activeRepairs = repairStatusesRes.data?.length ?? 0;
     const newCustomers = newCustomersRes.data?.length ?? 0;
     const awaitingParts = (repairStatusesRes.data ?? []).filter((r) => r.status === "awaiting_parts").length;
     const totalSales = (totalSalesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
@@ -264,8 +263,53 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
     const salesProgress = Math.min(Math.round((todaySalesTotal / salesTarget) * 100), 100);
 
     // Calculate advanced BI analytics
-    const refurbishmentCapital = (activeRefurbRes.data ?? []).reduce((sum, d) => sum + d.cost_price + d.repair_cost, 0);
-    const refurbishmentMargin = (completedRefurbRes.data ?? []).reduce((sum, d) => sum + d.repair_cost, 0);
+    const soldDeviceIds = new Set(
+      (saleItems30DaysRes.data ?? [])
+        .filter((item: any) => item.item_type === "device")
+        .map((item: any) => item.item_id)
+    );
+
+    const refurbishmentCapitalDevices = (activeRefurbRes.data ?? []).map((d: any) => ({
+      id: d.id,
+      brand: d.brand,
+      model: d.model,
+      imei: d.imei,
+      cost_price: d.cost_price,
+      repair_cost: d.repair_cost,
+      price: d.price,
+      repair_parts_replaced: d.repair_parts_replaced,
+      updated_at: d.updated_at
+    }));
+
+    const soldDevicePrices = new Map<string, number>(
+      (saleItems30DaysRes.data ?? [])
+        .filter((item: any) => item.item_type === "device")
+        .map((item: any) => [item.item_id, item.total_price])
+    );
+
+    const refurbishmentMarginDevices = (completedRefurbRes.data ?? [])
+      .filter((d: any) => d.status === "in_stock" || soldDeviceIds.has(d.id))
+      .map((d: any) => {
+        const sale_price = d.status === "sold" ? (soldDevicePrices.get(d.id) ?? d.price) : null;
+        return {
+          id: d.id,
+          brand: d.brand,
+          model: d.model,
+          imei: d.imei,
+          status: d.status,
+          cost_price: d.cost_price,
+          repair_cost: d.repair_cost,
+          price: d.price,
+          sale_price,
+          repair_parts_replaced: d.repair_parts_replaced,
+          updated_at: d.updated_at
+        };
+      });
+
+    const refurbishmentCapital = refurbishmentCapitalDevices.reduce((sum, d) => sum + d.cost_price + d.repair_cost, 0);
+    const refurbishmentMargin = refurbishmentMarginDevices
+      .filter((d: any) => d.status === "sold")
+      .reduce((sum: number, d: any) => sum + ((d.sale_price || d.price || 0) - d.cost_price - d.repair_cost), 0);
 
     const now = new Date();
     const delayedRepairs = (repairsAwaitingPartsRes.data ?? []).filter((r: any) => {
@@ -447,6 +491,8 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
 
       refurbishmentCapital,
       refurbishmentMargin,
+      refurbishmentCapitalDevices,
+      refurbishmentMarginDevices,
       supplyChainDelayRate,
       expressPartsOrderList,
       partnerVolumeShare,

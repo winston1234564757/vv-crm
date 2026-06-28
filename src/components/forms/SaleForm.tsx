@@ -196,6 +196,8 @@ export function SaleForm(props: UseSaleFormProps) {
         cardAmount={form.cardAmount}
         onCardAmountChange={form.handleCardAmountChange}
         remainingSplit={form.remainingSplit}
+        isWarranty={form.isWarranty}
+        setIsWarranty={form.setIsWarranty}
       />
 
       <div className="rounded-xl bg-iris/5 border border-iris/10 px-4 py-3 text-xs text-text-secondary flex items-center justify-between">

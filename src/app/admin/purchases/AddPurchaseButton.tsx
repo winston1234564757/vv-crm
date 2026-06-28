@@ -5,7 +5,13 @@ import { IconPlus } from "@/components/icons";
 import Drawer from "@/components/ui/Drawer";
 import { PurchaseForm } from "@/components/forms/PurchaseForm";
 
-export function AddPurchaseButton() {
+interface Safe {
+  id: string;
+  name: string;
+  balance: number;
+}
+
+export function AddPurchaseButton({ safes = [] }: { safes?: Safe[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -13,7 +19,7 @@ export function AddPurchaseButton() {
         <IconPlus /> Закупівля
       </button>
       <Drawer isOpen={open} onClose={() => setOpen(false)} title="Нова закупівля">
-        <PurchaseForm onSuccess={() => setOpen(false)} />
+        <PurchaseForm onSuccess={() => setOpen(false)} safes={safes} />
       </Drawer>
     </>
   );

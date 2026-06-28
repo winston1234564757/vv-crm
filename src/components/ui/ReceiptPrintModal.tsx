@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -74,6 +75,12 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  function getFallbackTitle(t: string) {
+    if (t === "sale") return "ТОВАРНИЙ ЧЕК";
+    if (t === "repair_acceptance") return "КВИТАНЦІЯ ПРИЙМАННЯ";
+    return "ГАРАНТІЙНИЙ ТАЛОН РЕМОНТУ";
+  }
 
   // Fetch settings & populate initial states
   useEffect(() => {
@@ -174,12 +181,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
 
     loadReceiptSettings();
   }, [isOpen, type, data]);
-
-  function getFallbackTitle(t: string) {
-    if (t === "sale") return "ТОВАРНИЙ ЧЕК";
-    if (t === "repair_acceptance") return "КВИТАНЦІЯ ПРИЙМАННЯ";
-    return "ГАРАНТІЙНИЙ ТАЛОН РЕМОНТУ";
-  }
 
   const handlePrint = () => {
     setIsPrinting(true);

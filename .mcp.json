@@ -1,7 +1,11 @@
 {
   "mcpServers": {
     "supabase": {
-      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=oihiryfvnsxdchwymbge"
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=oihiryfvnsxdchwymbge",
+      "headers": {
+        "Authorization": "Bearer YOUR_SUPABASE_PERSONAL_ACCESS_TOKEN"
+      }
     }
   }
 }

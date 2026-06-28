@@ -1,4 +1,5 @@
 "use server";
+import { requireRole } from "@/lib/utils/rbac";
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -45,15 +46,12 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
   let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
   let needsRepair = true;
 
-  if (["completed", "handed_over", "cancelled"].includes(repairStatus)) {
+  if (["completed", "handed_over", "cancelled", "ready"].includes(repairStatus)) {
     mappedRepairStatus = "completed";
     needsRepair = false;
-  } else if (repairStatus === "ready") {
-    mappedRepairStatus = "completed";
-    needsRepair = false; // ремонт виконано
   } else if (repairStatus === "awaiting_parts") {
     mappedRepairStatus = "waiting_parts";
-  } else if (["in_progress", "diagnostics"].includes(repairStatus)) {
+  } else if (["in_progress", "diagnostics", "received"].includes(repairStatus)) {
     mappedRepairStatus = "in_progress";
   }
 
@@ -64,7 +62,7 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
       .update({
         repair_status: mappedRepairStatus,
         needs_repair: needsRepair,
-        repair_cost: ["completed", "handed_over"].includes(repairStatus) ? repairCost : (repairStatus === "cancelled" ? 0 : device.repair_cost)
+        repair_cost: ["completed", "handed_over", "ready"].includes(repairStatus) ? repairCost : (repairStatus === "cancelled" ? 0 : device.repair_cost)
       })
       .eq("id", deviceId);
 
@@ -76,7 +74,7 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
   let deviceStatus = "service";
   let finalRepairCost = device.repair_cost;
 
-  if (["completed", "handed_over"].includes(repairStatus)) {
+  if (["completed", "handed_over", "ready"].includes(repairStatus)) {
     deviceStatus = "in_stock";
     finalRepairCost = repairCost;
   } else if (repairStatus === "cancelled") {
@@ -116,7 +114,8 @@ async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repai
       unit_cost,
       parts (
         name,
-        origin_type
+        origin_type,
+        id
       )
     `)
     .eq("repair_id", repairId);
@@ -129,22 +128,51 @@ async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repai
     return {
       name: partInfo?.name || "Невідома деталь",
       cost: rp.unit_cost,
-      origin: partInfo?.origin_type || "Copy"
+      origin: partInfo?.origin_type || "Copy",
+      part_id: partInfo?.id || null
     };
   });
 
-  // 4. Оновлюємо масив замінених деталей у картці пристрою
+  // Рахуємо повну собівартість деталей
+  const totalPartsCost = (repairParts ?? []).reduce((sum, rp) => sum + (rp.unit_cost * rp.quantity), 0);
+
+  // Отримуємо поточні ручні деталі з пристрою
+  const { data: currentDev } = await supabase
+    .from("devices")
+    .select("repair_parts_replaced")
+    .eq("id", repair.inventory_device_id)
+    .single();
+
+  const currentParts = (currentDev?.repair_parts_replaced as unknown as Array<{ name: string; cost: number; origin: string; part_id?: string | null }>) || [];
+  const manualParts = currentParts.filter(p => !p.part_id);
+
+  // Об'єднаний список деталей (ручні + списані зі складу)
+  const finalReplacedParts = [...manualParts, ...replacedParts];
+
+  // 4. Оновлюємо масив замінених деталей та вартість ремонту в картці пристрою
   const { error: updateErr } = await supabase
     .from("devices")
     .update({
-      repair_parts_replaced: replacedParts
+      repair_parts_replaced: finalReplacedParts,
+      repair_cost: totalPartsCost
     })
     .eq("id", repair.inventory_device_id);
 
   if (updateErr) throw updateErr;
+
+  // 5. Синхронізуємо вартість ремонту в самій картці ремонту
+  const { error: updateRepairErr } = await supabase
+    .from("repairs")
+    .update({
+      cost: totalPartsCost
+    })
+    .eq("id", repairId);
+
+  if (updateRepairErr) throw updateRepairErr;
 }
 
 const repairSchema = z.object({
+  is_warranty: z.boolean().optional().default(false),
   customer_id: z.string().uuid("Оберіть клієнта").nullable().optional(),
   inventory_device_id: z.string().uuid("Оберіть пристрій").nullable().optional(),
   device_name: z.string().min(2, "Назва пристрою обов'язкова"),
@@ -164,6 +192,7 @@ const repairSchema = z.object({
   partner_id: z.string().uuid().nullable().optional(),
   promo_code_used: z.string().nullable().optional(),
   device_condition_photos: z.array(z.string()).optional().default([]),
+  warranty_for_repair_id: z.string().uuid().nullable().optional(),
 }).refine(data => {
   return !!data.customer_id || !!data.inventory_device_id;
 }, {
@@ -171,7 +200,7 @@ const repairSchema = z.object({
   path: ["customer_id"]
 });
 
-export async function createRepair(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+export async function createRepair(prevState: ActionState | null, formData: FormData): Promise<ActionState<{ id: string, tracking_token: string, issue: string, price: number }>> {
   try {
     let customerIdInput = formData.get("customer_id") as string | null;
     if (customerIdInput === "" || customerIdInput === "null" || customerIdInput === "undefined") {
@@ -185,6 +214,7 @@ export async function createRepair(prevState: ActionState | null, formData: Form
     const data = {
       customer_id: customerIdInput,
       inventory_device_id: inventoryDeviceIdInput,
+      is_warranty: formData.get("is_warranty") === "true",
       device_name: formData.get("device_name"),
       device_imei: formData.get("device_imei") || null,
       issue: formData.get("issue"),
@@ -202,9 +232,11 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       partner_id: formData.get("partner_id") || null,
       promo_code_used: formData.get("promo_code_used") || null,
       device_condition_photos: [], // handle below
+      warranty_for_repair_id: formData.get("warranty_for_repair_id") || null,
     };
 
     const parsed = repairSchema.parse(data);
+    if (parsed.is_warranty) parsed.price = 0;
 
     // Upload photos if any
     const photoFiles = formData.getAll("device_condition_photos").filter(f => f instanceof File && f.size > 0) as File[];
@@ -224,9 +256,10 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       throw new Error("Unauthorized: " + (authError?.message || "User not found"));
     }
 
-    const { error } = await supabase.from("repairs").insert({
+    const { data: newRepair, error } = await supabase.from("repairs").insert({
       customer_id: parsed.customer_id || null,
       inventory_device_id: parsed.inventory_device_id || null,
+      is_warranty: parsed.is_warranty,
       device_name: parsed.device_name,
       device_imei: parsed.device_imei,
       issue: parsed.issue,
@@ -244,9 +277,10 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       device_condition_description: parsed.device_condition_description,
       device_condition_photos: parsed.device_condition_photos,
       estimated_completion: parsed.estimated_completion,
+      warranty_for_repair_id: parsed.warranty_for_repair_id,
       status: "received",
       tracking_token,
-    });
+    }).select("id").single();
 
     if (error) throw error;
 
@@ -274,7 +308,7 @@ export async function createRepair(prevState: ActionState | null, formData: Form
     revalidatePath("/admin");
     revalidatePath("/admin/devices");
 
-    return { success: true };
+    return { success: true, data: { id: newRepair.id, tracking_token, issue: parsed.issue, price: parsed.price } };
   } catch (err) {
     return { success: false, error: parseError(err) };
   }
@@ -343,6 +377,7 @@ export async function updateRepairStatus(repairId: string, status: string): Prom
 }
 
 const editRepairSchema = z.object({
+  is_warranty: z.boolean().optional().default(false),
   id: z.string().uuid(),
   status: z.enum([
     'received', 'diagnostics', 'in_progress', 'awaiting_parts',
@@ -366,6 +401,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
   try {
     const data = {
       id: formData.get("id"),
+      is_warranty: formData.get("is_warranty") === "true",
       status: formData.get("status"),
       price: formData.get("price"),
       cost: formData.get("cost"),
@@ -382,6 +418,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
     };
 
     const parsed = editRepairSchema.parse(data);
+    if (parsed.is_warranty) parsed.price = 0;
     const supabase = await createClient();
 
     // Check old status and inventory_device_id to see if it changed
@@ -392,6 +429,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       .single();
 
     const updateFields: RepairUpdate = {
+      is_warranty: parsed.is_warranty,
       status: parsed.status,
       price: parsed.price,
       cost: parsed.cost,
@@ -700,6 +738,7 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
 
 export async function deleteRepair(id: string): Promise<ActionState> {
   try {
+    await requireRole(["owner", "manager"]);
     const supabase = await createClient();
 
     // 1. Get repair info (to check if there is a linked inventory device)
@@ -787,3 +826,36 @@ export async function deleteRepair(id: string): Promise<ActionState> {
 }
 
 
+
+// --- Warranty Flow Search ---
+export async function searchCompletedRepairs(customerId?: string | null, searchQuery?: string) {
+  const supabase = await createClient();
+  let query = supabase
+    .from("repairs")
+    .select(`
+      id,
+      device_name,
+      device_imei,
+      issue,
+      completed_at,
+      warranty_months,
+      customer:customers(id, full_name, phone_number)
+    `)
+    .in("status", ["completed", "handed_over", "ready"])
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (customerId) {
+    query = query.eq("customer_id", customerId);
+  } else if (searchQuery && searchQuery.trim().length > 1) {
+    const term = `%${searchQuery.trim()}%`;
+    query = query.or(`device_name.ilike.${term},device_imei.ilike.${term},issue.ilike.${term}`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("searchCompletedRepairs error:", error);
+    return [];
+  }
+  return data;
+}

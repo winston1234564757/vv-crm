@@ -41,7 +41,7 @@ function IconCheck({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
-import { deleteDevice, updateDeviceStatus, bulkUpdateDevicesStatus, bulkUpdateDevicesTtn } from "@/lib/actions/inventory";
+import { deleteDevice, updateDeviceStatus, bulkUpdateDevicesStatus, bulkUpdateDevicesTtn, receiveDeviceFromTransit } from "@/lib/actions/inventory";
 import Drawer from "@/components/ui/Drawer";
 import { DeviceForm } from "@/components/forms/device/DeviceForm";
 import { DeviceDetailView } from "@/components/DeviceDetailView";
@@ -49,6 +49,7 @@ import { SaleForm } from "@/components/forms/SaleForm";
 import { InlineError } from "@/components/ui/InlineError";
 import { motion } from "framer-motion";
 import type { Database } from "@/types/database";
+import { AddDeviceButton } from "./AddDeviceButton";
 
 type DbDeviceRow = Database["public"]["Tables"]["devices"]["Row"];
 export type DeviceRow = Omit<DbDeviceRow, "repair_parts_replaced"> & {
@@ -159,6 +160,11 @@ export function DevicesTable({
   const [isEditingDevice, setIsEditingDevice] = useState(false);
   const [sellingDevice, setSellingDevice] = useState<DeviceRow | null>(null);
   
+  // States for receiving device from transit
+  const [receivingDevice, setReceivingDevice] = useState<DeviceRow | null>(null);
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [selectedSafeId, setSelectedSafeId] = useState<string>("");
+
   // Помилки та успіх
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -166,6 +172,19 @@ export function DevicesTable({
   // Bulk Selection
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [bulkTtn, setBulkTtn] = useState("");
+
+  async function handleReceiveDevice() {
+    if (!receivingDevice) return;
+    setIsReceiving(true);
+    const res = await receiveDeviceFromTransit(receivingDevice.id, selectedSafeId || null);
+    setIsReceiving(false);
+    if (res.success) {
+      setReceivingDevice(null);
+    } else {
+      setError(res.error ?? "Помилка прийомки пристрою");
+      setReceivingDevice(null);
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("Видалити цей пристрій?")) return;
@@ -652,7 +671,11 @@ export function DevicesTable({
                       }}
                       actions={
                         <button
-                          onClick={() => handleStatusChange(d.id, "in_stock")}
+                          onClick={() => {
+                            setReceivingDevice(d);
+                            const opexSafe = safes.find(s => s.type === "opex" || s.name.toLowerCase().includes("opex"));
+                            setSelectedSafeId(opexSafe ? opexSafe.id : (safes[0]?.id || ""));
+                          }}
                           disabled={pendingId === d.id}
                           className="btn-press flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                         >
@@ -777,94 +800,56 @@ export function DevicesTable({
           </div>
         ) : (
           /* ============================================================
-             АРХІВ / ПРОДАНІ (ТАБЛИЦЯ)
+             АРХІВ / ПРОДАНІ (ТАБЛИЦЯ + КАРТКИ)
              ============================================================ */
-          <div className="overflow-x-auto">
+          <div>
             {sorted.length === 0 ? (
               <p className="text-xs text-text-muted text-center py-16">Архів порожній або нічого не знайдено</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-warm-border text-left text-xs font-semibold text-text-secondary">
-                     <th className="pb-3 pr-4 w-10">
-                      <input
-                        type="checkbox"
-                        checked={sorted.length > 0 && selectedDeviceIds.length === sorted.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedDeviceIds(sorted.map(x => x.id));
-                          } else {
-                            setSelectedDeviceIds([]);
-                          }
-                        }}
-                        className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
-                      />
-                    </th>
-                    <th className="pb-3 pr-4">Модель / Категорія</th>
-                    <th className="pb-3 pr-4 hidden md:table-cell">Характеристики</th>
-                    <th className="pb-3 pr-4 hidden sm:table-cell">Стан</th>
-                    <th className="pb-3 pr-4 hidden md:table-cell">IMEI</th>
-                    <th className="pb-3 pr-4 hidden lg:table-cell">Джерело</th>
-                    <th className="pb-3 pr-4 text-right">Ціна продажу</th>
-                    <th className="pb-3 pr-4 text-right hidden sm:table-cell">Собівартість</th>
-                    <th className="pb-3 pr-4 text-right">Статус</th>
-                    <th className="pb-3 text-right">Дії</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Мобільний список карток */}
+                <div className="grid grid-cols-1 gap-3 md:hidden">
                   {sorted.map((d) => {
                     const totalCost = d.cost_price + (d.repair_cost || 0);
                     const isSelected = selectedDeviceIds.includes(d.id);
                     return (
-                      <tr 
+                      <div 
                         key={d.id} 
                         onClick={() => { setSelectedDevice(d); setIsEditingDevice(false); }}
-                        className={`border-b border-warm-border/50 text-text-primary transition-colors cursor-pointer ${isSelected ? "bg-violet/[0.04]" : "hover:bg-violet/[0.01]"}`}
+                        className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-3 transition-colors ${
+                          isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-slate-300"
+                        }`}
                       >
-                        <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedDeviceIds([...selectedDeviceIds, d.id]);
-                              } else {
-                                setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== d.id));
-                              }
-                            }}
-                            className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
-                          />
-                        </td>
-                        <td className="py-3 pr-4 font-medium">
-                          <div>{d.brand} {d.model}</div>
-                          <span className="text-[9px] text-text-secondary bg-warm-sidebar px-2 py-0.5 rounded uppercase">
-                            {typeLabels[d.type] || d.type}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-4 text-xs text-text-secondary space-y-0.5 hidden md:table-cell">
-                          {d.storage && <div>Нак.: <span className="text-text-primary font-medium">{d.storage}</span></div>}
-                          {d.ram && <div>ОЗУ: <span className="text-text-primary font-medium">{d.ram}</span></div>}
-                          {d.battery_health && <div>АКБ: <span className="text-text-primary font-medium">{d.battery_health}%</span></div>}
-                        </td>
-                        <td className="py-3 pr-4 text-xs hidden sm:table-cell">
-                          <span className={`rounded-md px-2 py-0.5 font-medium ${conditionColors[d.condition_grade ?? ""] || "bg-warm-sidebar text-text-secondary"}`}>
-                            {conditionLabels[d.condition_grade ?? ""] || "—"}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs text-text-secondary hidden md:table-cell">{d.imei || "—"}</td>
-                        <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">
-                          {sourceLabels[d.source ?? ""] || d.source || "—"}
-                        </td>
-                        <td className="py-3 pr-4 text-right font-medium">{d.price.toLocaleString()} грн</td>
-                        <td className="py-3 pr-4 text-right text-text-secondary hidden sm:table-cell">
-                          <div>{totalCost.toLocaleString()} грн</div>
-                          {d.needs_repair && d.repair_cost > 0 && (
-                            <div className="text-[9px] text-text-muted">({d.cost_price} + {d.repair_cost} рем.)</div>
-                          )}
-                        </td>
-                        <td className="py-3 pr-4 text-right">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) {
+                                  setSelectedDeviceIds([...selectedDeviceIds, d.id]);
+                                } else {
+                                  setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== d.id));
+                                }
+                              }}
+                              className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer mt-1"
+                            />
+                            <div>
+                              <h4 className="font-bold text-sm text-text-primary">{d.brand} {d.model}</h4>
+                              <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                                <span className="text-[9px] font-semibold text-text-secondary bg-warm-sidebar px-2 py-0.5 rounded uppercase">
+                                  {typeLabels[d.type] || d.type}
+                                </span>
+                                <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${conditionColors[d.condition_grade ?? ""] || "bg-warm-sidebar text-text-secondary"}`}>
+                                  {conditionLabels[d.condition_grade ?? ""] || "—"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
                           <span 
-                            className="rounded-lg px-2.5 py-0.5 text-[10px] font-semibold" 
+                            className="rounded-lg px-2 py-0.5 text-[9px] font-semibold shrink-0" 
                             style={{ 
                               background: `color-mix(in oklch, ${statusColors[d.status]} 18%, transparent)`, 
                               color: statusColors[d.status] 
@@ -872,39 +857,190 @@ export function DevicesTable({
                           >
                             {statusLabels[d.status] || d.status}
                           </span>
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        </div>
+
+                        {d.imei && (
+                          <div className="text-xs text-text-secondary font-mono flex justify-between border-t border-slate-100/60 pt-2.5">
+                            <span>IMEI:</span>
+                            <span className="text-text-primary">{d.imei}</span>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-text-secondary flex justify-between">
+                          <span>Собівартість:</span>
+                          <div className="text-right">
+                            <span className="text-text-primary font-medium">{totalCost.toLocaleString()} грн</span>
+                            {d.needs_repair && d.repair_cost > 0 && (
+                              <span className="text-[10px] text-text-muted block">({d.cost_price} + {d.repair_cost} рем.)</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-text-secondary flex justify-between">
+                          <span>Ціна продажу:</span>
+                          <span className="text-emerald-600 font-bold">{d.price.toLocaleString()} грн</span>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 mt-1">
+                          <span className="text-[10px] text-text-muted">
+                            Оновлено: {d.updated_at ? new Date(d.updated_at).toLocaleDateString("uk-UA") : "—"}
+                          </span>
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                             {d.status !== 'transit' && (
                               <button
                                 onClick={() => handleStatusChange(d.id, "transit")}
-                                className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
-                                title="Повернути в дорогу"
+                                className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"
                               >
-                                <IconTruck size={16} />
+                                <IconTruck size={14} />
+                                <span>В дорогу</span>
                               </button>
                             )}
-                             <button
-                               onClick={(e) => { e.stopPropagation(); setSelectedDevice(d); setIsEditingDevice(true); }}
-                               className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
-                               title="Редагувати"
-                             >
-                              <IconEdit size={16} />
+                            <button
+                              onClick={() => { setSelectedDevice(d); setIsEditingDevice(true); }}
+                              className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"
+                            >
+                              <IconEdit size={14} />
+                              <span>Ред.</span>
                             </button>
                             <button
                               onClick={() => handleDelete(d.id)}
-                              className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose cursor-pointer"
-                              title="Видалити"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose/5 hover:bg-rose/10 text-rose transition-colors cursor-pointer"
                             >
-                              <IconDelete size={16} />
+                              <IconDelete size={14} />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+
+                {/* Десктопна таблиця */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-warm-border text-left text-xs font-semibold text-text-secondary">
+                         <th className="pb-3 pr-4 w-10">
+                          <input
+                            type="checkbox"
+                            checked={sorted.length > 0 && selectedDeviceIds.length === sorted.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDeviceIds(sorted.map(x => x.id));
+                              } else {
+                                setSelectedDeviceIds([]);
+                              }
+                            }}
+                            className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                          />
+                        </th>
+                        <th className="pb-3 pr-4">Модель / Категорія</th>
+                        <th className="pb-3 pr-4 hidden md:table-cell">Характеристики</th>
+                        <th className="pb-3 pr-4 hidden sm:table-cell">Стан</th>
+                        <th className="pb-3 pr-4 hidden md:table-cell">IMEI</th>
+                        <th className="pb-3 pr-4 hidden lg:table-cell">Джерело</th>
+                        <th className="pb-3 pr-4 text-right">Ціна продажу</th>
+                        <th className="pb-3 pr-4 text-right hidden sm:table-cell">Собівартість</th>
+                        <th className="pb-3 pr-4 text-right">Статус</th>
+                        <th className="pb-3 text-right">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((d) => {
+                        const totalCost = d.cost_price + (d.repair_cost || 0);
+                        const isSelected = selectedDeviceIds.includes(d.id);
+                        return (
+                          <tr 
+                            key={d.id} 
+                            onClick={() => { setSelectedDevice(d); setIsEditingDevice(false); }}
+                            className={`border-b border-warm-border/50 text-text-primary transition-colors cursor-pointer ${isSelected ? "bg-violet/[0.04]" : "hover:bg-violet/[0.01]"}`}
+                          >
+                            <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedDeviceIds([...selectedDeviceIds, d.id]);
+                                  } else {
+                                    setSelectedDeviceIds(selectedDeviceIds.filter(x => x !== d.id));
+                                  }
+                                }}
+                                className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
+                              />
+                            </td>
+                            <td className="py-3 pr-4 font-medium">
+                              <div>{d.brand} {d.model}</div>
+                              <span className="text-[9px] text-text-secondary bg-warm-sidebar px-2 py-0.5 rounded uppercase">
+                                {typeLabels[d.type] || d.type}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-xs text-text-secondary space-y-0.5 hidden md:table-cell">
+                              {d.storage && <div>Нак.: <span className="text-text-primary font-medium">{d.storage}</span></div>}
+                              {d.ram && <div>ОЗУ: <span className="text-text-primary font-medium">{d.ram}</span></div>}
+                              {d.battery_health && <div>АКБ: <span className="text-text-primary font-medium">{d.battery_health}%</span></div>}
+                            </td>
+                            <td className="py-3 pr-4 text-xs hidden sm:table-cell">
+                              <span className={`rounded-md px-2 py-0.5 font-medium ${conditionColors[d.condition_grade ?? ""] || "bg-warm-sidebar text-text-secondary"}`}>
+                                {conditionLabels[d.condition_grade ?? ""] || "—"}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 font-mono text-xs text-text-secondary hidden md:table-cell">{d.imei || "—"}</td>
+                            <td className="py-3 pr-4 text-xs text-text-secondary hidden lg:table-cell">
+                              {sourceLabels[d.source ?? ""] || d.source || "—"}
+                            </td>
+                            <td className="py-3 pr-4 text-right font-medium">{d.price.toLocaleString()} грн</td>
+                            <td className="py-3 pr-4 text-right text-text-secondary hidden sm:table-cell">
+                              <div>{totalCost.toLocaleString()} грн</div>
+                              {d.needs_repair && d.repair_cost > 0 && (
+                                <div className="text-[9px] text-text-muted">({d.cost_price} + {d.repair_cost} рем.)</div>
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 text-right">
+                              <span 
+                                className="rounded-lg px-2.5 py-0.5 text-[10px] font-semibold" 
+                                style={{ 
+                                  background: `color-mix(in oklch, ${statusColors[d.status]} 18%, transparent)`, 
+                                  color: statusColors[d.status] 
+                                }}
+                              >
+                                {statusLabels[d.status] || d.status}
+                              </span>
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {d.status !== 'transit' && (
+                                  <button
+                                    onClick={() => handleStatusChange(d.id, "transit")}
+                                    className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
+                                    title="Повернути в дорогу"
+                                  >
+                                    <IconTruck size={16} />
+                                  </button>
+                                )}
+                                 <button
+                                   onClick={(e) => { e.stopPropagation(); setSelectedDevice(d); setIsEditingDevice(true); }}
+                                   className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet cursor-pointer"
+                                   title="Редагувати"
+                                 >
+                                  <IconEdit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(d.id)}
+                                  className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose cursor-pointer"
+                                  title="Видалити"
+                                >
+                                  <IconDelete size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -954,6 +1090,79 @@ export function DevicesTable({
           />
         )}
       </Drawer>
+
+      {/* MOBILE FLOATING CTA */}
+      <div className="md:hidden fixed bottom-6 right-6 z-40">
+        <AddDeviceButton 
+          parts={parts} 
+          safes={safes} 
+          size="half"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-cyan text-white shadow-xl hover:bg-cyan-hover transition-all active:scale-95 border border-cyan/10"
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="stroke-white">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </AddDeviceButton>
+      </div>
+
+      {/* MODAL: ПРИЙНЯТТЯ ПРИСТРОЮ З ТРАНЗИТУ */}
+      {receivingDevice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-entry">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-text-primary mb-1">✅ Прийняти пристрій на склад</h3>
+            <p className="text-sm text-text-secondary mb-4 leading-snug">
+              {receivingDevice.brand} {receivingDevice.model}
+            </p>
+ 
+            <div className="space-y-3">
+              {safes.length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-text-secondary">Сейф для списання коштів</label>
+                  <select
+                    value={selectedSafeId}
+                    onChange={(e) => setSelectedSafeId(e.target.value)}
+                    className="w-full rounded-xl border border-warm-border bg-white px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
+                  >
+                    <option value="">Не списувати (без оплати / вже оплачено)</option>
+                    {safes.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.balance.toLocaleString()} ₴)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+ 
+              <div className="rounded-xl bg-emerald/5 border border-emerald/20 p-3 text-xs text-text-secondary">
+                <p className="font-medium text-text-primary mb-0.5">Сума списання</p>
+                <p className="text-sm font-bold text-emerald">{receivingDevice.cost_price.toLocaleString()} грн</p>
+                <p className="mt-1 text-[10px] text-text-secondary">
+                  {selectedSafeId 
+                    ? "Гроші будуть списані з обраного сейфу автоматично, буде створено фінансову транзакцію." 
+                    : "Списання коштів вимкнено. Статус пристрою зміниться на 'В наявності', але сейфи залишаться без змін."}
+                </p>
+              </div>
+ 
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setReceivingDevice(null)}
+                  className="flex-1 rounded-xl border border-warm-border py-2.5 text-sm text-text-secondary hover:bg-warm-surface transition-colors cursor-pointer"
+                >
+                  Скасувати
+                </button>
+                <button
+                  onClick={handleReceiveDevice}
+                  disabled={isReceiving}
+                  className="flex-1 rounded-xl bg-emerald py-2.5 text-sm font-semibold text-white hover:bg-emerald/90 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {isReceiving ? "Приймаю..." : "Прийняти на склад"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

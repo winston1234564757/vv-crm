@@ -4,6 +4,7 @@ import { getFinanceData, getFinanceReport } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
 import { AddExpenseButton } from "./AddExpenseButton";
 import { AddDistributionButton } from "./AddDistributionButton";
+import { AddTopUpButton } from "./AddTopUpButton";
 import { AIFinanceButton } from "./AIFinanceButton";
 import { getSettings } from "@/lib/data-settings";
 import type { SafeDistribution } from "@/lib/data-settings";
@@ -58,6 +59,7 @@ export default async function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
+          <AddTopUpButton safes={safes} />
           <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
           <AddTransferButton cashRegisters={cashRegisters} safes={safes} />

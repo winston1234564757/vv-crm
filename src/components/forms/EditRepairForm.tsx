@@ -30,6 +30,7 @@ interface RepairData {
   technician_notes_internal?: string | null;
   device_password?: string | null;
   device_accessories_included?: string | null;
+  is_warranty?: boolean | null;
 }
 
 const STATUS_OPTIONS = [
@@ -61,6 +62,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
   useEffect(() => { if (state.success) onSuccess(); }, [state.success, onSuccess]);
 
   const [status, setStatus] = useState(repair.status);
+  const [isWarranty, setIsWarranty] = useState(repair.is_warranty || false);
   const [paymentStatus, setPaymentStatus] = useState(repair.payment_status ?? "unpaid");
   const [cost, setCost] = useState<string>(repair.cost.toString());
   const [isExternal, setIsExternal] = useState<boolean>(repair.is_external_sc);
@@ -129,7 +131,27 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
         .order("name");
         
       if (!availErr && available) {
-        setAvailableParts(available as any);
+        const devName = (repair.device_name || "").toLowerCase();
+        const words = devName.split(/\s+/).filter(w => w.length > 2); // e.g. ["samsung", "a14"]
+        
+        const sorted = [...available].sort((a, b) => {
+          const aName = a.name.toLowerCase();
+          const bName = b.name.toLowerCase();
+          
+          let aMatches = 0;
+          let bMatches = 0;
+          
+          for (const word of words) {
+            if (aName.includes(word)) aMatches++;
+            if (bName.includes(word)) bMatches++;
+          }
+          
+          if (aMatches > bMatches) return -1;
+          if (aMatches < bMatches) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+        setAvailableParts(sorted as any);
       }
     } catch (e) {
       console.error("Помилка завантаження запчастин:", e);

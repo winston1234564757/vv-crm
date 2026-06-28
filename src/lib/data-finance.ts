@@ -76,15 +76,20 @@ export async function getFinanceData() {
   return { cashRegisters, safes, transactions: resolved, expenseCategories };
 }
 
-export async function getFinanceReport() {
+export async function getFinanceReport(daysBack = 30) {
   const supabase = await createClient();
 
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysBack);
+  startDate.setHours(0, 0, 0, 0);
+  const startStr = startDate.toISOString();
+
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, sale_items(item_type, item_id, quantity, unit_cost)"),
-    supabase.from("purchases").select("total_amount"),
-    supabase.from("expenses").select("amount, category_id"),
+    supabase.from("sales").select("total_amount, sale_items(item_type, item_id, quantity, unit_cost)").gte("created_at", startStr),
+    supabase.from("purchases").select("total_amount").gte("created_at", startStr),
+    supabase.from("expenses").select("amount, category_id").gte("created_at", startStr),
     supabase.from("expense_categories").select("*"),
-    supabase.from("repairs").select("price, cost").in("status", ["completed", "handed_over"]),
+    supabase.from("repairs").select("price, cost").is("inventory_device_id", null).in("status", ["completed", "handed_over"]).gte("created_at", startStr),
   ]);
 
   const salesData = salesRes.data ?? [];

@@ -25,6 +25,7 @@ export default async function PartsPage() {
   const totalParts = parts.length;
   const totalValue = parts.reduce((s, p) => s + p.cost_price * p.stock, 0);
   const lowCount = alerts.length;
+  const totalDebt = parts.reduce((s, p) => s + (p.payment_status === "deferred" ? p.debt_amount : 0), 0);
 
   const shortageItems = (stockoutForecast || [])
     .filter(f => f.days_until_stockout < 45)
@@ -40,7 +41,7 @@ export default async function PartsPage() {
         <AddPartButton suppliers={suppliers} safes={safes} />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
         <GlassCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Всього позицій</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalParts}</p>
@@ -48,6 +49,10 @@ export default async function PartsPage() {
         <GlassCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Сума запасів (собівартість)</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalValue.toLocaleString()} грн</p>
+        </GlassCard>
+        <GlassCard>
+          <p className="text-xs font-medium tracking-wider text-text-secondary">Борг постачальникам</p>
+          <p className={`mt-2 text-3xl font-light tracking-tight ${totalDebt > 0 ? "text-rose" : "text-cyan"}`}>{totalDebt.toLocaleString()} грн</p>
         </GlassCard>
         <GlassCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Закінчуються</p>
@@ -111,7 +116,7 @@ export default async function PartsPage() {
       )}
 
       <GlassCard>
-        <PartsTable parts={parts} suppliers={suppliers} usage={usage} />
+        <PartsTable parts={parts} suppliers={suppliers} usage={usage} safes={safes} />
       </GlassCard>
     </div>
   );
