@@ -19,5 +19,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+const isVercel = process.env.VERCEL === "1";
+export default isVercel ? nextConfig : withSerwist(nextConfig);
 
