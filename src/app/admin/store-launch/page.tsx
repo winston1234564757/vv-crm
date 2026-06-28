@@ -8,6 +8,7 @@ import {
 import SeedDataButton from "@/app/admin/store-launch/components/SeedDataButton";
 import GlobalLaunchRadar from "@/app/admin/store-launch/components/GlobalLaunchRadar";
 import DomainCard from "@/app/admin/store-launch/components/DomainCard";
+import StoreLaunchCreateModal from "@/app/admin/store-launch/components/StoreLaunchCreateModal";
 
 export const metadata = {
   title: "Запуск Магазину (Mission Control) | VV CRM",
@@ -43,7 +44,8 @@ export default async function StoreLaunchPage() {
             Комплексний дашборд для контролю бюджету, задач та етапів відкриття нового магазину з висоти пташиного польоту.
           </p>
         </div>
-        <div className="w-full md:w-auto flex justify-start md:justify-end">
+        <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3 justify-start md:justify-end">
+          <StoreLaunchCreateModal categories={categories} milestones={milestones} />
           <SeedDataButton />
         </div>
       </div>
