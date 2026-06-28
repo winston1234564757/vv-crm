@@ -40,12 +40,16 @@ export default function DomainCard({ category, tasks, expenses }: DomainCardProp
 
   const handleTaskStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === "done" ? "todo" : "done";
-    startTransition(async () => await updateStoreLaunchTaskStatus(id, nextStatus));
+    startTransition(async () => {
+      await updateStoreLaunchTaskStatus(id, nextStatus);
+    });
   };
 
   const handleExpenseStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === "planned" ? "paid" : currentStatus === "paid" ? "received" : "planned";
-    startTransition(async () => await updateStoreLaunchExpenseStatus(id, nextStatus));
+    startTransition(async () => {
+      await updateStoreLaunchExpenseStatus(id, nextStatus);
+    });
   };
 
   const handleCreateTask = (e: React.FormEvent<HTMLFormElement>) => {
