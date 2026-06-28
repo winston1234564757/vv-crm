@@ -48,7 +48,7 @@ export function PartnersClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-text-primary">Партнерська Програма</h1>
+        <h1 className="text-xl font-semibold text-text-primary text-balance tracking-tight">Партнерська Програма</h1>
         <button
           onClick={openCreateModal}
           className="flex items-center gap-2 rounded-xl bg-violet px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer"

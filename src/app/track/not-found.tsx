@@ -19,7 +19,7 @@ export default function TrackNotFound() {
             <IconRepair size={48} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-semibold tracking-tight text-text-primary">Заявку не знайдено</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-text-primary text-balance">Заявку не знайдено</h1>
             <p className="text-sm text-text-secondary">
               На жаль, ми не змогли знайти ремонт за вказаним номером. Будь ласка, перевірте правильність номеру та спробуйте ще раз.
             </p>

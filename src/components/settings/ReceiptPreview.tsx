@@ -88,11 +88,11 @@ export function ReceiptPreview({
         className="w-full rounded-2xl bg-white border border-warm-border shadow-lg p-6 font-mono text-[10px] text-black space-y-3 relative overflow-hidden select-none transition-all duration-300 ease-out border-b-8 border-b-zinc-200"
       >
         {/* Paper tear visual detail */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet/20 via-violet/5 to-violet/20" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-violet/10" />
 
         {/* Company Header */}
         <div className="text-center pb-1 space-y-0.5">
-          <h3 className="text-xs font-bold uppercase tracking-wide break-words">{companyName || "НАЗВА КОМПАНІЇ"}</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide break-words tracking-tight">{companyName || "НАЗВА КОМПАНІЇ"}</h3>
           <p className="text-[8px] text-gray-500 break-words">{companySubtitle || "Сфера діяльності"}</p>
           <p className="text-[7px] text-gray-400 mt-1 break-words">
             {address || "Адреса"} <br /> {phone || "Телефон"}

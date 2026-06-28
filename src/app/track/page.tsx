@@ -22,7 +22,7 @@ export default function TrackPage() {
           <span className="text-violet">
             <IconRepair size={32} />
           </span>
-          <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary">Статус ремонту</h1>
+          <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary text-balance">Статус ремонту</h1>
           <p className="mt-1 text-sm text-text-secondary">
             Введіть номер заявки, щоб дізнатися статус вашого пристрою
           </p>

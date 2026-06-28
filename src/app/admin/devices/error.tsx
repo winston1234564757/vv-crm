@@ -19,7 +19,7 @@ export default function DevicesError({
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-rose/10 text-rose">
         <IconWarning size={32} />
       </div>
-      <h2 className="mb-2 text-xl font-bold text-text-primary">
+      <h2 className="mb-2 text-xl font-bold text-text-primary text-balance tracking-tight">
         Помилка завантаження пристроїв
       </h2>
       <p className="mb-6 max-w-md text-sm text-text-secondary">

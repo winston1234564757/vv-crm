@@ -101,7 +101,7 @@ export function SaleDetailView({ sale, onClose }: SaleDetailViewProps) {
       </div>
 
       {/* Bento Grid breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* Items Card */}
         <div className="card p-5 space-y-3 md:col-span-2">
           <h4 className="font-semibold text-sm text-text-primary border-b border-warm-border pb-2 font-medium">Список товарів</h4>

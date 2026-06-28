@@ -68,6 +68,7 @@ const navItems = [
   { href: "/admin/partners",    label: "Партнери",      icon: <IconPartner /> },
   { href: "/admin/reports",     label: "Звіти",         icon: <IconReport /> },
   { href: "/admin/settings",    label: "Налаштування",  icon: <IconSettings /> },
+  { href: "/admin/store-launch",label: "Запуск Магазину",icon: <IconGrid />, ownerOnly: true },
 ];
 
 const roleLabels: Record<string, string> = {
@@ -82,6 +83,7 @@ export default function AdminSidebar() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("vlasnyk@vv-crm.com");
   const [userRole, setUserRole] = useState("Адміністратор");
+  const [rawRole, setRawRole] = useState<string>("admin");
   const [shopName, setShopName] = useState("VV CRM");
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export default function AdminSidebar() {
           .single();
 
         if (profile?.role) {
+          setRawRole(profile.role);
           setUserRole(roleLabels[profile.role] ?? profile.role);
         }
       }
@@ -133,7 +136,7 @@ export default function AdminSidebar() {
       </div>
 
       <nav className="flex-1 space-y-0.5 px-3 pt-4 overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems.filter(item => !('ownerOnly' in item) || (item.ownerOnly && (rawRole === "owner" || userRole === "Власник"))).map((item) => {
           const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
           return (
             <Link

@@ -10,7 +10,7 @@ interface DeviceFormConditionProps {
 export function DeviceFormCondition({ device }: DeviceFormConditionProps) {
   return (
     <div className="border-t border-warm-border/50 pt-4">
-      <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider">Стан пристрою</h3>
+      <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider tracking-tight">Стан пристрою</h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Грейд</label>

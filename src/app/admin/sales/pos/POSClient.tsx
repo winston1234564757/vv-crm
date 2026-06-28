@@ -516,10 +516,10 @@ export function POSClient({
 
       <div className="flex flex-col lg:flex-row gap-6 w-full flex-1">
         {/* LEFT COLUMN: Shopping Cart Panel */}
-        <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between card p-5 bg-gradient-to-br from-violet/5 to-iris/5 border-iris/15 max-h-[85vh] overflow-y-auto`}>
+        <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between card p-5 bg-violet-subtle border-iris/15 max-h-[85vh] overflow-y-auto`}>
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-iris/10 pb-3">
-            <h2 className="text-base font-semibold text-text-primary">Кошик замовлення</h2>
+            <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Кошик замовлення</h2>
             <span className="text-[11px] font-bold text-violet bg-violet/10 px-2.5 py-0.5 rounded-full">
               {cart.length} поз.
             </span>
@@ -695,13 +695,13 @@ export function POSClient({
 
       {/* Smart Recommendations Section */}
       {recommendations.length > 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-violet/10 to-iris/10 border border-violet/20 space-y-3 mt-1 shadow-sm">
+        <div className="p-4 rounded-2xl bg-violet-subtle border border-violet/20 space-y-3 mt-1 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <span className="text-xs">💡</span>
               <h3 className="text-[11px] font-extrabold text-violet tracking-tight uppercase">Допродажі та Рекомендації</h3>
             </div>
-            <span className="text-[9px] font-bold text-violet bg-white/60 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
+            <span className="text-[9px] font-bold text-violet bg-warm-surface px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
               Smart POS
             </span>
           </div>
@@ -712,7 +712,7 @@ export function POSClient({
                 <div 
                   key={`${rec.item.id}-${rec.type}`}
                   onClick={() => addToCart(rec.item, rec.type)}
-                  className="flex items-center justify-between bg-white/70 hover:bg-white/90 border border-violet/10 hover:border-violet/30 p-2.5 rounded-xl transition-all duration-200 cursor-pointer group active:scale-[0.99]"
+                  className="flex items-center justify-between bg-warm-surface hover:bg-warm-surface border border-violet/10 hover:border-violet/30 p-2.5 rounded-xl transition-all duration-200 cursor-pointer group active:scale-[0.99]"
                 >
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-1">
@@ -945,7 +945,7 @@ export function POSClient({
         <div className="flex items-center justify-between bg-white border border-warm-border/50 p-4 rounded-2xl">
           <div>
             <span className="text-[10px] font-bold text-violet tracking-wider uppercase">Візуальна Вітрина POS</span>
-            <h1 className="text-lg font-bold text-text-primary mt-0.5">
+            <h1 className="text-lg font-bold text-text-primary mt-0.5 text-balance tracking-tight">
               {activeCategory === null ? "Каталог категорій" : 
                activeCategory === "device" ? "Смартфони та Девайси" :
                activeCategory === "accessory" ? "Складські Аксесуари" :
@@ -987,12 +987,12 @@ export function POSClient({
               whileHover={{ scale: 1.02, y: -3 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveCategory("device")}
-              className="md:col-span-2 cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-gradient-to-br from-cyan to-blue text-white p-5 flex flex-col justify-between shadow-lg shadow-cyan/5 transition-all duration-300 group"
+              className="md:col-span-2 cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-cyan text-white p-5 flex flex-col justify-between shadow-sm transition-all duration-300 group"
             >
               <div className="absolute right-4 bottom-2 opacity-15 transform translate-y-1 translate-x-1 group-hover:scale-110 transition-transform duration-300">
                 <IconDevice size={130} />
               </div>
-              <span className="bg-white/20 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+              <span className="bg-warm-surface text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
                 {inStockDevices.length} шт. в наявності
               </span>
               <div>
@@ -1010,16 +1010,16 @@ export function POSClient({
               whileHover={{ scale: 1.02, y: -3 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveCategory("accessory")}
-              className="cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-gradient-to-br from-violet to-iris text-white p-5 flex flex-col justify-between shadow-lg shadow-violet/5 transition-all duration-300 group"
+              className="cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-violet text-white p-5 flex flex-col justify-between shadow-sm transition-all duration-300 group"
             >
               <div className="absolute right-3 bottom-1 opacity-20 group-hover:scale-110 transition-transform duration-300">
                 <IconAccessory size={95} />
               </div>
-              <span className="bg-white/20 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+              <span className="bg-warm-surface text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
                 Активні товари
               </span>
               <div>
-                <h3 className="text-lg font-bold">Аксесуари</h3>
+                <h3 className="text-lg font-bold tracking-tight">Аксесуари</h3>
                 <p className="text-[11px] text-white/85 mt-1">Скла, кабелі, чохли</p>
               </div>
             </motion.div>
@@ -1033,16 +1033,16 @@ export function POSClient({
               whileHover={{ scale: 1.02, y: -3 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveCategory("part")}
-              className="cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-gradient-to-br from-amber to-orange-500 text-white p-5 flex flex-col justify-between shadow-lg shadow-amber/5 transition-all duration-300 group"
+              className="cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-amber text-white p-5 flex flex-col justify-between shadow-sm transition-all duration-300 group"
             >
               <div className="absolute right-3 bottom-1 opacity-20 group-hover:scale-110 transition-transform duration-300">
                 <IconBox size={95} />
               </div>
-              <span className="bg-white/20 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+              <span className="bg-warm-surface text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
                 Склад деталей
               </span>
               <div>
-                <h3 className="text-lg font-bold">Запчастини</h3>
+                <h3 className="text-lg font-bold tracking-tight">Запчастини</h3>
                 <p className="text-[11px] text-white/85 mt-1">Окремий продаж деталей клієнту</p>
               </div>
             </motion.div>
@@ -1056,12 +1056,12 @@ export function POSClient({
               whileHover={{ scale: 1.02, y: -3 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveCategory("service")}
-              className="md:col-span-2 cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-gradient-to-br from-emerald to-teal-600 text-white p-5 flex flex-col justify-between shadow-lg shadow-emerald/5 transition-all duration-300 group"
+              className="md:col-span-2 cursor-pointer relative overflow-hidden rounded-3xl min-h-[160px] bg-emerald text-white p-5 flex flex-col justify-between shadow-sm transition-all duration-300 group"
             >
               <div className="absolute right-4 bottom-2 opacity-20 group-hover:scale-110 transition-transform duration-300">
                 <IconRepair size={115} />
               </div>
-              <span className="bg-white/20 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+              <span className="bg-warm-surface text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
                 {activeServices.length} послуг в каталозі
               </span>
               <div>
@@ -1139,16 +1139,16 @@ export function POSClient({
                       {/* Product Visual element */}
                       <div className={`w-full h-32 rounded-xl flex items-center justify-center overflow-hidden border border-warm-border/20 relative ${
                         hasPhoto ? "bg-warm-surface" : 
-                        activeCategory === "device" ? "bg-gradient-to-br from-cyan/10 to-blue/5 text-cyan" :
+                        activeCategory === "device" ? "bg-cyan/10 text-cyan" :
                         activeCategory === "accessory" ? "bg-gradient-to-br from-violet/10 to-iris/5 text-violet" :
-                        activeCategory === "part" ? "bg-gradient-to-br from-amber/10 to-orange-500/5 text-amber" : 
-                        "bg-gradient-to-br from-emerald/10 to-teal-600/5 text-emerald"
+                        activeCategory === "part" ? "bg-amber/10 text-amber" : 
+                        "bg-emerald/10 text-emerald"
                       }`}>
                         {hasPhoto ? (
                           <img
                             src={photoUrl}
                             alt={displayName}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300 ease-out"
                           />
                         ) : (
                           <div className="group-hover:scale-110 transition-transform duration-300">
@@ -1208,7 +1208,7 @@ export function POSClient({
       {/* Success checkout Dialog overlay */}
       <AnimatePresence>
         {successSaleId && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
             <style>{`
               @keyframes draw-circle {
                 to { stroke-dashoffset: 0; }
@@ -1255,7 +1255,7 @@ export function POSClient({
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-text-primary">Продаж успішно проведено!</h3>
+                <h3 className="text-lg font-bold text-text-primary tracking-tight">Продаж успішно проведено!</h3>
                 <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                   Транзакцію успішно записано. Виберіть подальшу дію або роздрукуйте чек для клієнта.
                 </p>

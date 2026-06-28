@@ -183,7 +183,7 @@ export function FinanceTransactionsTable({
   return (
     <>
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-text-primary">Рух коштів</h2>
+        <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Рух коштів</h2>
         <div className="mt-4">
           {/* Мобільні картки транзакцій */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
@@ -422,7 +422,7 @@ export function FinanceTransactionsTable({
             </div>
 
             {/* Details Bento Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Info */}
               <div className="card p-5 space-y-3">
                 <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 font-medium">Загальна інформація</h4>

@@ -21,7 +21,7 @@ export default function SaleFormDeliveryFields({
 }: SaleFormDeliveryFieldsProps) {
   return (
     <div className="border-t border-warm-border/50 pt-4">
-      <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider">
+      <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider tracking-tight">
         Доставка
       </h3>
       <div className="flex items-center gap-2">

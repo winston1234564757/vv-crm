@@ -22,7 +22,7 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Налаштування системи</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary text-balance">Налаштування системи</h1>
           <p className="text-sm text-text-secondary">Керування параметрами магазину та правами доступу персоналу</p>
         </div>
       </div>

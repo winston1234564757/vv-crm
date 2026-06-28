@@ -147,7 +147,7 @@ export function RepairForm({
         </div>
 
         <div>
-          <h2 className="text-xl font-bold text-text-primary">Ремонт успішно створено!</h2>
+          <h2 className="text-xl font-bold text-text-primary text-balance tracking-tight">Ремонт успішно створено!</h2>
           <p className="text-xs text-text-secondary mt-1">Пристрій прийнято в роботу</p>
         </div>
 
@@ -316,7 +316,7 @@ export function RepairForm({
   }));
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 p-5">
+    <form action={formAction} className="flex flex-col gap-4 md:gap-6 p-5">
       {(state.error || custError) && (
         <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
           {state.error || custError}
@@ -623,7 +623,7 @@ export function RepairForm({
 
 
       <div className="border-t border-warm-border/50 pt-4">
-        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider">Стан пристрою на момент здачі</h3>
+        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider tracking-tight">Стан пристрою на момент здачі</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="device_condition" className="mb-1.5 block text-xs font-medium text-text-secondary">Грейд стану *</label>

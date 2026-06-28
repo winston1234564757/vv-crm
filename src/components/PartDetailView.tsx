@@ -80,7 +80,7 @@ export function PartDetailView({ part, usage, onEdit, onClose }: PartDetailViewP
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">{part.name}</h2>
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{part.name}</h2>
           {part.part_number && (
             <p className="mt-1 text-xs font-mono text-text-secondary">
               Артикул: {part.part_number}
@@ -117,13 +117,13 @@ export function PartDetailView({ part, usage, onEdit, onClose }: PartDetailViewP
       )}
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Specifications */}
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Реквізити запчастини</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Реквізити запчастини</h3>
           </div>
           <div className="space-y-3">
             <div>
@@ -151,7 +151,7 @@ export function PartDetailView({ part, usage, onEdit, onClose }: PartDetailViewP
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Баланс та собівартість</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Баланс та собівартість</h3>
           </div>
           <div className="grid grid-cols-2 gap-4 text-center">
             <div className="bg-warm-bg rounded-xl p-3">
@@ -173,7 +173,7 @@ export function PartDetailView({ part, usage, onEdit, onClose }: PartDetailViewP
         <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconRepair size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Використання в ремонтах</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Використання в ремонтах</h3>
           </div>
           {usage.length === 0 ? (
             <p className="text-text-muted italic py-4">Ця деталь ще не встановлювалася в процесі ремонтів</p>

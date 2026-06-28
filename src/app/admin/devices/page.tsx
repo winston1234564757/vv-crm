@@ -10,7 +10,7 @@ import { getInternalRepairs } from "@/lib/data-repairs";
 import { DevicesTable } from "./table";
 import { AddDeviceButton } from "./AddDeviceButton";
 import { pluralUk } from "@/lib/utils/plural";
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { IconDevice, IconBox, IconFinance } from "@/components/icons";
 
@@ -105,7 +105,7 @@ export default async function DevicesPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
               <IconDevice size={18} />
             </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Техніка</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Техніка</h1>
           </div>
           <p className="text-sm text-text-secondary pl-[46px]">
             {devices.length} {pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі
@@ -151,8 +151,8 @@ export default async function DevicesPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        <GlassCard>
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <StandardCard>
           <DevicesTable 
             devices={devices as unknown as import('./table').DeviceRow[]} 
             customers={customers} 
@@ -163,7 +163,7 @@ export default async function DevicesPage() {
             repairs={repairs}
             safes={safes}
           />
-        </GlassCard>
+        </StandardCard>
       </div>
     </div>
   );

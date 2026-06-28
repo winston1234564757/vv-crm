@@ -8,7 +8,7 @@ import { PartsTable } from "./table";
 import { AddPartButton } from "./AddPartButton";
 import { pluralUk } from "@/lib/utils/plural";
 
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 
 export default async function PartsPage() {
   const supabase = await createClient();
@@ -35,34 +35,34 @@ export default async function PartsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Запчастини</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Запчастини</h1>
           <p className="mt-0.5 text-sm text-text-secondary">{totalParts} {pluralUk(totalParts, "деталь", "деталі", "деталей")}</p>
         </div>
         <AddPartButton suppliers={suppliers} safes={safes} />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
-        <GlassCard>
+      <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 md:grid-cols-4">
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Всього позицій</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalParts}</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Сума запасів (собівартість)</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalValue.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Борг постачальникам</p>
           <p className={`mt-2 text-3xl font-light tracking-tight ${totalDebt > 0 ? "text-rose" : "text-cyan"}`}>{totalDebt.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Закінчуються</p>
           <p className={`mt-2 text-3xl font-light tracking-tight ${lowCount > 0 ? "text-rose" : "text-cyan"}`}>{lowCount}</p>
-        </GlassCard>
+        </StandardCard>
       </div>
 
       {/* AI Smart Forecast Card */}
       {shortageItems.length > 0 && (
-        <GlassCard className="border border-violet/20 bg-violet/[0.01]">
+        <StandardCard className="border border-violet/20 bg-violet/[0.01]">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-violet font-semibold text-sm">✨ ШІ Прогноз Дефіциту та Залишків</span>
             <span className="text-[10px] text-text-secondary bg-violet/5 px-2 py-0.5 rounded-full">Аналітика за останні 30 днів</span>
@@ -112,12 +112,12 @@ export default async function PartsPage() {
               );
             })}
           </div>
-        </GlassCard>
+        </StandardCard>
       )}
 
-      <GlassCard>
+      <StandardCard>
         <PartsTable parts={parts} suppliers={suppliers} usage={usage} safes={safes} />
-      </GlassCard>
+      </StandardCard>
     </div>
   );
 }

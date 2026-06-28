@@ -104,8 +104,8 @@ export function ReceiptSettingsTab({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       {/* Left Settings Panel */}
       <form action={action} className="lg:col-span-7 space-y-6">
-        <div className="card p-5 space-y-4 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm">
-          <h2 className="text-base font-semibold text-text-primary">Реквізити шапки та підвалу чека</h2>
+        <div className="card p-5 space-y-4 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
+          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Реквізити шапки та підвалу чека</h2>
           <p className="text-xs text-text-secondary">
             Ці дані будуть однаковими для всіх чеків та актів. Вони друкуються вгорі та внизу кожної квитанції.
           </p>
@@ -176,9 +176,9 @@ export function ReceiptSettingsTab({
         </div>
 
         {/* Template specific settings */}
-        <div className="card p-5 space-y-4 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm">
+        <div className="card p-5 space-y-4 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-warm-border pb-3 gap-2">
-            <h2 className="text-base font-semibold text-text-primary">Шаблони за сутностями</h2>
+            <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Шаблони за сутностями</h2>
             <div className="flex gap-1 bg-warm-bg rounded-lg p-0.5 border border-warm-border w-full sm:w-auto">
               <button
                 type="button"

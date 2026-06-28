@@ -164,7 +164,7 @@ export function ImportAccessoriesButton() {
             </div>
           )}
           <div className="rounded-xl border border-warm-border/50 bg-violet/5 p-5 text-sm text-text-primary">
-            <h3 className="font-semibold mb-2 text-violet">Інструкція з імпорту:</h3>
+            <h3 className="font-semibold mb-2 text-violet tracking-tight">Інструкція з імпорту:</h3>
             <p className="mb-2">Будь ласка, завантажте CSV-файл, який містить такі стовпці в першому рядку (заголовки):</p>
             <code className="block bg-white p-2.5 rounded-lg border border-iris/10 text-xs font-mono text-violet overflow-x-auto">
               name, type, price, cost_price, stock, min_stock
@@ -204,7 +204,7 @@ export function ImportAccessoriesButton() {
           {rows.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text-primary">Попередній перегляд завантажених даних</h3>
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">Попередній перегляд завантажених даних</h3>
                 <span className={`text-xs font-semibold px-3 py-1 rounded-full ${hasErrors ? "bg-amber/10 text-amber" : "bg-cyan/10 text-cyan"}`}>
                   {hasErrors ? `Знайдено помилок. Валідних: ${totalValid} з ${rows.length}` : `Усі ${rows.length} рядків готові до завантаження!`}
                 </span>

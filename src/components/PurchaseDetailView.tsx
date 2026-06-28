@@ -135,7 +135,7 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
               {statusLabels[purchase.status] || purchase.status}
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">
             Закупівля від {purchase.suppliers?.name || "Постачальник не вказаний"}
           </h2>
           <p className="mt-1 text-xs text-text-secondary">
@@ -174,13 +174,13 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
       </div>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Financial Info */}
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Фінансові реквізити</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Фінансові реквізити</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -202,7 +202,7 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconTruck size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Транзит та логістика</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Транзит та логістика</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {purchase.received_at && (
@@ -237,7 +237,7 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
         <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Позиції закупівлі</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Позиції закупівлі</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">

@@ -226,14 +226,14 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 p-5">
+    <form action={formAction} className="flex flex-col gap-4 md:gap-6 p-5">
       {state.error && (
         <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
           {state.error}
         </div>
       )}
       <div className="rounded-xl border border-warm-border/50 bg-violet/5 p-4 text-xs text-text-primary space-y-1.5">
-        <h3 className="font-semibold text-sm mb-1">{repair.device_name}</h3>
+        <h3 className="font-semibold text-sm mb-1 tracking-tight">{repair.device_name}</h3>
         {repair.device_imei && <p className="font-mono text-[10px] text-text-secondary">IMEI: {repair.device_imei}</p>}
         
         {repair.device_password && (

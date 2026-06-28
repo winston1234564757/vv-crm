@@ -637,11 +637,11 @@ export function DevicesTable({
           /* ============================================================
              КАНБАН ДОШКА (3 КОЛОНКИ: В дорозі, В наявності, В ремонті)
              ============================================================ */
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
             {/* 1. В ДОРОЗІ */}
             <div className="flex flex-col rounded-2xl border border-warm-border bg-warm-sidebar/10 p-3 min-h-[500px]">
               <div className="mb-3 flex items-center justify-between px-2">
-                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5 tracking-tight">
                   <IconTruck size={14} className="text-violet shrink-0" />
                   <span>В дорозі (Transit)</span>
                 </h3>
@@ -692,7 +692,7 @@ export function DevicesTable({
             {/* 2. В НАЯВНОСТІ */}
             <div className="flex flex-col rounded-2xl border border-warm-border bg-warm-sidebar/10 p-3 min-h-[500px]">
               <div className="mb-3 flex items-center justify-between px-2">
-                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5 tracking-tight">
                   <span className="h-2 w-2 rounded-full bg-cyan shrink-0 animate-pulse" />
                   <span>В наявності (In Stock)</span>
                 </h3>
@@ -752,7 +752,7 @@ export function DevicesTable({
             {/* 3. В РЕМОНТІ */}
             <div className="flex flex-col rounded-2xl border border-warm-border bg-warm-sidebar/10 p-3 min-h-[500px]">
               <div className="mb-3 flex items-center justify-between px-2">
-                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5 tracking-tight">
                   <span className="text-amber shrink-0 flex items-center">
                     <IconRepair size={14} />
                   </span>
@@ -1108,9 +1108,9 @@ export function DevicesTable({
 
       {/* MODAL: ПРИЙНЯТТЯ ПРИСТРОЮ З ТРАНЗИТУ */}
       {receivingDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-entry">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
           <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-text-primary mb-1">✅ Прийняти пристрій на склад</h3>
+            <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">✅ Прийняти пристрій на склад</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">
               {receivingDevice.brand} {receivingDevice.model}
             </p>

@@ -39,7 +39,7 @@ export function PartnerForm({ partner, onSuccess }: { partner?: PartnerData; onS
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 p-5">
+    <form action={formAction} className="flex flex-col gap-4 md:gap-6 p-5">
       {state.error && (
         <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
           {state.error}

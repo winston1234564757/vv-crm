@@ -274,7 +274,7 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
               >
                 <span className="text-sm">{col.emoji}</span>
                 <span>{col.label}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? "bg-white/80" : "bg-warm-border text-text-secondary"}`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? "bg-warm-surface" : "bg-warm-border text-text-secondary"}`}>
                   {colRepairs.length}
                 </span>
               </button>
@@ -321,7 +321,7 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
                 <div className="flex items-center justify-between px-3.5 py-3 border-b border-warm-border">
                   <div className="flex items-center gap-2">
                     <span className="text-base leading-none">{col.emoji}</span>
-                    <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                    <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider tracking-tight">
                       {col.label}
                     </h3>
                   </div>

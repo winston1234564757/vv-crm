@@ -9,7 +9,7 @@ import { AddAccessoryButton } from "./AddAccessoryButton";
 import { ImportAccessoriesButton } from "./ImportAccessoriesButton";
 import { pluralUk } from "@/lib/utils/plural";
 
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 
 export default async function AccessoriesPage() {
   const [accessories, sales, safes] = await Promise.all([
@@ -27,7 +27,7 @@ export default async function AccessoriesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Аксесуари</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Аксесуари</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
             {accessories.length} {pluralUk(accessories.length, "позиція", "позиції", "позицій")} у системі
           </p>
@@ -38,29 +38,29 @@ export default async function AccessoriesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        <GlassCard>
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Всього одиниць</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalItems} шт</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Сума запасів (виручка)</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalValue.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Вкладено (собівартість)</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{totalCost.toLocaleString()} грн</p>
-        </GlassCard>
-        <GlassCard>
+        </StandardCard>
+        <StandardCard>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Очікуваний чистий прибуток</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-violet font-medium">{expectedProfit.toLocaleString()} грн</p>
-        </GlassCard>
+        </StandardCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        <GlassCard>
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <StandardCard>
           <AccessoriesTable accessories={accessories} sales={sales} />
-        </GlassCard>
+        </StandardCard>
       </div>
     </div>
   );

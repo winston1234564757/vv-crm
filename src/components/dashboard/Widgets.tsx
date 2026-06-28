@@ -64,7 +64,7 @@ function TodaySalesStatusLine({ todayTotal, target }: { todayTotal: number; targ
     <div className="w-full bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Прогрес денного плану продажів</h3>
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Прогрес денного плану продажів</h3>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="text-xl font-extrabold text-slate-900 font-mono">{todayTotal.toLocaleString()} ₴</span>
             <span className="text-xs text-slate-500">з цілі {target.toLocaleString()} ₴</span>
@@ -79,7 +79,7 @@ function TodaySalesStatusLine({ todayTotal, target }: { todayTotal: number; targ
       </div>
       <div className="relative w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200/40">
         <div 
-          className="h-full rounded-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] transition-all duration-1000 ease-out" 
+          className="h-full rounded-full bg-violet transition-all duration-1000 ease-out" 
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -131,7 +131,7 @@ function SLASupplyChainMonitor({ repairs, delayRate, missingParts }: { repairs: 
     <div className="flex-1 min-w-0 bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
-          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Монітор SLA та логістики</h3>
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Монітор SLA та логістики</h3>
           <h4 className="text-sm font-bold text-slate-900 mt-0.5">SLA Wave & Supply Chain</h4>
         </div>
         {hoveredIdx !== null ? (
@@ -194,7 +194,7 @@ function SalesTargetRing({ todayTotal, target, progress }: { todayTotal: number;
   return (
     <div className="w-full md:w-[170px] bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col items-center justify-between shrink-0 shadow-sm">
       <div className="text-center">
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Денний план</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Денний план</h3>
         <span className="text-[11px] text-slate-600 font-mono mt-0.5 font-semibold">Ціль: {target.toLocaleString()} ₴</span>
       </div>
       <div className="relative flex items-center justify-center my-3">
@@ -224,7 +224,7 @@ function OpexRunwayCard({ runwayDays, dailyRate, balance }: { runwayDays: number
   return (
     <div className="w-full md:w-[170px] bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col items-center justify-between shrink-0 shadow-sm">
       <div className="text-center">
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Запас OPEX</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Запас OPEX</h3>
         <span className="text-[10px] text-slate-600 font-mono mt-0.5 block truncate max-w-[130px] font-medium">Резерв: {balance.toLocaleString()} ₴</span>
       </div>
       <div className="relative flex items-center justify-center my-3">
@@ -253,7 +253,7 @@ function RefurbishmentWidget({ capital, margin, onClick }: { capital: number; ma
       className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm cursor-pointer hover:bg-slate-50/50 hover:border-slate-300 hover:shadow-md transition-all group"
     >
       <div>
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Капіталізація складу</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Капіталізація складу</h3>
         <div className="flex items-center justify-between mt-0.5">
           <h4 className="text-sm font-bold text-slate-900">Відновлення техніки</h4>
           <span className="text-[10px] font-bold text-[#6366F1] opacity-0 group-hover:opacity-100 transition-opacity">Деталі →</span>
@@ -325,7 +325,7 @@ function RefurbishmentDetailsModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-900/60 "
           />
 
           {/* Modal Body */}
@@ -339,7 +339,7 @@ function RefurbishmentDetailsModal({
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
               <div>
-                <h2 className="text-base font-extrabold text-slate-900">Розшифровка відновлення техніки</h2>
+                <h2 className="text-base font-extrabold text-slate-900 text-balance tracking-tight">Розшифровка відновлення техніки</h2>
                 <p className="text-[10px] text-slate-500 font-medium">Статистика чистого прибутку та активних витрат</p>
               </div>
               <button
@@ -380,7 +380,7 @@ function RefurbishmentDetailsModal({
                 <>
                   {/* Section 1: Sold Devices */}
                   <div className="space-y-3">
-                    <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 tracking-tight">
                       <span className="h-2 w-2 rounded-full bg-emerald-500" />
                       Продані пристрої за 30 днів (Фактичний прибуток)
                     </h3>
@@ -508,7 +508,7 @@ function RefurbishmentDetailsModal({
 
                   {/* Section 2: In Stock Devices */}
                   <div className="space-y-3">
-                    <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 tracking-tight">
                       <span className="h-2 w-2 rounded-full bg-blue-500" />
                       Готові до продажу на складі (Очікуваний прибуток)
                     </h3>
@@ -641,7 +641,7 @@ function RefurbishmentDetailsModal({
               ) : (
                 /* Active repairs list */
                 <div className="space-y-3">
-                  <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 tracking-tight">
                     <span className="h-2 w-2 rounded-full bg-amber-500" />
                     Пристрої у процесі відновлення
                   </h3>
@@ -806,7 +806,7 @@ function B2BPartnerShareWidget({ share, revenue }: { share: number; revenue: num
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
       <div>
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">B2B Канал продажів</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">B2B Канал продажів</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">Партнерська мережа</h4>
       </div>
       <div className="my-4">
@@ -829,7 +829,7 @@ function CrossSellWidget({ conversionRate, revenue, dealsCount }: { conversionRa
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
       <div>
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Крос-продажі (30д)</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Крос-продажі (30д)</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">Cross-selling BI</h4>
       </div>
       <div className="my-4 space-y-3">
@@ -865,7 +865,7 @@ function SalesVelocityMatrix({ velocity, peakHours }: { velocity: { device: numb
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
       <div>
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Аналітика доходів (30д)</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Аналітика доходів (30д)</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">Sales Velocity Matrix</h4>
       </div>
       <div className="my-3.5 space-y-2.5">
@@ -897,7 +897,7 @@ function StockAlerts({ alerts, title = "Низький запас" }: { alerts: 
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-sm">
       <div>
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{title}</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">{title}</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">Критичні залишки</h4>
       </div>
       <div className="mt-4 space-y-2.5 flex-1 justify-center flex flex-col">
@@ -958,10 +958,10 @@ type SmartInsight = {
 };
 
 const URGENCY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  CRITICAL:   { label: "КРИТИЧНО",   color: "#F43F5E", bg: "rgba(244,63,94,0.06)",  border: "rgba(244,63,94,0.18)" },
-  LOW:        { label: "МАЛО",       color: "#F59E0B", bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.18)" },
+  CRITICAL: { label: "КРИТИЧНО", color: "#F43F5E", bg: "rgba(244,63,94,0.06)", border: "rgba(244,63,94,0.18)" },
+  LOW: { label: "МАЛО", color: "#F59E0B", bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.18)" },
   DEAD_STOCK: { label: "DEAD STOCK", color: "#6366F1", bg: "rgba(99,102,241,0.06)", border: "rgba(99,102,241,0.18)" },
-  OK:         { label: "ОК",         color: "#10B981", bg: "rgba(16,185,129,0.06)", border: "rgba(16,185,129,0.18)" },
+  OK: { label: "ОК", color: "#10B981", bg: "rgba(16,185,129,0.06)", border: "rgba(16,185,129,0.18)" },
 };
 
 const DOW_UA = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -972,7 +972,7 @@ function PhoneModelDemandWidget({ models }: { models: ModelAnalyticsItem[] }) {
   if (models.length === 0) {
     return (
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Аналітика попиту</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Аналітика попиту</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">📱 Топ моделей телефонів</h4>
         <p className="text-xs text-slate-400 italic text-center py-8">Дані з&apos;являться після перших продажів та ремонтів</p>
       </div>
@@ -984,7 +984,7 @@ function PhoneModelDemandWidget({ models }: { models: ModelAnalyticsItem[] }) {
       <div className="border-b border-slate-100 pb-3 mb-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Аналітика попиту (90 днів)</h3>
+            <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Аналітика попиту (90 днів)</h3>
             <h4 className="text-sm font-bold text-slate-900 mt-0.5">📱 Топ моделей телефонів</h4>
           </div>
           <span className="text-[9px] text-slate-400 font-mono bg-slate-50 border border-slate-100 px-2 py-1 rounded shrink-0 ml-2">
@@ -1110,7 +1110,7 @@ function RevenueHeatmapWidget({ heatmap }: { heatmap: HeatmapRow[] }) {
     if (val === 0) return "rgba(0,0,0,0.03)";
     const ratio = val / maxAvgCheck;
     if (ratio > 0.75) return "rgba(99,102,241,0.85)";
-    if (ratio > 0.5)  return "rgba(99,102,241,0.45)";
+    if (ratio > 0.5) return "rgba(99,102,241,0.45)";
     if (ratio > 0.25) return "rgba(99,102,241,0.2)";
     return "rgba(99,102,241,0.08)";
   }
@@ -1118,7 +1118,7 @@ function RevenueHeatmapWidget({ heatmap }: { heatmap: HeatmapRow[] }) {
   if (heatmap.length === 0) {
     return (
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Настрій покупців</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Настрій покупців</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">Пікові години доходу</h4>
         <p className="text-xs text-slate-400 italic text-center py-8">Дані з'являться після перших продажів</p>
       </div>
@@ -1129,7 +1129,7 @@ function RevenueHeatmapWidget({ heatmap }: { heatmap: HeatmapRow[] }) {
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
         <div>
-          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Настрій покупців (60д)</h3>
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Настрій покупців (60д)</h3>
           <h4 className="text-sm font-bold text-slate-900 mt-0.5">🕐 Коли найбільший середній чек</h4>
         </div>
         {bestCheck > 0 && (
@@ -1205,7 +1205,7 @@ function StockoutIntelligenceWidget({ items }: { items: StockoutItem[] }) {
   if (criticalItems.length === 0) {
     return (
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Прогноз залишків</h3>
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Прогноз залишків</h3>
         <h4 className="text-sm font-bold text-slate-900 mt-0.5">📦 Stockout Intelligence</h4>
         <p className="text-xs text-slate-400 italic text-center py-8">Всі позиції в нормальному запасі ✅</p>
       </div>
@@ -1216,7 +1216,7 @@ function StockoutIntelligenceWidget({ items }: { items: StockoutItem[] }) {
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
         <div>
-          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Прогноз залишків</h3>
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Прогноз залишків</h3>
           <h4 className="text-sm font-bold text-slate-900 mt-0.5">📦 Stockout Intelligence</h4>
         </div>
         <span className="text-[10px] font-bold text-[#F43F5E] font-mono bg-red-50 border border-red-100 px-2 py-0.5 rounded">
@@ -1253,7 +1253,7 @@ function StockoutIntelligenceWidget({ items }: { items: StockoutItem[] }) {
                   )}
                 </div>
               </div>
-              <div className="w-full bg-white/60 h-1 rounded-full overflow-hidden">
+              <div className="w-full bg-warm-surface h-1 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${daysBar}%`, background: cfg.color }}
@@ -1335,23 +1335,23 @@ function AIInsightPanel({
   }, [ownerStats, retryCount]);
 
   const typeConfig: Record<SmartInsight["type"], { border: string; bg: string }> = {
-    opportunity: { border: "rgba(16,185,129,0.25)",  bg: "rgba(16,185,129,0.04)" },
-    warning:     { border: "rgba(244,63,94,0.25)",   bg: "rgba(244,63,94,0.04)" },
-    achievement: { border: "rgba(99,102,241,0.25)",  bg: "rgba(99,102,241,0.04)" },
-    info:        { border: "rgba(245,158,11,0.25)",  bg: "rgba(245,158,11,0.04)" },
+    opportunity: { border: "rgba(16,185,129,0.25)", bg: "rgba(16,185,129,0.04)" },
+    warning: { border: "rgba(244,63,94,0.25)", bg: "rgba(244,63,94,0.04)" },
+    achievement: { border: "rgba(99,102,241,0.25)", bg: "rgba(99,102,241,0.04)" },
+    info: { border: "rgba(245,158,11,0.25)", bg: "rgba(245,158,11,0.04)" },
   };
 
   const impactDot: Record<SmartInsight["impact"], string> = {
-    high:   "#F43F5E",
+    high: "#F43F5E",
     medium: "#F59E0B",
-    low:    "#10B981",
+    low: "#10B981",
   };
 
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <div>
-          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">AI Бізнес-аналітик</h3>
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">AI Бізнес-аналітик</h3>
           <h4 className="text-sm font-bold text-slate-900 mt-0.5">✨ VV Intelligence — Gemini</h4>
         </div>
         {loading && (

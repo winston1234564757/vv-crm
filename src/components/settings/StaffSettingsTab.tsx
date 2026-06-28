@@ -33,9 +33,9 @@ export function StaffSettingsTab({
   }
 
   return (
-    <div className="card p-5 space-y-4 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm">
+    <div className="card p-5 space-y-4 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
       <div>
-        <h2 className="text-base font-semibold text-text-primary">Користувачі системи</h2>
+        <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Користувачі системи</h2>
         <p className="text-xs text-text-secondary mt-1">
           Керуйте ролями та рівнями доступу співробітників майстерні. Зміни застосовуються миттєво.
         </p>

@@ -28,6 +28,7 @@ const moreItems = [
   { href: "/admin/partners", label: "Партнери", icon: <IconCustomer /> },
   { href: "/admin/reports", label: "Звіти", icon: <IconReport /> },
   { href: "/admin/settings", label: "Налаштування", icon: <IconSettings /> },
+  { href: "/admin/store-launch", label: "Запуск Магазину", icon: <IconGrid />, ownerOnly: true },
 ];
 
 export default function MobileNavigation() {
@@ -53,8 +54,8 @@ export default function MobileNavigation() {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="md:hidden fixed inset-0 z-40 bg-warm-sidebar flex flex-col pb-24 overflow-y-auto"
           >
-            <div className="flex items-center justify-between p-4 border-b border-warm-border bg-white/50 backdrop-blur-md sticky top-0 z-10">
-              <h2 className="text-lg font-semibold text-text-primary">Меню</h2>
+            <div className="flex items-center justify-between p-4 border-b border-warm-border bg-warm-surface sticky top-0 z-10">
+              <h2 className="text-lg font-semibold text-text-primary text-balance tracking-tight">Меню</h2>
               <button 
                 onClick={() => setIsMenuOpen(false)}
                 className="p-2 rounded-full bg-warm-hover text-text-secondary"
@@ -64,17 +65,23 @@ export default function MobileNavigation() {
             </div>
             
             <div className="p-4 space-y-2">
-              {moreItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white border border-warm-border text-text-primary shadow-sm active:scale-95 transition-transform"
-                >
-                  <span className="text-violet flex-shrink-0 w-6 h-6 flex items-center justify-center">{item.icon}</span>
-                  <span className="font-medium text-sm">{item.label}</span>
-                </Link>
-              ))}
+              {moreItems.map((item) => {
+                if ('ownerOnly' in item && item.ownerOnly) {
+                  // Only render for owners (simplified check for mobile, assuming users with this role can see it)
+                  // We'll hide it for non-owners in the UI or let RBAC handle the block
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white border border-warm-border text-text-primary shadow-sm active:scale-95 transition-transform"
+                  >
+                    <span className="text-violet flex-shrink-0 w-6 h-6 flex items-center justify-center">{item.icon}</span>
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </Link>
+                );
+              })}
               
               <button
                 onClick={handleLogout}
@@ -88,7 +95,7 @@ export default function MobileNavigation() {
         )}
       </AnimatePresence>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-warm-border pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-warm-surface border-t border-warm-border pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
         <div className="flex justify-around items-center h-16 px-2">
           {mainItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));

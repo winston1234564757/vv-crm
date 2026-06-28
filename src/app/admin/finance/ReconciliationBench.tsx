@@ -80,7 +80,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
     <div className="card p-5 space-y-4">
       <div className="flex items-center justify-between border-b border-warm-border pb-3">
         <div>
-          <h2 className="text-sm font-semibold text-text-primary">Звірка безготівкових оплат (Monobank)</h2>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Звірка безготівкових оплат (Monobank)</h2>
           <p className="text-xs text-text-secondary mt-0.5">Порівняйте надходження на рахунку з продажами в CRM</p>
         </div>
         {selectedSale && selectedBankTx && (
@@ -100,10 +100,10 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
         {/* Left column: Bank statements */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary tracking-tight">
             Надходження Monobank (виписка)
           </h3>
           {loading ? (
@@ -157,7 +157,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
 
         {/* Right column: Unreconciled card sales */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary tracking-tight">
             Незвірені продажі в CRM
           </h3>
           {sales.length === 0 ? (

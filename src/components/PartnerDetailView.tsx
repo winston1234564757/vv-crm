@@ -82,7 +82,7 @@ export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDe
               {partner.status === 'active' ? 'Активний партнер' : 'Блокований'}
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">{partner.name}</h2>
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{partner.name}</h2>
           <p className="mt-1 text-xs text-text-secondary">
             Промокод партнера: <strong className="text-violet font-mono text-sm">{partner.promo_code}</strong>
           </p>
@@ -98,13 +98,13 @@ export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDe
       </div>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Profile Info */}
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconTruck size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Реквізити</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Реквізити</h3>
           </div>
           <div className="space-y-3">
             <div>
@@ -132,7 +132,7 @@ export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDe
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Показники ефективності</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Показники ефективності</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -160,7 +160,7 @@ export function PartnerDetailView({ partner, sales, onEdit, onClose }: PartnerDe
         <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Історія використання промокоду</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Історія використання промокоду</h3>
           </div>
           {partnerSales.length === 0 ? (
             <p className="text-text-muted italic py-4">Цей промокод ще не застосовувався</p>

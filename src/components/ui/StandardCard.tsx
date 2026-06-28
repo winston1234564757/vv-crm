@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 
-interface GlassCardProps {
+interface StandardCardProps {
   children: ReactNode;
   className?: string;
   interactive?: boolean;
 }
 
-export default function GlassCard({ children, className = "", interactive = false }: GlassCardProps) {
+export default function StandardCard({ children, className = "", interactive = false }: StandardCardProps) {
   return (
     <div
       className={`card p-5 ${interactive ? "card-hover" : ""} ${className}`}

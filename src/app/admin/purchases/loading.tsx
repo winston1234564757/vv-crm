@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div className="space-y-5">
       <div className="h-8 w-48 rounded-xl bg-warm-border/30 animate-pulse" />
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
         <div className="card p-5 h-24 animate-pulse" />
         <div className="card p-5 h-24 animate-pulse" />
         <div className="card p-5 h-24 animate-pulse" />

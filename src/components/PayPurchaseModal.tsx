@@ -33,7 +33,7 @@ export function PayPurchaseModal({
   const hasOverdraft = selectedSafe ? amount > selectedSafe.balance : false;
 
   return (
-    <div className="fixed inset-0 bg-text-primary/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-text-primary/40 z-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-warm-surface border border-warm-border rounded-2xl shadow-xl p-6 relative animate-entry">
         <button
           onClick={onClose}
@@ -42,7 +42,7 @@ export function PayPurchaseModal({
           <IconClose />
         </button>
 
-        <h3 className="text-base font-semibold text-text-primary mb-2">Підтвердження оплати закупівлі</h3>
+        <h3 className="text-base font-semibold text-text-primary mb-2 tracking-tight">Підтвердження оплати закупівлі</h3>
         <p className="text-xs text-text-secondary mb-4">
           Сума до оплати: <span className="font-semibold text-text-primary">{amount.toLocaleString()} грн</span>. Оберіть сейф, з якого будуть списані кошти.
         </p>

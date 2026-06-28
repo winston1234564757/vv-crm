@@ -12,7 +12,7 @@ import {
   IconFinance, 
   IconBox 
 } from "@/components/icons";
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 import { AddRepairButton } from "./repairs/AddRepairButton";
 import { AddSaleButton } from "./AddSaleButton";
 import { AddDeviceButton } from "./devices/AddDeviceButton";
@@ -95,34 +95,32 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
   const [isRefurbModalOpen, setIsRefurbModalOpen] = useState(false);
   const today = new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
 
-  useEffect(() => {
-    const linkId = "google-fonts-dashboard";
-    if (!document.getElementById(linkId)) {
-      const link = document.createElement("link");
-      link.id = linkId;
-      link.rel = "stylesheet";
-      link.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap";
-      document.head.appendChild(link);
-    }
-  }, []);
-
   return (
-    <div className="space-y-6 text-slate-800" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="space-y-6 text-text-primary">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5">Панель керування <CurrentTime /></h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5 text-balance">Панель керування <CurrentTime /></h1>
           <p className="mt-1 text-xs text-slate-500 capitalize font-medium">{today}</p>
         </div>
         {(userRole === "owner" || userRole === "manager") && (
-          <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-3 sm:static sm:z-auto sm:flex-row sm:gap-2 items-end">
-            <div className="shadow-2xl sm:shadow-none rounded-full sm:rounded-none bg-white sm:bg-transparent">
-            <AddSaleButton customers={customers} cashRegisters={cashRegisters} devices={devices} accessories={accessories} services={services} size="default" />
-            </div>
-            <div className="shadow-2xl sm:shadow-none rounded-full sm:rounded-none bg-white sm:bg-transparent">
-              <AddRepairButton customers={customers} devices={devices} size="default" className="flex items-center justify-center gap-1.5 rounded-full sm:rounded-xl border border-[#6366F1]/30 bg-[#6366F1] sm:bg-[#6366F1]/10 px-5 py-4 sm:py-3 text-sm font-semibold text-white sm:text-[#6366F1] transition-all hover:bg-[#6366F1]/90 sm:hover:bg-[#6366F1]/20 cursor-pointer">
-              <IconPlus /> <span className="hidden sm:inline">Прийняти в ремонт</span>
+          <div className="flex flex-row gap-2 mt-4 md:mt-0 w-full md:w-auto">
+            <AddSaleButton 
+              customers={customers} 
+              cashRegisters={cashRegisters} 
+              devices={devices} 
+              accessories={accessories} 
+              services={services} 
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-violet px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer shadow-sm"
+            >
+              <IconPlus /> <span className="hidden sm:inline">Новий продаж</span><span className="sm:hidden">Продаж</span>
+            </AddSaleButton>
+            <AddRepairButton 
+              customers={customers} 
+              devices={devices} 
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-[#6366F1]/30 bg-[#6366F1]/10 px-4 py-2.5 text-sm font-semibold text-[#6366F1] transition-all hover:bg-[#6366F1]/20 cursor-pointer shadow-sm"
+            >
+              <IconPlus /> <span className="hidden sm:inline">Прийняти в ремонт</span><span className="sm:hidden">Ремонт</span>
             </AddRepairButton>
-            </div>
           </div>
         )}
       </div>
@@ -143,15 +141,15 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
 
       {(userRole === "owner" || userRole === "manager") && stats.ownerStats && (
         <>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-            <div className="md:col-span-3 flex flex-col md:flex-row gap-5">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
+            <div className="md:col-span-3 flex flex-col md:flex-row gap-4 md:gap-6">
               <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
               <SalesTargetRing todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} progress={stats.ownerStats.salesProgress} />
               <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
             </div>
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
               <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Утримання клієнтів</h3>
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Утримання клієнтів</h3>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">Retention & Loyalty</h4>
               </div>
               <div className="my-3">
@@ -172,7 +170,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-5">
             <SalesVelocityMatrix velocity={stats.ownerStats.salesVelocity} peakHours={stats.ownerStats.peakHours} />
             <RefurbishmentWidget 
               capital={stats.ownerStats.refurbishmentCapital} 
@@ -185,7 +183,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
           </div>
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-4">💰 Фінансові баланси</h3>
+            <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-4 tracking-tight">💰 Фінансові баланси</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-6">
               {stats.ownerStats.cashRegisters.map((cr) => (
                 <div key={cr.id} onClick={() => router.push("/admin/finance")} className="group flex flex-col justify-between rounded-xl bg-slate-50 p-4 cursor-pointer hover:bg-slate-100/60 transition-all border border-slate-200/40 hover:border-[#6366F1]/30">
@@ -209,13 +207,13 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
           </div>
 
           {/* Smart Intelligence Row 1: Model Demand + Revenue Heatmap */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
             <PhoneModelDemandWidget models={stats.ownerStats.modelAnalytics} />
             <RevenueHeatmapWidget heatmap={stats.ownerStats.revenueHeatmap} />
           </div>
 
           {/* Smart Intelligence Row 2: Stockout + AI Insights */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
             <StockoutIntelligenceWidget items={stats.ownerStats.stockoutForecast} />
             <AIInsightPanel ownerStats={stats.ownerStats} />
           </div>
@@ -223,9 +221,9 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
       )}
 
       {userRole === "technician" && stats.techStats && (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
           <div className="md:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 mb-4">Мої ремонти в роботі</h3>
+            <h3 className="text-sm font-bold text-slate-900 mb-4 tracking-tight">Мої ремонти в роботі</h3>
             {stats.techStats.repairs.map((r) => (
               <div key={r.id} onClick={() => setSelectedRepair(r)} className="flex items-center justify-between py-3 cursor-pointer border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                 <span className="text-slate-800">{r.device_name}</span>
@@ -233,9 +231,9 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
               </div>
             ))}
           </div>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 md:gap-6">
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900">Заблоковані ремонти</h3>
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">Заблоковані ремонти</h3>
               {stats.techStats.frozenRepairs.map((fr, i) => (
                 <div key={i} className="text-xs text-red-600 p-2.5 bg-red-50/60 border border-red-100/50 rounded-xl mt-2">{fr.device_name} (Бракує: {fr.missing_part})</div>
               ))}
@@ -248,7 +246,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
       {userRole === "sales" && stats.salesStats && (
         <div className="space-y-6">
           {/* Top Metric Cards */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden group hover:border-[#06B6D4]/30 transition-all duration-300 shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-[#06B6D4]/5 rounded-full blur-2xl group-hover:bg-[#06B6D4]/10 transition-all duration-500" />
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Моя зміна</p>
@@ -278,11 +276,11 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
           </div>
 
           {/* Bento Grid layout for actions, feed and stock */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
             {/* Block 1: POS Quick Actions */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between group hover:border-[#6366F1]/30 transition-all duration-300 shadow-sm">
               <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Швидкі дії POS</h3>
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Швидкі дії POS</h3>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">POS Quick Actions</h4>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed font-light">
                   Швидкий перехід до створення нових угод, пошуку клієнтів у базі або перевірки наявності товарів.
@@ -296,7 +294,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
                   devices={devices} 
                   accessories={accessories} 
                   services={services} 
-                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white font-bold py-3.5 px-4 shadow-lg hover:shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full cursor-pointer text-sm font-semibold"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-violet text-white font-bold py-3.5 px-4 shadow-lg hover:shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full cursor-pointer text-sm font-semibold"
                 >
                   <IconPlus /> Відкрити POS термінал
                 </AddSaleButton>
@@ -324,7 +322,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             {/* Block 2: Recent Sales Feed */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 md:col-span-2 flex flex-col justify-between shadow-sm">
               <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Продажі зміни</h3>
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Продажі зміни</h3>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">Останні продажі та транзакції</h4>
               </div>
 
@@ -388,11 +386,11 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
           </div>
 
           {/* Additional lower row: Stock warnings for sales representative */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
             <StockAlerts alerts={stats.salesStats.alerts} title="Склад аксесуарів" />
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between md:col-span-2 shadow-sm">
               <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Робочі інструкції</h3>
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Робочі інструкції</h3>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">Операційні стандарти</h4>
               </div>
               <div className="my-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

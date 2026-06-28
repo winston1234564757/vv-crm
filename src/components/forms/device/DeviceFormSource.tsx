@@ -16,7 +16,7 @@ export function DeviceFormSource({ device, safes = [] }: DeviceFormSourceProps) 
   return (
     <div className="border-t border-warm-border/50 pt-4 space-y-4">
       <div>
-        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider">Джерело надходження</h3>
+        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider tracking-tight">Джерело надходження</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-text-secondary">Звідки пристрій</label>

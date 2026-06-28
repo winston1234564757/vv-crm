@@ -54,7 +54,7 @@ export function SaleForm(props: UseSaleFormProps) {
         </div>
 
         <div>
-          <h2 className="text-xl font-bold text-text-primary">Продаж успішно проведено!</h2>
+          <h2 className="text-xl font-bold text-text-primary text-balance tracking-tight">Продаж успішно проведено!</h2>
           <p className="text-xs text-text-secondary mt-1">Транзакція зареєстрована в системі</p>
         </div>
 
@@ -140,7 +140,7 @@ export function SaleForm(props: UseSaleFormProps) {
 
 
   return (
-    <form action={form.formAction} className="flex flex-col gap-5 p-5">
+    <form action={form.formAction} className="flex flex-col gap-4 md:gap-6 p-5">
       {(form.state.error || form.custError) && (
         <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
           {form.state.error || form.custError}

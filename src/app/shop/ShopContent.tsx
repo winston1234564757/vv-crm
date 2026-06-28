@@ -56,9 +56,9 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {/* Devices */}
       {filteredDevices.length > 0 && (
         <section className="mb-12">
-          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary">Техніка в наявності</h2>
+          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary text-balance">Техніка в наявності</h2>
           <p className="mb-6 text-sm text-text-secondary">Всі пристрої перевірені та мають гарантію</p>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredDevices.map((d) => (
               <div key={d.id} className="group rounded-2xl border border-warm-border/60 bg-white p-5 transition-all hover:shadow-sm">
                 {d.photo_urls && d.photo_urls.length > 0 ? (
@@ -70,7 +70,7 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
                     📱
                   </div>
                 )}
-                <h3 className="text-sm font-semibold text-text-primary">{d.brand} {d.model}</h3>
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">{d.brand} {d.model}</h3>
                 {d.storage && <p className="text-xs text-text-secondary">{d.storage}</p>}
                 {d.description && <p className="mt-1.5 text-xs text-text-secondary line-clamp-2">{d.description}</p>}
                 <div className="mt-3 flex items-center justify-between">
@@ -86,9 +86,9 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {/* Accessories */}
       {accessories.length > 0 && (
         <section className="mb-12">
-          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary">Аксесуари</h2>
+          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary text-balance">Аксесуари</h2>
           <p className="text-text-secondary mt-1">Ми зв&apos;яжемося з вами найближчим часом для підтвердження</p>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {accessories.map((a) => (
               <div key={a.id} className="group rounded-2xl border border-warm-border/60 bg-white p-5 transition-all hover:shadow-sm">
                 {a.photo_urls && a.photo_urls.length > 0 ? (
@@ -100,7 +100,7 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
                     📦
                   </div>
                 )}
-                <h3 className="text-sm font-semibold text-text-primary">{a.name}</h3>
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">{a.name}</h3>
                 {a.description && <p className="mt-1.5 text-xs text-text-secondary line-clamp-2">{a.description}</p>}
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-lg font-bold tracking-tight text-text-primary">{a.price.toLocaleString()} грн</span>
@@ -117,12 +117,12 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {/* Services */}
       {services.length > 0 && (
         <section className="mb-12">
-          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary">Послуги</h2>
+          <h2 className="mb-2 text-2xl font-semibold tracking-tight text-text-primary text-balance">Послуги</h2>
           <p className="mb-6 text-sm text-text-secondary">Ремонт, налаштування, діагностика</p>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((s) => (
               <div key={s.id} className="group rounded-2xl border border-warm-border/60 bg-white p-5 transition-all hover:shadow-sm">
-                <h3 className="text-sm font-semibold text-text-primary">{s.name}</h3>
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">{s.name}</h3>
                 {s.description && <p className="mt-1.5 text-xs text-text-secondary">{s.description}</p>}
                 <div className="mt-3">
                   <span className="text-lg font-bold tracking-tight text-text-primary">{s.price.toLocaleString()} грн</span>
@@ -136,7 +136,7 @@ export function ShopContent({ devices, accessories, services }: { devices: Devic
       {filteredDevices.length === 0 && accessories.length === 0 && services.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="mb-4 text-6xl">🔧</div>
-          <h2 className="text-xl font-semibold text-text-primary">Вітрина порожня</h2>
+          <h2 className="text-xl font-semibold text-text-primary text-balance tracking-tight">Вітрина порожня</h2>
           <p className="mt-2 text-sm text-text-secondary">Товари з&apos;являться тут, як тільки адміністратор додасть їх на вітрину</p>
         </div>
       )}

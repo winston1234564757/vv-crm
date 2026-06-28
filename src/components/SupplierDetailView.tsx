@@ -58,7 +58,7 @@ export function SupplierDetailView({ supplier, purchases, onEdit, onClose }: Sup
               Постачальник
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">{supplier.name}</h2>
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{supplier.name}</h2>
           {supplier.contact_person && (
             <p className="mt-1 text-xs text-text-secondary">
               Контактна особа: {supplier.contact_person}
@@ -76,13 +76,13 @@ export function SupplierDetailView({ supplier, purchases, onEdit, onClose }: Sup
       </div>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Contact Info */}
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconTruck size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Контакти</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Контакти</h3>
           </div>
           <div className="space-y-3">
             {supplier.phone && (
@@ -115,7 +115,7 @@ export function SupplierDetailView({ supplier, purchases, onEdit, onClose }: Sup
         <div className="card p-5 space-y-4 border border-violet/5">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Статистика замовлень</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Статистика замовлень</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -133,7 +133,7 @@ export function SupplierDetailView({ supplier, purchases, onEdit, onClose }: Sup
         <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Історія замовлень</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Історія замовлень</h3>
           </div>
           {purchases.length === 0 ? (
             <p className="text-text-muted italic py-4">Немає замовлень у цього постачальника</p>

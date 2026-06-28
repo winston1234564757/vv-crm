@@ -207,7 +207,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
     <>
       {/* Company info */}
       <div className="text-center pb-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide">{companyName || "НАЗВА КОМПАНІЇ"}</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wide tracking-tight">{companyName || "НАЗВА КОМПАНІЇ"}</h3>
         <p className="text-[9px] text-gray-500">{companySubtitle || "Сфера діяльності"}</p>
         <p className="text-[8px] text-gray-400 mt-0.5">{address || "Адреса"}</p>
         <p className="text-[8px] text-gray-400">{phone || "Телефон"}</p>
@@ -413,7 +413,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-warm-bg/80 backdrop-blur-xs"
+              className="fixed inset-0 bg-warm-bg/80 "
             />
 
             {/* Modal Body */}
@@ -429,7 +429,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 <div className="space-y-5">
                   <div className="flex justify-between items-center pb-2 border-b border-warm-border/40">
                     <div>
-                      <h2 className="text-base font-bold text-text-primary">Редактор чека (WYSIWYG)</h2>
+                      <h2 className="text-base font-bold text-text-primary text-balance tracking-tight">Редактор чека (WYSIWYG)</h2>
                       <p className="text-[10px] text-text-secondary">Зміни відображаються у правому прев&apos;ю миттєво</p>
                     </div>
                     <button

@@ -85,7 +85,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-8 text-center">
           <div className="mb-3 flex justify-center text-violet"><IconRepair size={40} /></div>
-          <h1 className="text-xl font-semibold tracking-tight text-text-primary">Ремонт #{repair.tracking_token}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-text-primary text-balance">Ремонт #{repair.tracking_token}</h1>
           <p className="mt-1 text-sm text-text-secondary">{repair.customers?.name}</p>
         </div>
 
@@ -155,7 +155,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
 
         {repair.device_condition_photos && repair.device_condition_photos.length > 0 && (
           <div className="mb-6 rounded-2xl border border-warm-border/60 bg-white p-6">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">Фото пристрою на момент приймання</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary tracking-tight">Фото пристрою на момент приймання</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {repair.device_condition_photos.map((url: string, i: number) => (
                 <div key={i} className="aspect-square overflow-hidden rounded-xl bg-warm-bg">
@@ -168,7 +168,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
 
         {statusLog && statusLog.length > 0 && (
           <div className="rounded-2xl border border-warm-border/60 bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold text-text-primary">Історія статусів</h3>
+            <h3 className="mb-4 text-sm font-semibold text-text-primary tracking-tight">Історія статусів</h3>
             <div className="relative">
               <div className="absolute left-[7px] top-1 h-[calc(100%-8px)] w-px bg-iris/10" />
               <div className="space-y-5">

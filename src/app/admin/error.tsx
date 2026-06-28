@@ -23,7 +23,7 @@ export default function AdminError({
         <div className="flex justify-center text-rose">
           <IconError />
         </div>
-        <h2 className="mt-3 text-lg font-semibold text-text-primary">
+        <h2 className="mt-3 text-lg font-semibold text-text-primary text-balance tracking-tight">
           Помилка завантаження
         </h2>
         <p className="mt-1 text-sm text-text-secondary">

@@ -40,8 +40,8 @@ export function GeneralSettingsTab({
   return (
     <form action={action} className="grid grid-cols-1 gap-6 md:grid-cols-2">
       {/* Store settings card */}
-      <div className="card p-5 space-y-4 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm">
-        <h2 className="text-base font-semibold text-text-primary">Параметри магазину</h2>
+      <div className="card p-5 space-y-4 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
+        <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Параметри магазину</h2>
         
         <div className="space-y-4">
           <div>
@@ -72,9 +72,9 @@ export function GeneralSettingsTab({
       </div>
 
       {/* Action card */}
-      <div className="card p-5 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm flex flex-col justify-between">
+      <div className="card p-5 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm flex flex-col justify-between">
         <div className="space-y-2">
-          <h2 className="text-base font-semibold text-text-primary">Зберегти зміни</h2>
+          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Зберегти зміни</h2>
           <p className="text-xs leading-relaxed text-text-secondary">
             Зміна назви магазину оновлює заголовок у сайдбарі та на публічній сторінці трекінгу ремонтів.
             Зміна розподілів впливає на розподіл нових надходжень між сейфами OPEX, Growth та Чистий прибуток.
@@ -96,9 +96,9 @@ export function GeneralSettingsTab({
       </div>
 
       {/* Splits card */}
-      <div className="card p-5 space-y-5 md:col-span-2 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-iris/10 rounded-2xl shadow-sm">
+      <div className="card p-5 space-y-5 md:col-span-2 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
         <div>
-          <h2 className="text-base font-semibold text-text-primary">Фінансовий спліт (Розподіл часток каси)</h2>
+          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Фінансовий спліт (Розподіл часток каси)</h2>
           <p className="text-xs text-text-secondary mt-1">
             Налаштуйте, скільки відсотків від доходів кожної каси має йти до сейфів OPEX, Growth та Чистий прибуток.
             Сума кожної каси повинна дорівнювати <b>рівно 100%</b>.
@@ -108,7 +108,7 @@ export function GeneralSettingsTab({
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {/* Tech splits */}
           <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary">Каса техніки</h3>
+            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса техніки</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-[11px] font-medium text-text-secondary flex justify-between">
@@ -166,7 +166,7 @@ export function GeneralSettingsTab({
 
           {/* Accessory splits */}
           <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary">Каса аксесуарів</h3>
+            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса аксесуарів</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-[11px] font-medium text-text-secondary flex justify-between">
@@ -224,7 +224,7 @@ export function GeneralSettingsTab({
 
           {/* Repair splits */}
           <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary">Каса ремонтів</h3>
+            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса ремонтів</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-[11px] font-medium text-text-secondary flex justify-between">

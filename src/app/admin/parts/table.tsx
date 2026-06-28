@@ -144,7 +144,7 @@ export function PartsTable({
           <button onClick={() => setFilter("all")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${filter === "all" ? "bg-violet text-white" : "bg-violet/5 text-text-secondary hover:bg-violet/10"}`}>Усі</button>
           {transitCount > 0 && (
             <button onClick={() => setFilter("transit")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${filter === "transit" ? "bg-amber text-white" : "bg-amber/10 text-amber hover:bg-amber/20"}`}>
-              🚚 В дорозі <span className="rounded-full bg-white/30 px-1.5 text-[10px] font-bold">{transitCount}</span>
+              🚚 В дорозі <span className="rounded-full bg-warm-surface px-1.5 text-[10px] font-bold">{transitCount}</span>
             </button>
           )}
           <button onClick={() => setFilter("low")} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${filter === "low" ? "bg-rose text-white" : "bg-rose/5 text-text-secondary hover:bg-rose/10"}`}>Закінчуються</button>
@@ -445,9 +445,9 @@ export function PartsTable({
 
       {/* Receive from transit modal */}
       {receivePart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-entry">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
           <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-text-primary mb-1">✅ Прийняти на склад</h3>
+            <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">✅ Прийняти на склад</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">{receivePart.name}</p>
  
             <div className="space-y-3">
@@ -557,9 +557,9 @@ export function PartsTable({
 
       {/* Pay debt modal */}
       {payingPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-entry">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
           <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-text-primary mb-1">💳 Оплатити борг постачальнику</h3>
+            <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">💳 Оплатити борг постачальнику</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">{payingPart.name}</p>
 
             <div className="space-y-4">

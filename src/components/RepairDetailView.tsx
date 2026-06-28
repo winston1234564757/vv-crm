@@ -340,7 +340,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
               {paymentLabels[repair.payment_status ?? 'unpaid']}
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">{repair.device_name}</h2>
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{repair.device_name}</h2>
           <p className="mt-1 text-xs text-text-secondary">Прийнято: {formattedCreated}</p>
         </div>
         <div className="flex gap-2">
@@ -360,14 +360,14 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
       </div>
 
       {/* Bento Grid Content */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         
         {/* AI Diagnostics Card */}
         <div className="card p-5 space-y-4 md:col-span-2">
           <div className="flex items-center justify-between border-b border-warm-border pb-3">
             <div className="flex items-center gap-2">
               <span className="text-violet">✨</span>
-              <h3 className="font-semibold text-sm text-text-primary">ШІ-діагностика та рекомендації (VV Intelligence)</h3>
+              <h3 className="font-semibold text-sm text-text-primary tracking-tight">ШІ-діагностика та рекомендації (VV Intelligence)</h3>
             </div>
             {aiDiagnostic && (
               <button
@@ -464,7 +464,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconDevice size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Стан пристрою</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Стан пристрою</h3>
           </div>
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
@@ -530,7 +530,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconCustomer size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Клієнт та Розрахунок</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Клієнт та Розрахунок</h3>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center text-xs">
@@ -589,7 +589,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         <div className="card p-5 space-y-4 md:col-span-2">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Опис поломки та діагностики</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Опис поломки та діагностики</h3>
           </div>
           <div className="space-y-3 text-xs">
             <div>
@@ -651,7 +651,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
           <div className="flex items-center justify-between border-b border-warm-border pb-3">
             <div className="flex items-center gap-2">
               <span className="text-violet"><IconBox size={18} /></span>
-              <h3 className="font-semibold text-sm text-text-primary">Запчастини згідно зі складом</h3>
+              <h3 className="font-semibold text-sm text-text-primary tracking-tight">Запчастини згідно зі складом</h3>
             </div>
             {partsError && <p className="text-xs text-rose font-medium">{partsError}</p>}
           </div>
@@ -763,7 +763,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         <div className="card p-5 space-y-4 md:col-span-2">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Хронологія ремонтних робіт</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Хронологія ремонтних робіт</h3>
           </div>
           {loadingLogs ? (
             <div className="flex items-center justify-center py-6 text-violet">

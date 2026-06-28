@@ -123,7 +123,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">
             {device.brand} {device.model}
           </h2>
           <p className="mt-1 text-xs text-text-secondary">
@@ -149,13 +149,13 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
       </div>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Hardware specifications */}
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconDevice size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Технічні характеристики</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Технічні характеристики</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {device.storage && (
@@ -219,7 +219,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Ідентифікація та Походження</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Ідентифікація та Походження</h3>
           </div>
           <div className="space-y-3">
             <div>
@@ -253,7 +253,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
         <div className="card p-5 space-y-4 md:col-span-2">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Калькуляція вартості та маржі</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Калькуляція вартості та маржі</h3>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="bg-warm-bg rounded-xl p-3">
@@ -309,7 +309,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
           <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
             <div className="flex items-center gap-2 border-b border-warm-border pb-3">
               <span className="text-violet"><IconRepair size={18} /></span>
-              <h3 className="font-semibold text-sm text-text-primary">Ремонтні роботи та запчастини</h3>
+              <h3 className="font-semibold text-sm text-text-primary tracking-tight">Ремонтні роботи та запчастини</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

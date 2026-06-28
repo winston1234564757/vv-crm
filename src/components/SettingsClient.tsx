@@ -114,7 +114,7 @@ export default function SettingsClient({
       )}
 
       {/* Vercel-style Tab Selector */}
-      <div className="flex border-b border-warm-border gap-2 bg-white/30 dark:bg-zinc-900/30 p-1 rounded-t-2xl">
+      <div className="flex border-b border-warm-border gap-2 bg-warm-surface p-1 rounded-t-2xl">
         <button
           onClick={() => setActiveTab("general")}
           className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${

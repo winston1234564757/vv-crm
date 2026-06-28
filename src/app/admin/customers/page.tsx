@@ -8,7 +8,7 @@ import { CustomersTable } from "./table";
 import { AddCustomerButton } from "./AddCustomerButton";
 import { pluralUk } from "@/lib/utils/plural";
 
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 
 export default async function CustomersPage() {
   const [customers, sales, repairs] = await Promise.all([
@@ -52,7 +52,7 @@ export default async function CustomersPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Клієнти</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Клієнти</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
             {resolvedCustomers.length} {pluralUk(resolvedCustomers.length, "клієнт", "клієнти", "клієнтів")} у системі
           </p>
@@ -60,27 +60,27 @@ export default async function CustomersPage() {
         <AddCustomerButton />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
         <div className="md:col-span-2">
-          <GlassCard interactive>
+          <StandardCard interactive>
             <p className="text-xs font-medium tracking-wider text-text-secondary">Всього витрачено</p>
             <p className="mt-2 text-4xl font-light tracking-tight text-text-primary">{totalSpent.toLocaleString()} грн</p>
-          </GlassCard>
+          </StandardCard>
         </div>
-        <GlassCard interactive>
+        <StandardCard interactive>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Середній чек</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{resolvedCustomers.length > 0 ? Math.round(totalSpent / resolvedCustomers.length).toLocaleString() : 0} грн</p>
-        </GlassCard>
-        <GlassCard interactive>
+        </StandardCard>
+        <StandardCard interactive>
           <p className="text-xs font-medium tracking-wider text-text-secondary">Сьогодні</p>
           <p className="mt-2 text-3xl font-light tracking-tight text-cyan">{todayCount}</p>
-        </GlassCard>
+        </StandardCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        <GlassCard interactive>
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <StandardCard interactive>
           <CustomersTable customers={resolvedCustomers} sales={sales} repairs={repairs} />
-        </GlassCard>
+        </StandardCard>
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ export default function LoginPage() {
       <div className="card w-full max-w-sm rounded-xl p-8">
         <div className="flex flex-col items-center text-center">
           <span className="text-violet"><IconLogo size={32} /></span>
-          <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary">VV CRM</h1>
+          <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary text-balance">VV CRM</h1>
           <p className="mt-1 text-sm text-text-secondary">
             {mode === "signin" ? "Увійдіть у систему" : "Створіть акаунт"}
           </p>

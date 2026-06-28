@@ -54,7 +54,7 @@ export default async function FinancePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-emerald animate-pulse" />
             <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">LEDGER TELEMETRY : ACTIVE</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-text-primary">Фінансовий Контроль</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-text-primary text-balance">Фінансовий Контроль</h1>
           <p className="text-xs text-text-secondary mt-0.5">Оперативний облік касових лімітів, резервних сейфів та транзакційного балансу</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -129,7 +129,7 @@ export default async function FinancePage() {
 
           {/* B. Ledger Nodes: Registers & Safes combined layout */}
           <div className="space-y-4">
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1">Розподіл ліквідності</h3>
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1 tracking-tight">Розподіл ліквідності</h3>
             
             {/* Cash Registers layout */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -196,7 +196,7 @@ export default async function FinancePage() {
           
           {/* Quick Metrics panel */}
           <div className="card p-5 bg-warm-surface border border-warm-border flex flex-col gap-4">
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1">Статус активів</h3>
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1 tracking-tight">Статус активів</h3>
             
             <div className="space-y-4">
               <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
@@ -228,7 +228,7 @@ export default async function FinancePage() {
           {/* Expense Categories chart/breakdown */}
           {report.categoryBreakdown.length > 0 && (
             <div className="card p-5 bg-warm-surface border border-warm-border">
-              <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-2 mb-3">Витрати за категоріями</h3>
+              <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-2 mb-3 tracking-tight">Витрати за категоріями</h3>
               
               <div className="space-y-3">
                 {report.categoryBreakdown.map((c) => {

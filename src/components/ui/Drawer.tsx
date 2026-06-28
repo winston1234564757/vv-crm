@@ -71,7 +71,7 @@ export default function Drawer({ isOpen, onClose, title, children, size = "half"
               <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto mt-4 shrink-0" />
             )}
             <div className={`flex items-center justify-between border-b border-warm-border/50 p-6 ${isMobile ? "pt-3 pb-4" : ""}`}>
-              <h2 className="text-xl font-semibold tracking-tight text-text-primary">{title}</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-text-primary text-balance">{title}</h2>
               <button
                 onClick={onClose}
                 className="btn-press flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-violet/5 text-text-secondary transition-colors hover:bg-violet/10 hover:text-violet"

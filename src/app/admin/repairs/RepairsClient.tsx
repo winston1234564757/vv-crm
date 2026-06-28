@@ -4,7 +4,7 @@ import { useState } from "react";
 import { RepairsTable } from "./table";
 import { AddRepairButton } from "./AddRepairButton";
 import { IconRepair, IconBox, IconWarning, IconList, IconGrid } from "@/components/icons";
-import GlassCard from "@/components/GlassCard";
+import StandardCard from "@/components/ui/StandardCard";
 import { pluralUk } from "@/lib/utils/plural";
 
 interface Customer {
@@ -74,10 +74,10 @@ function StatCard({
 }) {
   const accentColors = {
     violet: { bg: "bg-violet/[0.06] border-violet/10", text: "text-violet" },
-    cyan:   { bg: "bg-cyan/[0.06] border-cyan/10",   text: "text-cyan" },
-    rose:   { bg: "bg-rose/[0.06] border-rose/10",   text: "text-rose" },
-    amber:  { bg: "bg-amber/[0.06] border-amber/10",  text: "text-amber" },
-    iris:   { bg: "bg-iris/[0.06] border-iris/10",   text: "text-iris" },
+    cyan: { bg: "bg-cyan/[0.06] border-cyan/10", text: "text-cyan" },
+    rose: { bg: "bg-rose/[0.06] border-rose/10", text: "text-rose" },
+    amber: { bg: "bg-amber/[0.06] border-amber/10", text: "text-amber" },
+    iris: { bg: "bg-iris/[0.06] border-iris/10", text: "text-iris" },
   };
   const c = accentColors[accent];
 
@@ -131,17 +131,17 @@ export function RepairsClient({
   const activeRepairs = repairs.filter(
     (r) => !["completed", "handed_over", "cancelled"].includes(r.status)
   );
-  const readyCount    = repairs.filter((r) => r.status === "ready").length;
+  const readyCount = repairs.filter((r) => r.status === "ready").length;
   const awaitingParts = repairs.filter((r) => r.status === "awaiting_parts").length;
-  const overdueCount  = repairs.filter(
+  const overdueCount = repairs.filter(
     (r) =>
       r.estimated_completion &&
       new Date(r.estimated_completion) < new Date() &&
       !["ready", "completed", "handed_over", "cancelled"].includes(r.status)
   ).length;
 
-  const customerActive  = activeRepairs.filter((r) => r.repair_type === "customer").length;
-  const internalActive  = activeRepairs.filter((r) => r.repair_type === "internal").length;
+  const customerActive = activeRepairs.filter((r) => r.repair_type === "customer").length;
+  const internalActive = activeRepairs.filter((r) => r.repair_type === "internal").length;
 
   return (
     <div className="space-y-6">
@@ -152,7 +152,7 @@ export function RepairsClient({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet/10 text-violet">
               <IconRepair size={18} />
             </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Ремонти</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Ремонти</h1>
           </div>
           <p className="text-sm text-text-secondary pl-[46px]">
             {repairs.length} {pluralUk(repairs.length, "заявка", "заявки", "заявок")} всього
@@ -223,26 +223,26 @@ export function RepairsClient({
       )}
 
       {/* ── Unified Repairs Table ────────────────────────────── */}
-      <GlassCard>
+      <StandardCard>
         <RepairsTable 
           repairs={repairs} 
           viewMode={viewMode} 
           setViewMode={setViewMode} 
         />
-      </GlassCard>
+      </StandardCard>
 
       {/* ── Mobile Floating Control Island ───────────────────── */}
-      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 text-white border border-slate-800/80 backdrop-blur-md rounded-full shadow-2xl px-4 py-2.5 flex items-center gap-3 w-max max-w-[90vw] animate-entry">
+      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 text-white border border-slate-800/80 rounded-full shadow-2xl px-4 py-2.5 flex items-center gap-3 w-max max-w-[90vw] animate-entry">
         {/* View Toggle */}
         <button
           onClick={() => setViewMode(viewMode === "kanban" ? "table" : "kanban")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all text-white cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-warm-surface hover:bg-warm-surface active:scale-95 transition-all text-white cursor-pointer"
           title={viewMode === "kanban" ? "Перемкнути на список" : "Перемкнути на дошку"}
         >
           {viewMode === "kanban" ? <IconList size={16} /> : <IconGrid size={16} />}
         </button>
 
-        <div className="h-5 w-px bg-white/20 shrink-0" />
+        <div className="h-5 w-px bg-warm-surface shrink-0" />
 
         {/* Add Repair Button */}
         <AddRepairButton 

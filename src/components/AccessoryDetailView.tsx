@@ -61,7 +61,7 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
               {accessory.is_visible ? "Видимий у шопі" : "Прихований"}
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold text-text-primary">{accessory.name}</h2>
+          <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{accessory.name}</h2>
         </div>
         <div className="flex gap-2">
           <button
@@ -95,13 +95,13 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
       )}
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
         
         {/* Stock status */}
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconBox size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Складські запаси</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Складські запаси</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -123,7 +123,7 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
         <div className="card p-5 space-y-4">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Калькуляція ціни</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Калькуляція ціни</h3>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-warm-bg rounded-xl p-2.5">
@@ -153,7 +153,7 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
         <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
           <div className="flex items-center gap-2 border-b border-warm-border pb-3">
             <span className="text-violet"><IconFinance size={18} /></span>
-            <h3 className="font-semibold text-sm text-text-primary">Історія роздрібних продажів</h3>
+            <h3 className="font-semibold text-sm text-text-primary tracking-tight">Історія роздрібних продажів</h3>
           </div>
           {sales.length === 0 ? (
             <p className="text-text-muted italic text-[11px] py-4">Продажів цього аксесуару ще не було</p>

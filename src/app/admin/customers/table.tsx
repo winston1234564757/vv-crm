@@ -343,7 +343,7 @@ export function CustomersTable({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 rounded-2xl bg-violet/5 border border-violet/10 p-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 rounded-2xl bg-violet/5 border border-violet/10 p-5">
                 <div>
                   <p className="text-xs text-text-secondary font-medium">Телефон</p>
                   <p className="mt-1 text-sm font-semibold font-mono">
@@ -382,7 +382,7 @@ export function CustomersTable({
               {/* AI Profile Section */}
               <div className="border-t border-iris/10 pt-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-1.5 tracking-tight">
                     <span>✨ VV CRM Intelligence</span>
                   </h3>
                   {aiProfile && (
@@ -502,7 +502,7 @@ export function CustomersTable({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-text-primary border-b border-iris/10 pb-2">Історія покупок</h3>
+                  <h3 className="text-sm font-semibold text-text-primary border-b border-iris/10 pb-2 tracking-tight">Історія покупок</h3>
                   <div className="space-y-3 overflow-y-auto max-h-[350px] pr-2">
                     {getClientSales(selectedCustomer.id).length === 0 ? (
                       <p className="text-xs text-text-secondary py-4">Ще немає покупок</p>
@@ -533,7 +533,7 @@ export function CustomersTable({
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-text-primary border-b border-iris/10 pb-2">Історія ремонтів</h3>
+                  <h3 className="text-sm font-semibold text-text-primary border-b border-iris/10 pb-2 tracking-tight">Історія ремонтів</h3>
                   <div className="space-y-3 overflow-y-auto max-h-[350px] pr-2">
                     {getClientRepairs(selectedCustomer.id).length === 0 ? (
                       <p className="text-xs text-text-secondary py-4">Ще немає ремонтів</p>

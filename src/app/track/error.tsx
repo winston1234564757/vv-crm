@@ -33,7 +33,7 @@ export default function TrackError({
             <IconWarning size={48} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-semibold tracking-tight text-text-primary">Щось пішло не так</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-text-primary text-balance">Щось пішло не так</h1>
             <p className="text-sm text-text-secondary">
               Сталася помилка при завантаженні інформації про ремонт. Будь ласка, спробуйте ще раз або зверніться до підтримки.
             </p>

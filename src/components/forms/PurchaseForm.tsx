@@ -79,7 +79,7 @@ export function PurchaseForm({
       {/* Позиції закупівлі */}
       <div className="rounded-xl bg-violet/5 p-4 border border-violet/10">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-text-primary">Позиції закупівлі</h3>
+          <h3 className="text-sm font-semibold text-text-primary tracking-tight">Позиції закупівлі</h3>
           <button type="button" onClick={addItem} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-violet transition-colors hover:bg-violet/10 border border-violet/20">
             <IconPlus size={14} /> Додати позицію
           </button>

@@ -1,3 +1,4 @@
+import StandardCard from "@/components/ui/StandardCard";
 export const dynamic = "force-dynamic";
 
 import { getReportsData } from "@/lib/data-reports";
@@ -13,33 +14,33 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Звіти</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Звіти</h1>
         <p className="mt-0.5 text-sm text-text-secondary">Аналітика за останні місяці</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
         <div className="md:col-span-2">
-          <GlassCard>
-            <h2 className="text-sm font-semibold text-text-primary">Виручка</h2>
+          <StandardCard>
+            <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Виручка</h2>
             <p className="mt-2 text-4xl font-light tracking-tight text-text-primary">{data.totalRevenue.toLocaleString()} грн</p>
             <p className="mt-1 text-xs text-text-secondary">за весь період</p>
-          </GlassCard>
+          </StandardCard>
         </div>
-        <GlassCard>
-          <h2 className="text-sm font-semibold text-text-primary">Середній чек</h2>
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Середній чек</h2>
           <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{data.avgCheck.toLocaleString()} грн</p>
           <p className="mt-1 text-xs text-text-secondary">{data.transactionCount} транзакцій</p>
-        </GlassCard>
-        <GlassCard>
-          <h2 className="text-sm font-semibold text-text-primary">Маржа</h2>
+        </StandardCard>
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Маржа</h2>
           <p className="mt-2 text-3xl font-light tracking-tight text-cyan">{data.overallMarginPct}%</p>
           <p className="mt-1 text-xs text-text-secondary">валова рентабельність</p>
-        </GlassCard>
+        </StandardCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        <GlassCard className="md:col-span-3">
-          <h2 className="text-sm font-semibold text-text-primary">Динаміка виручки</h2>
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
+        <StandardCard className="md:col-span-3">
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Динаміка виручки</h2>
           <div className="mt-4 flex items-end justify-between gap-2">
             {data.monthlyRevenue.map((v, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
@@ -49,9 +50,9 @@ export default async function ReportsPage() {
               </div>
             ))}
           </div>
-        </GlassCard>
-        <GlassCard>
-          <h2 className="text-sm font-semibold text-text-primary">За категоріями</h2>
+        </StandardCard>
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">За категоріями</h2>
           {data.categories.length === 0 ? (
             <p className="mt-4 text-sm text-text-secondary">Немає даних</p>
           ) : (
@@ -69,12 +70,12 @@ export default async function ReportsPage() {
               ))}
             </div>
           )}
-        </GlassCard>
+        </StandardCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-5">
-        <GlassCard>
-          <h2 className="text-sm font-semibold text-text-primary">Топ продажів</h2>
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Топ продажів</h2>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -101,14 +102,14 @@ export default async function ReportsPage() {
               </tbody>
             </table>
           </div>
-        </GlassCard>
+        </StandardCard>
       </div>
 
       {/* Device Margin Analytics */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <GlassCard className="md:col-span-2 flex flex-col justify-between">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
+        <StandardCard className="md:col-span-2 flex flex-col justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">Ефективність продажів техніки</h2>
+            <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Ефективність продажів техніки</h2>
             <p className="mt-1 text-xs text-text-secondary">Аналіз прибутковості та маржинальності категорії &quot;Техніка&quot;</p>
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -125,11 +126,11 @@ export default async function ReportsPage() {
               <p className="text-xl font-bold text-cyan mt-1">{data.deviceStats.marginPct}%</p>
             </div>
           </div>
-        </GlassCard>
+        </StandardCard>
         
-        <GlassCard className="flex flex-col justify-between bg-violet/[0.03] border border-violet/20">
+        <StandardCard className="flex flex-col justify-between bg-violet/[0.03] border border-violet/20">
           <div>
-            <h2 className="text-sm font-semibold text-violet">Прибуток на 1 000 ₴ виручки</h2>
+            <h2 className="text-sm font-semibold text-violet text-balance tracking-tight">Прибуток на 1 000 ₴ виручки</h2>
             <p className="mt-1 text-xs text-text-secondary">Показник окупності проданої техніки</p>
           </div>
           <div className="mt-4">
@@ -140,7 +141,7 @@ export default async function ReportsPage() {
               Кожна 1 000 ₴ отриманої виручки з продажу техніки приносить <span className="font-semibold text-text-primary">{data.deviceStats.profitPer1k} ₴</span> чистого прибутку після вирахування її собівартості.
             </p>
           </div>
-        </GlassCard>
+        </StandardCard>
       </div>
     </div>
   );
