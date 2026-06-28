@@ -82,14 +82,40 @@ export default function StoreLaunchCreateModal({ categories, milestones }: { cat
             </div>
 
             {/* Form */}
-            <form onSubmit={handleAction} className="p-6 flex flex-col gap-5">
+            <form onSubmit={handleAction} className="p-6 flex flex-col gap-6">
               
               {activeTab === "task" && (
-                <>
+                <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва завдання</label>
                     <input name="title" required autoFocus placeholder="Що потрібно зробити?" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary placeholder:text-text-muted" />
+                    <p className="text-[11px] text-text-muted pl-1">Наприклад: Орендувати приміщення, Замовити вивіску</p>
                   </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Відповідальний</label>
+                      <div className="relative">
+                        <select name="assignee" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                          <option value="">Не призначено</option>
+                          <option value="Власник">Власник</option>
+                          <option value="Менеджер">Менеджер</option>
+                          <option value="Підрядник">Підрядник</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-text-muted pl-1">Хто буде виконувати?</p>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дедлайн</label>
+                      <input name="due_date" type="date" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                      <p className="text-[11px] text-text-muted pl-1">Крайня дата виконання</p>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Напрямок (Категорія)</label>
                     <div className="relative">
@@ -103,23 +129,56 @@ export default function StoreLaunchCreateModal({ categories, milestones }: { cat
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                       </div>
                     </div>
+                    <p className="text-[11px] text-text-muted pl-1">До якої категорії належить?</p>
                   </div>
-                </>
+                </div>
               )}
 
               {activeTab === "expense" && (
-                <>
+                <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва витрати</label>
                     <input name="title" required autoFocus placeholder="За що платимо?" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary placeholder:text-text-muted" />
+                    <p className="text-[11px] text-text-muted pl-1">Наприклад: Оренда за перший місяць, Ноутбук</p>
                   </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Сума (₴)</label>
                       <input name="amount" type="number" required placeholder="0" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary placeholder:text-text-muted" />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Тип</label>
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Статус</label>
+                      <div className="relative">
+                        <select name="status" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                          <option value="planned">План (Заплановано)</option>
+                          <option value="paid">Оплачено</option>
+                          <option value="received">Отримано (Доставлено)</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Напрямок (Бюджет)</label>
+                      <div className="relative">
+                        <select name="category_id" required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                          <option value="" disabled selected>Оберіть напрямок...</option>
+                          {categories.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Тип витрати</label>
                       <div className="relative">
                         <select name="type" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                           <option value="fee">Послуга</option>
@@ -131,66 +190,72 @@ export default function StoreLaunchCreateModal({ categories, milestones }: { cat
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Напрямок (Категорія)</label>
-                    <div className="relative">
-                      <select name="category_id" required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
-                        <option value="" disabled selected>Оберіть напрямок...</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                      </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Посилання (Опційно)</label>
+                      <input name="url" type="url" placeholder="https://..." className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary placeholder:text-text-muted" />
+                      <p className="text-[11px] text-text-muted pl-1">Лінк на товар чи договір</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дата оплати (Опційно)</label>
+                      <input name="paid_at" type="date" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                      <p className="text-[11px] text-text-muted pl-1">Фактична дата платежу</p>
                     </div>
                   </div>
-                </>
+                </div>
               )}
 
               {activeTab === "category" && (
-                <>
+                <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва напрямку</label>
                     <input name="name" required autoFocus placeholder="Напр. Ремонт, Маркетинг, Меблі" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary placeholder:text-text-muted" />
+                    <p className="text-[11px] text-text-muted pl-1">Глобальний напрямок робіт</p>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Запланований Бюджет (₴)</label>
-                    <input name="budget_limit" type="number" required placeholder="0" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary placeholder:text-text-muted" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Колір маркеру</label>
-                    <div className="relative">
-                      <select name="color" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
-                        <option value="violet">Фіолетовий</option>
-                        <option value="blue">Синій</option>
-                        <option value="emerald">Смарагдовий</option>
-                        <option value="amber">Бурштиновий</option>
-                        <option value="rose">Рожевий</option>
-                        <option value="slate">Сірий</option>
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Плановий Бюджет (₴)</label>
+                      <input name="budget_limit" type="number" required placeholder="0" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary placeholder:text-text-muted" />
+                      <p className="text-[11px] text-text-muted pl-1">Ліміт на цей напрямок</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Колір маркеру</label>
+                      <div className="relative">
+                        <select name="color" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                          <option value="violet">Фіолетовий</option>
+                          <option value="blue">Синій</option>
+                          <option value="emerald">Смарагдовий</option>
+                          <option value="amber">Бурштиновий</option>
+                          <option value="rose">Рожевий</option>
+                          <option value="slate">Сірий</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
                       </div>
+                      <p className="text-[11px] text-text-muted pl-1">Для діаграм</p>
                     </div>
                   </div>
-                </>
+                </div>
               )}
 
               {activeTab === "milestone" && (
-                <>
+                <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва етапу</label>
                     <input name="title" required autoFocus placeholder="Напр. Підписання договору" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary placeholder:text-text-muted" />
+                    <p className="text-[11px] text-text-muted pl-1">Глобальний етап запуску (відобразиться на Радарі)</p>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дедлайн (Опціонально)</label>
                     <input name="target_date" type="date" className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                    <p className="text-[11px] text-text-muted pl-1">Цільова дата досягнення етапу</p>
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="mt-4 flex gap-3">
+              <div className="mt-2 flex gap-3 pt-4 border-t border-warm-border/50">
                 <button type="button" onClick={handleClose} disabled={isPending} className="flex-1 px-4 py-3 rounded-xl border border-warm-border/60 text-text-secondary text-sm font-bold hover:bg-black/5 transition-colors">
                   Скасувати
                 </button>
