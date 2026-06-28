@@ -35,7 +35,7 @@ export default function GlobalLaunchRadar({ milestones, totalBudget, totalSpent 
     : 0;
 
   return (
-    <div className="group rounded-[2.5rem] p-1.5 bg-black/[0.03] dark:bg-warm-surface ring-1 ring-black/5 dark:ring-white/10 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] w-full relative overflow-hidden">
+    <div className="group rounded-[2.5rem] p-1.5 bg-black/[0.03] dark:bg-warm-surface ring-1 ring-black/5 dark:ring-white/10 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] w-full relative">
       
       {/* Decorative Glow */}
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-violet/20 rounded-full blur-[120px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 mix-blend-screen pointer-events-none" />

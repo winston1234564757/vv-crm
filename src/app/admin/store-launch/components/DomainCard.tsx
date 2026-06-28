@@ -75,38 +75,42 @@ export default function DomainCard({ category, tasks, expenses }: DomainCardProp
         
         {/* Header / Summary View */}
         <div 
-          className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 cursor-pointer"
+          className="flex flex-col gap-5 cursor-pointer"
           onClick={() => setIsOpen(!isOpen)}
         >
-          <div className="flex items-center gap-4">
+          {/* Title Row */}
+          <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${healthColor.split(' ')[0]} shadow-sm`} />
             <h3 className="text-xl font-bold text-text-primary tracking-tight">{category.name}</h3>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 xl:gap-12">
-            {/* Task Metric */}
-            <div className="flex flex-col gap-1.5 w-32">
-              <div className="flex justify-between items-end">
-                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Завдання</span>
-                <span className="text-sm font-bold text-text-primary">{tasksCompleted}/{tasksTotal}</span>
+          {/* Metrics & Chevron Row */}
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-6 xl:gap-10 flex-1 pr-4">
+              {/* Task Metric */}
+              <div className="flex flex-col gap-1.5 w-full max-w-[140px]">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Завдання</span>
+                  <span className="text-sm font-bold text-text-primary">{tasksCompleted}/{tasksTotal}</span>
+                </div>
+                <div className="h-1.5 w-full bg-warm-border/50 rounded-full overflow-hidden">
+                  <div className="h-full bg-text-primary transition-all duration-1000" style={{ width: `${tasksProgress}%` }} />
+                </div>
               </div>
-              <div className="h-1.5 w-full bg-warm-border/50 rounded-full overflow-hidden">
-                <div className="h-full bg-text-primary transition-all duration-1000" style={{ width: `${tasksProgress}%` }} />
+
+              {/* Budget Metric */}
+              <div className="flex flex-col gap-1.5 w-full max-w-[160px]">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Бюджет</span>
+                  <span className="text-sm font-bold font-mono text-text-primary">{Math.round(burnRatePercent)}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-warm-border/50 rounded-full overflow-hidden">
+                  <div className={`h-full transition-all duration-1000 ${healthColor.split(' ')[0]}`} style={{ width: `${burnRatePercent}%` }} />
+                </div>
               </div>
             </div>
 
-            {/* Budget Metric */}
-            <div className="flex flex-col gap-1.5 w-40">
-              <div className="flex justify-between items-end">
-                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Бюджет</span>
-                <span className="text-sm font-bold font-mono text-text-primary">{Math.round(burnRatePercent)}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-warm-border/50 rounded-full overflow-hidden">
-                <div className={`h-full transition-all duration-1000 ${healthColor.split(' ')[0]}`} style={{ width: `${burnRatePercent}%` }} />
-              </div>
-            </div>
-
-            <button className={`w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-warm-surface text-text-secondary transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`}>
+            <button className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-warm-surface text-text-secondary transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
