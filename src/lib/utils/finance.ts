@@ -50,8 +50,12 @@ export function validatePhotoUrl(url: unknown): string {
     throw new Error("URL фотографії має бути валідним рядком");
   }
   const trimmed = url.trim();
-  if (trimmed && !/^https?:\/\/(?:[-\\w.])+(?:\:[0-9]+)?(?:\/(?:[\w\/_.])*(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?)?$/.test(trimmed)) {
-    throw new Error("Невалідний формат URL фотографії");
+  if (trimmed) {
+    try {
+      new URL(trimmed);
+    } catch {
+      throw new Error("Невалідний формат URL фотографії");
+    }
   }
   return trimmed;
 }

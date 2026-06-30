@@ -1,19 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-export type TrackingStatus = {
-  Number: string;
-  Status: string;
-  StatusCode: string;
-  WarehouseRecipient: string;
-  ActualDeliveryDate: string;
-  ScheduledDeliveryDate: string;
-  CityRecipient: string;
-  RecipientAddress: string;
-  PhoneSender: string;
-  PhoneRecipient: string;
-} | null;
+import { useNPTracking } from "@/lib/supabase/hooks/useNPTracking";
+import type { TrackingStatus } from "@/lib/services/nova-poshta";
 
 interface NovaPoshtaWidgetProps {
   ttn: string;
@@ -36,53 +24,11 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 };
 
 export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidgetProps) {
-  const [status, setStatus] = useState<TrackingStatus>(initialStatus || null);
-const [loading, setLoading] = useState<boolean>(!initialStatus);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTrackingData = (trackingNumber: string) => {
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/np-tracking?ttn=${trackingNumber}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Помилка зв\'язку з API");
-        return res.json();
-      })
-      .then((data) => {
-        if (isMounted) {
-          setStatus(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || "Не вдалося отримати статус");
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  };
-
-  useEffect(() => {
-    if (initialStatus) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStatus(initialStatus);
-      setLoading(false);
-      return;
-    }
-
-    if (!ttn || ttn.trim().length < 10) {
-      setLoading(false);
-      return;
-    }
-
-    fetchTrackingData(ttn);
-  }, [ttn, initialStatus]);
+  const { data: fetchedStatus, isLoading, isError, error } = useNPTracking(ttn);
+  
+  // Use initialStatus if provided, otherwise fallback to fetched status
+  const status = initialStatus || fetchedStatus;
+  const loading = !initialStatus && isLoading;
 
   if (!ttn) return null;
 

@@ -28,6 +28,58 @@ function getHoursExcludingSundays(start: Date, end: Date): number {
   return hours;
 }
 
+import type { SaleWithDetails } from "./data-sales";
+import type { Database } from "@/types/database";
+
+type CashRegisterRow = Database["public"]["Tables"]["cash_registers"]["Row"];
+type SafeRow = Database["public"]["Tables"]["safes"]["Row"];
+type RepairRow = Database["public"]["Tables"]["repairs"]["Row"];
+
+export type RepairQueueItem = RepairRow & {
+  customer_name: string;
+  customer_phone: string;
+  customer_telegram: string | null;
+  [key: string]: unknown;
+};
+
+export interface RefurbishmentCapitalDevice {
+  id: string;
+  brand: string;
+  model: string;
+  imei: string | null;
+  cost_price: number;
+  repair_cost: number;
+  price: number;
+  repair_parts_replaced: unknown;
+  updated_at: string;
+}
+
+export interface RefurbishmentMarginDevice extends RefurbishmentCapitalDevice {
+  status: string;
+  sale_price: number | null;
+}
+
+export interface DashboardSalePreview {
+  id: string;
+  total_amount: number;
+  discount: number;
+  notes: string | null;
+  created_at: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_telegram: string | null;
+  items: Array<{
+    item_type: string;
+    item_id: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    name: string;
+  }>;
+  [key: string]: unknown;
+}
+
 export interface DashboardData {
   ownerStats?: {
     todaySalesTotal: number;
@@ -36,19 +88,19 @@ export interface DashboardData {
     awaitingParts: number;
     weeklySales: number[];
     weeklyDays: string[];
-    recentSales: any[];
+    recentSales: SaleWithDetails[];
     alerts: { item: string; stock: number; urgent: boolean }[];
     totalSales: number;
-    cashRegisters: any[];
-    safes: any[];
-    repairsQueue: any[];
+    cashRegisters: CashRegisterRow[];
+    safes: SafeRow[];
+    repairsQueue: RepairQueueItem[];
     salesTarget: number;
     salesProgress: number;
 
     refurbishmentCapital: number;
     refurbishmentMargin: number;
-    refurbishmentCapitalDevices?: any[];
-    refurbishmentMarginDevices?: any[];
+    refurbishmentCapitalDevices?: RefurbishmentCapitalDevice[];
+    refurbishmentMarginDevices?: RefurbishmentMarginDevice[];
     supplyChainDelayRate: number;
     expressPartsOrderList: Array<{ name: string; quantity: number }>;
     partnerVolumeShare: number;
@@ -101,7 +153,7 @@ export interface DashboardData {
     activeRepairs: number;
     awaitingParts: number;
     urgentRepairs: number;
-    repairs: any[];
+    repairs: RepairQueueItem[];
     alerts: { item: string; stock: number; urgent: boolean }[];
     // Tech-specific logistics bottleneck view
     frozenRepairs: Array<{ device_name: string; missing_part: string }>;
@@ -110,7 +162,7 @@ export interface DashboardData {
     todaySalesTotal: number;
     newCustomers: number;
     totalSales: number;
-    recentSales: any[];
+    recentSales: DashboardSalePreview[];
     alerts: { item: string; stock: number; urgent: boolean }[];
     // Sales performance insights
     partnerDealsCount: number;

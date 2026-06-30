@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { uk } from "date-fns/locale";
 import { IconSearch, IconCheck, IconGrid, IconList, IconWarning } from "@/components/icons";
 import { EditRepairForm } from "@/components/forms/EditRepairForm";
@@ -467,7 +467,8 @@ export function RepairsTable({
                               (new Date(r.estimated_completion).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) &&
                               !["ready", "completed", "handed_over", "cancelled"].includes(r.status);
   
-                            const formattedDate = format(new Date(r.estimated_completion), "dd.MM.yyyy", { locale: uk });
+                            const d = new Date(r.estimated_completion);
+                            const formattedDate = isValid(d) ? format(d, "dd.MM.yyyy", { locale: uk }) : String(r.estimated_completion);
   
                             if (isOverdue) {
                               return (

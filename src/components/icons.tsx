@@ -1,3 +1,23 @@
+function IconDownload({ size = 14, className }: { size?: number, className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function IconCash({ size = 14, className }: { size?: number, className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M6 12h.01M18 12h.01" />
+    </svg>
+  );
+}
+
 function IconPlus({ size = 16, className }: { size?: number, className?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -7,9 +27,9 @@ function IconPlus({ size = 16, className }: { size?: number, className?: string 
   );
 }
 
-function IconWarning({ size = 20 }: { size?: number }) {
+function IconWarning({ size = 20, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <path d="M10 2L18 17H2L10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
       <line x1="10" y1="7" x2="10" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       <circle cx="10" cy="14" r="0.75" fill="currentColor"/>
@@ -27,18 +47,18 @@ function IconError({ size = 24 }: { size?: number }) {
   );
 }
 
-function IconSearch({ size = 16 }: { size?: number }) {
+function IconSearch({ size = 16, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
       <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   );
 }
 
-function IconBox({ size = 16 }: { size?: number }) {
+function IconBox({ size = 16, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M2 5L8 8.5L14 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M8 8.5V14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -57,9 +77,9 @@ function IconGrid({ size = 20 }: { size?: number }) {
   );
 }
 
-function IconDevice({ size = 20 }: { size?: number }) {
+function IconDevice({ size = 20, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
       <line x1="9" y1="15" x2="11" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
@@ -86,9 +106,9 @@ function IconRepair({ size = 20 }: { size?: number }) {
   );
 }
 
-function IconCustomer({ size = 20 }: { size?: number }) {
+function IconCustomer({ size = 20, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/>
       <path d="M4 18C4 14.5 6.5 12 10 12C13.5 12 16 14.5 16 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
@@ -146,9 +166,9 @@ function IconLogout({ size = 18 }: { size?: number }) {
   );
 }
 
-function IconFinance({ size = 20 }: { size?: number }) {
+function IconFinance({ size = 20, className }: { size?: number, className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <rect x="2" y="5" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
       <line x1="2" y1="9" x2="18" y2="9" stroke="currentColor" strokeWidth="1.5"/>
       <circle cx="10" cy="12.5" r="1.5" fill="currentColor"/>
@@ -248,4 +268,4 @@ function IconTruck({ size = 16, className }: { size?: number; className?: string
   );
 }
 
-export { IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck };
+export { IconDownload, IconCash, IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck };

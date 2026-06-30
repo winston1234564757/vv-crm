@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { IconSearch, IconEdit, IconDelete, IconWarning } from "@/components/icons";
-import { deleteAccessory } from "@/lib/actions/inventory";
+import { deleteAccessory } from "@/lib/actions/accessories";
 import Drawer from "@/components/ui/Drawer";
 import { AccessoryForm } from "@/components/forms/AccessoryForm";
 import { AccessoryDetailView } from "@/components/AccessoryDetailView";

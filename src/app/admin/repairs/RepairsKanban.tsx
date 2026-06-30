@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { uk } from "date-fns/locale";
 import {
   IconWarning, IconEdit, IconSpinner
@@ -197,7 +197,7 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
               </span>
               <span>
                 {isOverdue ? "Прострочено: " : isClose ? "Сьогодні: " : ""}
-                {format(new Date(repair.estimated_completion), "dd.MM.yyyy", { locale: uk })}
+                {isValid(new Date(repair.estimated_completion)) ? format(new Date(repair.estimated_completion), "dd.MM.yyyy", { locale: uk }) : String(repair.estimated_completion)}
               </span>
             </div>
           )}

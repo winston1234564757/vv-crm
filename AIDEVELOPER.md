@@ -45,15 +45,13 @@ VV CRM — внутрішня система для управління про�
 - **Next.js 16** App Router + Turbopack, **React 19**
 - **TypeScript** strict (`noImplicitAny: true`)
 - **Tailwind CSS v4**
-- **TanStack Query v5**
-- **Supabase**
-- **Zustand**, **Zod**, **Framer Motion**
+- **Supabase** (Auth + Database + Storage)
+- **Zod v4**, **Framer Motion**, **Serwist** (PWA)
 
-### staleTime norms (iron rule)
-- Dashboard stats: 1 min
-- Analytics: 5 min
-- Inventory/Services: 10 min
-- Repairs/Orders list: 2 min
+### Data Fetching Pattern
+- Server Components → SSR data fetching via `createClient()` from `server.ts`
+- Client Components → `useActionState()` for form mutations
+- All mutations → Server Actions with `revalidatePath()`
 
 ---
 

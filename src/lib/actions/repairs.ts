@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
 import type { Database } from "@/types/database";
+import { uploadMediaFiles } from "@/lib/supabase/storage";
 import { notifyCustomerRepairUpdate, notifyStaffNewRepair } from "@/lib/services/telegram";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseCast } from "@/lib/utils/supabase";
@@ -145,6 +146,8 @@ async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repai
 
   const currentParts = (currentDev?.repair_parts_replaced as unknown as Array<{ name: string; cost: number; origin: string; part_id?: string | null }>) || [];
   const manualParts = currentParts.filter(p => !p.part_id);
+  const manualPartsCost = manualParts.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+  const finalCost = totalPartsCost + manualPartsCost;
 
   // Об'єднаний список деталей (ручні + списані зі складу)
   const finalReplacedParts = [...manualParts, ...replacedParts];
@@ -154,7 +157,7 @@ async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repai
     .from("devices")
     .update({
       repair_parts_replaced: finalReplacedParts,
-      repair_cost: totalPartsCost
+      repair_cost: finalCost
     })
     .eq("id", repair.inventory_device_id);
 
@@ -164,7 +167,7 @@ async function syncDeviceReplacedParts(supabase: SupabaseClient<Database>, repai
   const { error: updateRepairErr } = await supabase
     .from("repairs")
     .update({
-      cost: totalPartsCost
+      cost: finalCost
     })
     .eq("id", repairId);
 
@@ -241,12 +244,8 @@ export async function createRepair(prevState: ActionState | null, formData: Form
     // Upload photos if any
     const photoFiles = formData.getAll("device_condition_photos").filter(f => f instanceof File && f.size > 0) as File[];
     if (photoFiles.length > 0) {
-      const { uploadMediaFiles } = await import("@/lib/supabase/storage");
       parsed.device_condition_photos = await uploadMediaFiles(photoFiles, "repairs");
     }
-
-    // Generate a cryptographically secure 6-char tracking token
-    const tracking_token = randomBytes(3).toString("hex").toUpperCase();
 
     // Check authentication
     const supabase = await createClient();
@@ -279,8 +278,7 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       estimated_completion: parsed.estimated_completion,
       warranty_for_repair_id: parsed.warranty_for_repair_id,
       status: "received",
-      tracking_token,
-    }).select("id").single();
+    }).select("id, tracking_token").single();
 
     if (error) throw error;
 
@@ -298,17 +296,17 @@ export async function createRepair(prevState: ActionState | null, formData: Form
         .single();
 
       if (customer) {
-        await notifyStaffNewRepair(tracking_token, parsed.device_name, parsed.issue, customer.name);
+        await notifyStaffNewRepair(newRepair.tracking_token as string, parsed.device_name, parsed.issue, customer.name);
       }
     } else {
-      await notifyStaffNewRepair(tracking_token, parsed.device_name, parsed.issue, "Внутрішній ремонт (Техніка на продаж)");
+      await notifyStaffNewRepair(newRepair.tracking_token as string, parsed.device_name, parsed.issue, "Внутрішній ремонт (Техніка на продаж)");
     }
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin");
     revalidatePath("/admin/devices");
 
-    return { success: true, data: { id: newRepair.id, tracking_token, issue: parsed.issue, price: parsed.price } };
+    return { success: true, data: { id: newRepair.id, tracking_token: newRepair.tracking_token as string, issue: parsed.issue, price: parsed.price } };
   } catch (err) {
     return { success: false, error: parseError(err) };
   }
@@ -580,70 +578,16 @@ export async function addPartToRepairAction(prevState: ActionState | null, formD
     const parsed = addPartSchema.parse(rawData);
     const supabase = await createClient();
 
-    // 1. Verify part availability
-    const { data: part, error: partErr } = await supabase
-      .from("parts")
-      .select("stock, name")
-      .eq("id", parsed.partId)
-      .single();
-
-    if (partErr || !part) {
-      throw new Error("Деталь не знайдено на складі");
-    }
-
-    if (part.stock < parsed.quantity) {
-      throw new Error(`Недостатньо запчастин на складі (в наявності: ${part.stock} шт)`);
-    }
-
-    // 2. Deduct stock from parts with Optimistic Locking
-    const { data: updatedPart, error: updatePartErr } = await supabase
-      .from("parts")
-      .update({ stock: part.stock - parsed.quantity })
-      .eq("id", parsed.partId)
-      .eq("stock", part.stock) // optimistic lock check
-      .select("id");
-
-    if (updatePartErr) throw updatePartErr;
-    if (!updatedPart || updatedPart.length === 0) {
-      throw new Error("Конфлікт оновлення залишку: запчастину щойно було змінено на складі іншим користувачем. Спробуйте ще раз.");
-    }
-
-    // 3. Insert into repair_parts
-    const { error: insertErr } = await supabase
-      .from("repair_parts")
-      .insert({
-        repair_id: parsed.repairId,
-        part_id: parsed.partId,
-        quantity: parsed.quantity,
-        unit_cost: parsed.unitCost,
-      });
-
-    if (insertErr) throw insertErr;
-
-    // 4. Update repair total cost
-    const { data: repair, error: fetchRepairErr } = await supabase
-      .from("repairs")
-      .select("cost")
-      .eq("id", parsed.repairId)
-      .single();
-
-    if (fetchRepairErr || !repair) throw fetchRepairErr || new Error("Ремонт не знайдено");
-
-    const newCost = (repair.cost || 0) + (parsed.unitCost * parsed.quantity);
-
-    const { error: updateRepairErr } = await supabase
-      .from("repairs")
-      .update({ cost: newCost })
-      .eq("id", parsed.repairId);
-
-    if (updateRepairErr) throw updateRepairErr;
-
-    // 5. Add status log entry
-    await supabase.from("repair_status_log").insert({
-      repair_id: parsed.repairId,
-      to_status: "in_progress",
-      notes: `Додано деталь зі складу: ${part.name} (${parsed.quantity} шт) на суму ${parsed.unitCost * parsed.quantity} грн`
+    // 1. Execute ATOMIC RPC to safely deduct stock, add to repair, and log status
+    const { error: rpcErr } = await supabase.rpc("add_part_to_repair", {
+      p_repair_id: parsed.repairId,
+      p_part_id: parsed.partId,
+      p_quantity: parsed.quantity,
+      p_unit_cost: parsed.unitCost,
+      p_user_id: user.id
     });
+
+    if (rpcErr) throw rpcErr;
 
     // Синхронізуємо деталі в картку пристрою на складі
     await syncDeviceReplacedParts(supabase, parsed.repairId);
@@ -659,10 +603,10 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
   try {
     const supabase = await createClient();
 
-    // 1. Get allocated part info
+    // 1. Get allocated part info (needed for sync afterwards)
     const { data: repairPart, error: fetchErr } = await supabase
       .from("repair_parts")
-      .select("repair_id, part_id, quantity, unit_cost, parts(name)")
+      .select("repair_id")
       .eq("id", repairPartId)
       .single();
 
@@ -670,61 +614,13 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
       throw new Error("Запис про списану деталь не знайдено");
     }
 
-    const partName = supabaseCast<{ name: string }>(repairPart.parts)?.name || "Деталь";
-
-    // 2. Restore stock level with Optimistic Locking
-    const { data: part, error: partErr } = await supabase
-      .from("parts")
-      .select("stock")
-      .eq("id", repairPart.part_id)
-      .single();
-
-    if (partErr || !part) throw partErr || new Error("Деталь на складі не знайдено");
-
-    const { data: updatedPart, error: updatePartErr } = await supabase
-      .from("parts")
-      .update({ stock: part.stock + repairPart.quantity })
-      .eq("id", repairPart.part_id)
-      .eq("stock", part.stock) // optimistic lock check
-      .select("id");
-
-    if (updatePartErr) throw updatePartErr;
-    if (!updatedPart || updatedPart.length === 0) {
-      throw new Error("Конфлікт оновлення залишку: запчастину щойно було змінено на складі іншим користувачем. Спробуйте ще раз.");
-    }
-
-    // 3. Delete from repair_parts
-    const { error: deleteErr } = await supabase
-      .from("repair_parts")
-      .delete()
-      .eq("id", repairPartId);
-
-    if (deleteErr) throw deleteErr;
-
-    // 4. Decrease repair cost
-    const { data: repair, error: fetchRepairErr } = await supabase
-      .from("repairs")
-      .select("cost")
-      .eq("id", repairPart.repair_id)
-      .single();
-
-    if (fetchRepairErr || !repair) throw fetchRepairErr || new Error("Ремонт не знайдено");
-
-    const newCost = Math.max(0, (repair.cost || 0) - (repairPart.unit_cost * repairPart.quantity));
-
-    const { error: updateRepairErr } = await supabase
-      .from("repairs")
-      .update({ cost: newCost })
-      .eq("id", repairPart.repair_id);
-
-    if (updateRepairErr) throw updateRepairErr;
-
-    // 5. Add status log entry
-    await supabase.from("repair_status_log").insert({
-      repair_id: repairPart.repair_id,
-      to_status: "in_progress",
-      notes: `Вилучено деталь: ${partName} (${repairPart.quantity} шт). Повернуто на склад.`
+    // 2. Execute ATOMIC RPC to safely restore stock, remove from repair, and log status
+    const { error: rpcErr } = await supabase.rpc("remove_part_from_repair", {
+      p_repair_part_id: repairPartId,
+      p_user_id: user.id
     });
+
+    if (rpcErr) throw rpcErr;
 
     // Синхронізуємо деталі в картку пристрою на складі
     await syncDeviceReplacedParts(supabase, repairPart.repair_id);

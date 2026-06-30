@@ -60,68 +60,30 @@ export async function getRepairStatusLogs(repairId: string) {
   return data ?? [];
 }
 
-export async function getInternalRepairs() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("repairs")
-    .select(`*, devices(brand, model, imei, status)`)
-    .not("inventory_device_id", "is", null)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  
-  return (data ?? []).map((r) => {
-    const dev = r.devices as { brand: string | null; model: string | null; imei: string | null; status: string } | null;
-    return {
-      ...r,
-      customer_name: "Внутрішній (Склад)",
-      customer_phone: "—",
-      customer_telegram: null,
-      device_name: dev ? `${dev.brand || ""} ${dev.model || ""}`.trim() : r.device_name,
-    };
-  });
-}
-
-export async function getDeviceRepairs(deviceId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("repairs")
-    .select(`*, profiles(full_name)`)
-    .eq("inventory_device_id", deviceId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
-
-/**
- * Returns ALL repairs (customer + internal) merged into one array,
- * each with a repair_type field: "customer" | "internal"
- */
 export async function getAllRepairs() {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("repairs")
-    .select(`*, customers(name, phone, telegram_id), devices(brand, model, imei, status)`)
+    .select(`*, customers(name, phone, telegram_id)`)
+    .is("inventory_device_id", null)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("Supabase Error in getAllRepairs:", error);
+    return [];
+  }
 
   return (data ?? []).map((r) => {
-    const isInternal = !!r.inventory_device_id;
     const cust = r.customers as { name: string; phone: string; telegram_id: string | null } | null;
-    const dev = r.devices as { brand: string | null; model: string | null; imei: string | null; status: string } | null;
 
     return {
       ...r,
-      repair_type: isInternal ? "internal" : "customer",
-      customer_name: isInternal
-        ? "Внутрішній (Склад)"
-        : cust?.name ?? "—",
-      customer_phone: isInternal ? "—" : cust?.phone ?? "",
-      customer_telegram: isInternal ? null : cust?.telegram_id ?? null,
-      device_name: isInternal && dev
-        ? `${dev.brand || ""} ${dev.model || ""}`.trim() || r.device_name
-        : r.device_name,
-    } as typeof r & { repair_type: "customer" | "internal" };
+      repair_type: "customer",
+      customer_name: cust?.name ?? "—",
+      customer_phone: cust?.phone ?? "",
+      customer_telegram: cust?.telegram_id ?? null,
+      device_name: r.device_name,
+    } as typeof r & { repair_type: "customer" };
   });
 }

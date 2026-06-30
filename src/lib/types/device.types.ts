@@ -9,6 +9,7 @@ export interface WarehousePart {
 
 // Replaced part type for type safety
 export interface ReplacedPart {
+  id?: string;
   name: string;
   cost: number;
   origin: string;
@@ -17,6 +18,7 @@ export interface ReplacedPart {
 
 // Repair parts data structure type for type safety
 export interface RepairPartsData {
+  id?: string;
   name: string;
   cost: number;
   origin: string;

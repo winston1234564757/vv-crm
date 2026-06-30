@@ -11,7 +11,8 @@ export default function TrackPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (token.trim()) {
-      router.push(`/track/${token.trim().toUpperCase()}`);
+      const cleanToken = token.trim().replace(/\+/g, "%2B");
+      router.push(`/track/${cleanToken}`);
     }
   }
 
@@ -24,7 +25,7 @@ export default function TrackPage() {
           </span>
           <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary text-balance">Статус ремонту</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Введіть номер заявки, щоб дізнатися статус вашого пристрою
+            Введіть номер заявки або ваш номер телефону
           </p>
         </div>
 
@@ -34,8 +35,8 @@ export default function TrackPage() {
             required
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="Номер заявки (напр. R001)"
-            className="w-full rounded-xl border border-warm-border bg-warm-surface px-4 py-3.5 text-center text-lg font-semibold tracking-widest text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 uppercase"
+            placeholder="Номер заявки або телефон"
+            className="w-full rounded-xl border border-warm-border bg-warm-surface px-4 py-3.5 text-center text-lg font-semibold tracking-widest text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40"
           />
           <button
             type="submit"

@@ -5,7 +5,7 @@ import { IconSearch, IconEdit, IconDelete } from "@/components/icons";
 import Drawer from "@/components/ui/Drawer";
 import { ServiceForm } from "@/components/forms/ServiceForm";
 import { ServiceDetailView } from "@/components/ServiceDetailView";
-import { deleteService } from "@/lib/actions/inventory";
+import { deleteService } from "@/lib/actions/services";
 import { InlineError } from "@/components/ui/InlineError";
 import { useRouter } from "next/navigation";
 import type { SaleWithDetails } from "@/lib/data-sales";

@@ -18,44 +18,16 @@ interface ReconciliationBenchProps {
 
 export default function ReconciliationBench({ initialSales }: ReconciliationBenchProps) {
   const [sales, setSales] = useState<UnreconciledSale[]>(initialSales);
-  const [bankTx, setBankTx] = useState<MonobankTransaction[]>([]);
   const [selectedSale, setSelectedSale] = useState<UnreconciledSale | null>(null);
   const [selectedBankTx, setSelectedBankTx] = useState<MonobankTransaction | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [hiddenBankTxIds, setHiddenBankTxIds] = useState<Set<string>>(new Set());
 
-  const fetchBankTransactions = () => {
-    let isMounted = true;
-    fetch("/api/monobank")
-      .then((res) => {
-        if (!res.ok) throw new Error("Не вдалося завантажити виписку");
-        return res.json();
-      })
-      .then((data) => {
-        if (isMounted) {
-          // Filter transactions to show only positive amounts (incoming payments)
-          const incoming = (data as MonobankTransaction[]).filter((tx) => tx.amount > 0);
-          setBankTx(incoming);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || "Не вдалося завантажити виписку Monobank");
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  };
-
-  useEffect(() => {
-    fetchBankTransactions();
-  }, []);
+  const { data: bankTxData, isLoading: loading, isError, error } = useMonobankTransactions();
+  
+  // Filter out bank transactions that were reconciled in this session
+  const bankTx = (bankTxData || []).filter(tx => !hiddenBankTxIds.has(tx.id));
 
   async function handleReconcile() {
     if (!selectedSale || !selectedBankTx) return;
@@ -67,7 +39,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
         setMessage({ type: "success", text: "Платіж успішно зіставлено!" });
         // Remove from local lists
         setSales((prev) => prev.filter((s) => s.id !== selectedSale.id));
-        setBankTx((prev) => prev.filter((tx) => tx.id !== selectedBankTx.id));
+        setHiddenBankTxIds((prev) => new Set(prev).add(selectedBankTx.id));
         setSelectedSale(null);
         setSelectedBankTx(null);
       } else {
@@ -111,9 +83,10 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
               <div className="h-14 rounded-xl bg-warm-bg animate-pulse" />
               <div className="h-14 rounded-xl bg-warm-bg animate-pulse" />
             </div>
-          ) : error ? (
+          ) : isError ? (
             <div className="rounded-xl border border-warm-border bg-warm-bg/50 p-4 text-xs text-text-secondary">
               Для підключення виписок налаштуйте токен <code className="font-mono bg-iris/5 px-1 py-0.5 rounded">MONOBANK_PERSONAL_TOKEN</code> в оточенні.
+              {error?.message && <div className="mt-2 text-rose">{error.message}</div>}
             </div>
           ) : bankTx.length === 0 ? (
             <div className="rounded-xl border border-warm-border p-4 text-xs text-text-secondary text-center">

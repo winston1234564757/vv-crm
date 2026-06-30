@@ -227,13 +227,9 @@ export function DeviceFormRepair({
               placeholder="1500" 
               value={repairCost}
               onChange={(e) => setRepairCost(Number(e.target.value))}
-              readOnly={!!device?.id && repairStatus !== "completed"}
-              className={!!device?.id && repairStatus !== "completed" ? "bg-slate-100/50 cursor-not-allowed" : ""}
             />
             <p className="mt-1 text-[10px] text-text-secondary">
-              {!!device?.id && repairStatus !== "completed"
-                ? "* Розраховується автоматично на основі списаних деталей у розділі 'Ремонти'."
-                : "* Вартість автоматично збільшується при додаванні деталей з списку вище."}
+              * Вартість автоматично збільшується при додаванні деталей. Ви можете коригувати суму вручну.
             </p>
           </div>
         </div>

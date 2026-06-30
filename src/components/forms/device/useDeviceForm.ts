@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect, useMemo } from "react";
-import { createDevice, updateDevice } from "@/lib/actions/inventory";
+import { createDevice, updateDevice } from "@/lib/actions/devices";
 import type { ActionState } from "@/lib/actions/types";
 import {
   DeviceFormData,
@@ -41,6 +41,7 @@ export function useDeviceForm({ onSuccess, device, parts = [] }: UseDeviceFormPr
   const [partsReplaced, setPartsReplaced] = useState<ReplacedPart[]>(
     Array.isArray(device?.repair_parts_replaced)
       ? (device.repair_parts_replaced as RepairPartsData[]).map((p) => ({
+          id: p?.id ? String(p.id) : crypto.randomUUID(),
           name: String(p?.name || ""),
           cost: Number(p?.cost || 0),
           origin: String(p?.origin || ""),
@@ -70,6 +71,7 @@ export function useDeviceForm({ onSuccess, device, parts = [] }: UseDeviceFormPr
   const handleAddPart = () => {
     if (!newPartName.trim()) return;
     const added: ReplacedPart = {
+      id: crypto.randomUUID(),
       name: newPartName.trim(),
       cost: newPartCost,
       origin: newPartOrigin,

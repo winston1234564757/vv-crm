@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Drawer from "@/components/ui/Drawer";
-import { importAccessories } from "@/lib/actions/inventory";
+import { importAccessories } from "@/lib/actions/accessories";
 import { IconPlus } from "@/components/icons";
 
 interface ImportRow {

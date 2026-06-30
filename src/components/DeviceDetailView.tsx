@@ -6,11 +6,6 @@ import {
   IconEdit, IconDevice, IconFinance, IconBox, IconRepair
 } from "./icons";
 import Drawer from "@/components/ui/Drawer";
-import { RepairDetailView } from "@/components/RepairDetailView";
-import { EditRepairForm } from "@/components/forms/EditRepairForm";
-import type { getInternalRepairs } from "@/lib/data-repairs";
-
-type RepairRow = Awaited<ReturnType<typeof getInternalRepairs>>[number];
 
 type DeviceDetailViewProps = {
   device: {
@@ -46,7 +41,7 @@ type DeviceDetailViewProps = {
     source: string | null;
     source_reference: string | null;
   };
-  repairs?: RepairRow[];
+
   onEdit: () => void;
   onSell?: () => void;
   onClose: () => void;
@@ -87,11 +82,9 @@ const typeLabels: Record<string, string> = {
   other: "Інше"
 };
 
-export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose }: DeviceDetailViewProps) {
+export function DeviceDetailView({ device, onEdit, onSell, onClose }: DeviceDetailViewProps) {
   const router = useRouter();
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
-  const [selectedRepair, setSelectedRepair] = useState<RepairRow | null>(null);
-  const [isEditingRepair, setIsEditingRepair] = useState(false);
 
   const totalCost = device.cost_price + (device.repair_cost || 0);
   const margin = device.price - totalCost;
@@ -305,7 +298,7 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
         )}
 
         {/* Repair Section if device needs repair or has history */}
-        {(device.needs_repair || replacedParts.length > 0 || repairs.length > 0) && (
+        {(device.needs_repair || replacedParts.length > 0) && (
           <div className="card p-5 space-y-4 md:col-span-2 border border-violet/10">
             <div className="flex items-center gap-2 border-b border-warm-border pb-3">
               <span className="text-violet"><IconRepair size={18} /></span>
@@ -326,17 +319,6 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
                       <span className="text-text-muted">Статус на складі:</span>
                       <div className="flex items-center gap-1.5 font-semibold text-rose">
                         <span className="capitalize">{device.status === 'service' ? "В ремонті" : "На складі"}</span>
-                        {device.status === 'service' && repairs.length > 0 && (
-                          <button
-                            onClick={() => {
-                              const active = repairs.find(r => !["completed", "handed_over", "cancelled"].includes(r.status));
-                              if (active) setSelectedRepair(active);
-                            }}
-                            className="text-[10px] text-violet hover:underline cursor-pointer shrink-0 font-medium"
-                          >
-                            (Перейти ↗)
-                          </button>
-                        )}
                       </div>
                     </div>
                     {device.repair_node && (
@@ -374,35 +356,6 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
                 </div>
               </div>
 
-              {/* Хронологія ремонтів пристрою */}
-              <div>
-                <h4 className="font-semibold text-xs text-text-secondary uppercase tracking-wider mb-2">Історія внутрішніх ремонтів</h4>
-                {repairs.length === 0 ? (
-                  <p className="text-text-muted italic text-[11px] py-4">Ремонтів по базі не знайдено</p>
-                ) : (
-                  <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-                    {repairs.map((rep) => (
-                      <div 
-                        key={rep.id} 
-                        onClick={() => setSelectedRepair(rep)}
-                        className="rounded-xl border border-warm-border/60 bg-warm-bg/30 p-3.5 space-y-2 text-xs cursor-pointer hover:border-violet/40 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-center justify-between font-semibold text-text-primary">
-                          <span className="font-medium text-[11px] truncate hover:text-violet transition-colors" title={rep.device_name}>{rep.device_name}</span>
-                          <span className="rounded bg-violet/5 px-2 py-0.5 text-[10px] text-violet font-semibold capitalize">
-                            {rep.status}
-                          </span>
-                        </div>
-                        <p className="text-text-secondary leading-snug"><strong className="text-text-primary">Роботи/Проблема:</strong> {rep.issue}</p>
-                        <div className="flex justify-between items-center text-[10px] text-text-secondary border-t border-warm-border/40 pt-2 mt-1">
-                          <span>{rep.created_at.split("T")[0]}</span>
-                          <span className="font-bold text-text-primary">Собівартість: {rep.cost.toLocaleString()} ₴</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
@@ -436,28 +389,6 @@ export function DeviceDetailView({ device, repairs = [], onEdit, onSell, onClose
         </div>
       )}
 
-      {/* Repair Detail/Edit Drawer */}
-      <Drawer
-        isOpen={!!selectedRepair}
-        onClose={() => { setSelectedRepair(null); setIsEditingRepair(false); }}
-        title={isEditingRepair ? "Редагувати ремонт" : "Деталі ремонту"}
-        size="half"
-      >
-        {selectedRepair && (
-          isEditingRepair ? (
-            <EditRepairForm 
-              onSuccess={() => { setSelectedRepair(null); setIsEditingRepair(false); router.refresh(); }} 
-              repair={selectedRepair as unknown as Parameters<typeof EditRepairForm>[0]["repair"]} 
-            />
-          ) : (
-            <RepairDetailView 
-              repair={selectedRepair as unknown as Parameters<typeof RepairDetailView>[0]["repair"]} 
-              onEdit={() => setIsEditingRepair(true)} 
-              onClose={() => setSelectedRepair(null)} 
-            />
-          )
-        )}
-      </Drawer>
     </div>
   );
 }

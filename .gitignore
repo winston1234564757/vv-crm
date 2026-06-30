@@ -36,13 +36,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (should never be committed)
-.env
-.env.local
-.env.production
-.env.development
-.env.test
-.env.example
+# env files
+.env*
 
 # vercel
 .vercel
@@ -66,4 +61,12 @@ test123.*
 # debug logs
 *.log
 
-.env*
+# dev scratch files & data dumps (cleaned from root)
+fix-expense.ts
+inject_types.js
+make_payload.js
+apply_payload.json
+execute_schema.json
+schema.json
+image.png
+*.xlsx

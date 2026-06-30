@@ -354,115 +354,16 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     if (regError) throw regError;
     const regMap = registers?.reduce((acc, r) => ({ ...acc, [r.type]: r.id }), {} as Record<string, string>) || {};
 
-    // 4. Process all inventory items (validations and updates)
-    for (const item of parsed.items) {
-      if (item.item_type === "device") {
-        const { data: device, error: devErr } = await supabase
-          .from("devices")
-          .select("status, brand, model")
-          .eq("id", item.item_id)
-          .single();
-        if (devErr || !device) throw new Error(`Пристрій не знайдено в системі.`);
-        if (device.status !== "in_stock") throw new Error(`Пристрій вже продано або заброньовано.`);
-
-        if (parsed.link_device_to_customer && !deviceNameToLink) {
-          deviceNameToLink = `${device.brand || ""} ${device.model || ""}`.trim();
-        }
-
-        const { data: updatedDev, error: devUpErr } = await supabase
-          .from("devices")
-          .update({ status: "sold" })
-          .eq("id", item.item_id)
-          .eq("status", "in_stock")
-          .select("id");
-        if (devUpErr) throw devUpErr;
-        if (!updatedDev || updatedDev.length === 0) {
-          throw new Error(`Пристрій "${device.brand || ""} ${device.model || ""}" вже продано або заброньовано.`);
-        }
-
-      } else if (item.item_type === "accessory") {
-        const { data: acc, error: accErr } = await supabase
-          .from("accessories")
-          .select("stock")
-          .eq("id", item.item_id)
-          .single();
-        if (accErr || !acc) throw new Error(`Аксесуар не знайдено.`);
-        if (acc.stock < item.quantity) throw new Error(`Недостатній залишок аксесуару на складі.`);
-
-        const { data: updatedAcc, error: accUpErr } = await supabase
-          .from("accessories")
-          .update({ stock: acc.stock - item.quantity })
-          .eq("id", item.item_id)
-          .eq("stock", acc.stock)
-          .select("id");
-        if (accUpErr) throw accUpErr;
-        if (!updatedAcc || updatedAcc.length === 0) {
-          throw new Error("Конфлікт залишків для аксесуару. Спробуйте ще раз.");
-        }
-
-      } else if (item.item_type === "part") {
-        const { data: part, error: partErr } = await supabase
-          .from("parts")
-          .select("stock")
-          .eq("id", item.item_id)
-          .single();
-        if (partErr || !part) throw new Error(`Запчастину не знайдено.`);
-        if (part.stock < item.quantity) throw new Error(`Недостатній залишок запчастини на складі.`);
-
-        const { data: updatedPart, error: partUpErr } = await supabase
-          .from("parts")
-          .update({ stock: part.stock - item.quantity })
-          .eq("id", item.item_id)
-          .eq("stock", part.stock)
-          .select("id");
-        if (partUpErr) throw partUpErr;
-        if (!updatedPart || updatedPart.length === 0) {
-          throw new Error("Конфлікт залишків для запчастини. Спробуйте ще раз.");
-        }
-      }
-    }
-
-    // 5. Create the header sale record
-    const { data: sale, error: saleError } = await supabase
-      .from("sales")
-      .insert({
-        customer_id: parsed.customer_id,
-        total_amount: finalTotal,
-        discount: parsed.discount,
-        notes: saleNotes,
-        created_by: userId,
-        sale_type: parsed.sale_type,
-        delivery_needed: parsed.delivery_needed,
-        delivery_address: parsed.delivery_address,
-        delivery_tracking: parsed.delivery_tracking,
-        warranty_start: parsed.warranty_start,
-        warranty_end: parsed.warranty_end,
-        partner_id: parsed.partner_id,
-        promo_code_used: parsed.promo_code_used,
-      } as Database["public"]["Tables"]["sales"]["Insert"])
-      .select("id")
-      .single();
-
-    if (saleError) throw saleError;
-    createdSaleId = sale.id;
-
-    // 6. Bulk Insert sale items
-    const insertItems = parsed.items.map((item) => ({
-      sale_id: sale.id,
+    // 4. Prepare JSON payload for Items
+    const rpcItems = parsed.items.map(item => ({
       item_type: item.item_type,
       item_id: item.item_id,
       quantity: item.quantity,
       unit_price: item.unit_price,
-      total_price: item.unit_price * item.quantity,
       unit_cost: item.unit_cost,
     }));
 
-    const { error: itemsError } = await supabase
-      .from("sale_items")
-      .insert(insertItems);
-    if (itemsError) throw itemsError;
-
-    // 7. Calculate split cash register portions proportionally
+    // 5. Prepare JSON payload for Payments (Calculate split proportions)
     let techSubtotal = 0;
     let accSubtotal = 0;
     let repSubtotal = 0;
@@ -497,7 +398,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       payments.push({ amount: finalTotal, method: parsed.method });
     }
 
-    // Pro-rata distribution of payment amounts to their respective registers
+    const rpcPayments = [];
     for (const p of payments) {
       const distribution = [
         { type: "tech", amount: Math.round(p.amount * (techAmountFinal / finalTotal)) },
@@ -511,46 +412,39 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
         const targetRegisterId = regMap[dist.type];
         if (!targetRegisterId) continue;
 
-        const { error: splitError } = await supabase
-          .from("payment_splits")
-          .insert({
-            sale_id: sale.id,
-            amount: dist.amount,
-            method: p.method,
-            cash_register_id: targetRegisterId
-          });
-        if (splitError) throw splitError;
-
         const paymentMethodText = p.method === "cash" ? "Готівка" : p.method === "card" ? "Картка" : "Переказ";
         const catText = dist.type === "tech" ? "Техніка" : dist.type === "accessories" ? "Аксесуари" : "Послуги";
-        const { error: txError } = await supabase
-          .from("transactions")
-          .insert({
-            amount: dist.amount,
-            to_type: "cash_register",
-            to_id: targetRegisterId,
-            from_type: parsed.customer_id ? "customer" : "external",
-            from_id: parsed.customer_id,
-            reference_type: "sale",
-            reference_id: sale.id,
-            description: `${parsed.notes || "POS Продаж"}: ${catText} [Оплата: ${paymentMethodText}]`,
-            created_by: userId
-          });
-        if (txError) throw txError;
 
-        const { data: cr } = await supabase
-          .from("cash_registers")
-          .select("balance")
-          .eq("id", targetRegisterId)
-          .single();
-        if (cr) {
-          await supabase
-            .from("cash_registers")
-            .update({ balance: cr.balance + dist.amount })
-            .eq("id", targetRegisterId);
-        }
+        rpcPayments.push({
+          amount: dist.amount,
+          method: p.method,
+          cash_register_id: targetRegisterId,
+          description: `${parsed.notes || "POS Продаж"}: ${catText} [Оплата: ${paymentMethodText}]`
+        });
       }
     }
+
+    // 6. Execute ATOMIC RPC 
+    const { data: saleId, error: rpcError } = await supabase.rpc("process_pos_sale", {
+      p_customer_id: parsed.customer_id || null,
+      p_total_amount: finalTotal,
+      p_discount: parsed.discount,
+      p_notes: saleNotes,
+      p_sale_type: parsed.sale_type,
+      p_delivery_needed: parsed.delivery_needed,
+      p_delivery_address: parsed.delivery_address || null,
+      p_delivery_tracking: parsed.delivery_tracking || null,
+      p_warranty_start: parsed.warranty_start || null,
+      p_warranty_end: parsed.warranty_end || null,
+      p_partner_id: parsed.partner_id || null,
+      p_promo_code_used: parsed.promo_code_used || null,
+      p_user_id: userId,
+      p_items: rpcItems,
+      p_payments: rpcPayments
+    });
+
+    if (rpcError) throw rpcError;
+    createdSaleId = saleId;
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
@@ -560,15 +454,19 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
 
-    if (parsed.customer_id && deviceNameToLink) {
-      await supabase
-        .from("customers")
-        .update({ device_name: deviceNameToLink })
-        .eq("id", parsed.customer_id);
-      revalidatePath("/admin/customers");
+    if (parsed.customer_id && parsed.link_device_to_customer) {
+      // Find device name from items for linking if requested
+      const devItem = parsed.items.find(i => i.item_type === "device");
+      if (devItem) {
+        await supabase
+          .from("customers")
+          .update({ device_name: devItem.item_name || "Пристрій" })
+          .eq("id", parsed.customer_id);
+        revalidatePath("/admin/customers");
+      }
     }
 
-    return { success: true, data: { saleId: sale.id } };
+    return { success: true, data: { saleId: createdSaleId! } };
   } catch (err) {
     console.error("MultiSaleAction Error:", err);
     if (createdSaleId) {

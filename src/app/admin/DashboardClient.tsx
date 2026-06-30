@@ -215,7 +215,7 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
           {/* Smart Intelligence Row 2: Stockout + AI Insights */}
           <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
             <StockoutIntelligenceWidget items={stats.ownerStats.stockoutForecast} />
-            <AIInsightPanel ownerStats={stats.ownerStats} />
+            <AIInsightPanel insights={[]} />
           </div>
         </>
       )}

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState, useEffect, useState } from "react";
 import { createRepair, searchCompletedRepairs } from "@/lib/actions/repairs";
@@ -446,6 +446,7 @@ export function RepairForm({
           name="device_name"
           required
           type="text"
+          autoComplete="off"
           value={deviceName}
           onChange={e => setDeviceName(e.target.value)}
           disabled={isInternal}
@@ -462,6 +463,7 @@ export function RepairForm({
               id="device_password"
               name="device_password"
               type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
               placeholder="Код блокування..."
               className="w-full rounded-xl border border-iris/20 bg-transparent pl-4 pr-10 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet"
             />

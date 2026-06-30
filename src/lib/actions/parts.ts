@@ -51,70 +51,41 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
-    // Transit parts: don't charge safe, set stock = 0 regardless of input
     const isTransit = parsed.status === "transit";
-    const stockToInsert = isTransit ? 0 : parsed.stock;
-
-    // For transit parts, payment status doesn't apply yet (handled upon receiving)
     const isDeferred = !isTransit && parsed.payment_status === "deferred";
-    const debtAmount = isDeferred ? parsed.cost_price * stockToInsert : 0;
+    const stockToInsert = isTransit ? 0 : parsed.stock;
+    const totalCost = parsed.cost_price * stockToInsert;
 
-    const { data: inserted, error } = await supabase
-      .from("parts")
-      .insert({ 
-        ...parsed, 
-        stock: stockToInsert,
-        payment_status: isTransit ? "paid" : parsed.payment_status,
-        payment_due_date: isDeferred ? parsed.payment_due_date : null,
-        debt_amount: debtAmount
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
-
-    // Only deduct from safe if part is already in stock (not in transit) and not deferred
-    if (!isTransit && !isDeferred) {
-      const safeId = formData.get("safe_id") as string | null;
-      let chosenSafeId = safeId;
-      if (!chosenSafeId) {
-        const { data: opexSafe } = await supabase
-          .from("safes")
-          .select("id")
-          .eq("type", "opex")
-          .single();
-        chosenSafeId = opexSafe?.id ?? null;
-      }
-
-      const totalCost = parsed.cost_price * stockToInsert;
-      if (totalCost > 0 && chosenSafeId && inserted?.id) {
-        const { data: safeData } = await supabase
-          .from("safes")
-          .select("balance, name")
-          .eq("id", chosenSafeId)
-          .single();
-
-        if (!safeData) throw new Error("Сейф для списання коштів не знайдено");
-        if (safeData.balance < totalCost) {
-          throw new Error(`Недостатньо коштів на сейфі "${safeData.name}". Доступно: ${safeData.balance} грн`);
-        }
-
-        try {
-          const description = `Закупівля деталей: ${parsed.name} (Кількість: ${stockToInsert} шт.)`;
-          const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
-            item_type: "part",
-            item_id: inserted.id,
-            safe_id: chosenSafeId,
-            amount: totalCost,
-            description,
-            user_id: user.id,
-          });
-          if (rpcErr) throw rpcErr;
-        } catch (rpcError) {
-          await supabase.from("parts").delete().eq("id", inserted.id);
-          throw rpcError;
-        }
-      }
+    let chosenSafeId = formData.get("safe_id") as string | null;
+    if (!chosenSafeId && !isTransit && !isDeferred && totalCost > 0) {
+      const { data: opexSafe } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      chosenSafeId = opexSafe?.id ?? null;
     }
+
+    const { error: rpcError } = await supabase.rpc("register_part_purchase", {
+      p_name: parsed.name,
+      p_part_number: parsed.part_number,
+      p_type: parsed.type,
+      p_compatible_with: parsed.compatible_with,
+      p_cost_price: parsed.cost_price,
+      p_price: parsed.price,
+      p_stock: parsed.stock,
+      p_min_stock: parsed.min_stock,
+      p_supplier_id: parsed.supplier_id,
+      p_np_ttn: parsed.np_ttn,
+      p_origin_type: parsed.origin_type,
+      p_status: parsed.status,
+      p_payment_status: parsed.payment_status,
+      p_payment_due_date: parsed.payment_due_date,
+      p_safe_id: chosenSafeId,
+      p_user_id: user.id
+    });
+
+    if (rpcError) throw rpcError;
 
     revalidatePath("/admin/parts");
     revalidatePath("/admin");

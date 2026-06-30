@@ -6,7 +6,7 @@ import { getCashRegisters, getSafes } from "@/lib/data-finance";
 import { getAccessories } from "@/lib/data-accessories";
 import { getServices } from "@/lib/data-services";
 import { getParts } from "@/lib/data-parts";
-import { getInternalRepairs } from "@/lib/data-repairs";
+
 import { DevicesTable } from "./table";
 import { AddDeviceButton } from "./AddDeviceButton";
 import { pluralUk } from "@/lib/utils/plural";
@@ -75,14 +75,13 @@ function StatCard({
 }
 
 export default async function DevicesPage() {
-  const [devices, customers, cashRegisters, accessories, services, parts, repairs, safes] = await Promise.all([
+  const [devices, customers, cashRegisters, accessories, services, parts, safes] = await Promise.all([
     getDevices(),
     getCustomers(),
     getCashRegisters(),
     getAccessories(),
     getServices(),
     getParts(),
-    getInternalRepairs(),
     getSafes(),
   ]);
 
@@ -160,7 +159,6 @@ export default async function DevicesPage() {
             accessories={accessories} 
             services={services}
             parts={parts} 
-            repairs={repairs}
             safes={safes}
           />
         </StandardCard>

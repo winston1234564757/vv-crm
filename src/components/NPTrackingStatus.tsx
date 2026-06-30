@@ -1,34 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-type NPStatus = {
-  Number: string;
-  Status: string;
-  StatusCode: string;
-  WarehouseRecipient: string;
-  ActualDeliveryDate: string;
-  ScheduledDeliveryDate: string;
-  CityRecipient: string;
-};
+import { useState } from "react";
+import { useNPTracking } from "@/lib/supabase/hooks/useNPTracking";
 
 export function NPTrackingStatus({ ttn }: { ttn: string }) {
-  const [status, setStatus] = useState<NPStatus | null>(null);
-  const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const { data: status, isLoading, isError } = useNPTracking(ttn);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/np-tracking?ttn=${ttn}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setStatus(data); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [ttn]);
-
-  if (loading) return <span className="text-xs text-text-secondary">Завантаження...</span>;
-  if (!status) return <span className="text-xs text-rose">НП: помилка</span>;
+  if (isLoading) return <span className="text-xs text-text-secondary">Завантаження...</span>;
+  if (isError || !status) return <span className="text-xs text-rose">НП: помилка</span>;
 
   const statusColor = status.StatusCode === "7" || status.StatusCode === "8" || status.StatusCode === "9"
     ? "text-cyan bg-cyan/10"

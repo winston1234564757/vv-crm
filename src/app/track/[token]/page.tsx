@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { IconRepair, IconLogo } from "@/components/icons";
 import { trackTTN } from "@/lib/services/nova-poshta";
@@ -21,11 +21,69 @@ const statusColors: Record<string, string> = {
 export default async function TrackingPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createAdminClient();
+  const decodedToken = decodeURIComponent(token).trim();
 
+  // Check if token is a phone number (e.g. +38097... or 097...)
+  const isPhone = /^\+?[\d\s\-\(\)]+$/.test(decodedToken) && decodedToken.replace(/\D/g, "").length >= 9;
+
+  if (isPhone) {
+    const cleanPhone = decodedToken.replace(/\D/g, "");
+    const { data: repairs, error: phoneError } = await supabase
+      .from("repairs")
+      .select("id, tracking_token, device_name, status, created_at, customers!inner(phone)")
+      .ilike("customers.phone", `%${cleanPhone.slice(-9)}%`)
+      .order("created_at", { ascending: false });
+
+    if (phoneError || !repairs || repairs.length === 0) notFound();
+    
+    // If only one repair found, redirect to its tracking token
+    if (repairs.length === 1) {
+      redirect(`/track/${repairs[0].tracking_token}`);
+    }
+
+    // If multiple repairs found, render a list
+    return (
+      <div className="min-h-screen bg-warm-bg">
+        <header className="border-b border-warm-border/50 bg-white">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+            <Link href="/shop" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-text-primary">
+              <span className="text-violet"><IconLogo /></span> VV CRM
+            </Link>
+            <Link href="/track" className="text-sm text-violet hover:underline">Новий пошук</Link>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-4 py-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-xl font-semibold tracking-tight text-text-primary">Ваші ремонти</h1>
+            <p className="mt-1 text-sm text-text-secondary">Оберіть заявку для перегляду деталей</p>
+          </div>
+          
+          <div className="space-y-4">
+            {repairs.map((r: any) => (
+              <Link key={r.id} href={`/track/${r.tracking_token}`} className="block rounded-2xl border border-warm-border/60 bg-white p-5 transition-colors hover:border-violet/40 hover:bg-violet/[0.02]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-text-primary">{r.device_name}</h3>
+                    <p className="text-xs text-text-secondary mt-1">Заявка #{r.tracking_token} · {new Date(r.created_at).toLocaleDateString("uk-UA")}</p>
+                  </div>
+                  <span className={`rounded px-2.5 py-1 text-xs font-medium ${statusColors[r.status] || "bg-iris/5 text-text-secondary"}`}>
+                    {statusLabels[r.status] || r.status}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Default behavior: token is tracking_token
   const { data: repair, error } = await supabase
     .from("repairs")
     .select("*, customers(name)")
-    .eq("tracking_token", token.toUpperCase())
+    .eq("tracking_token", decodedToken.toUpperCase())
     .single();
 
   if (error || !repair) notFound();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { createService, updateService } from "@/lib/actions/inventory";
+import { createService, updateService } from "@/lib/actions/services";
 import { Input } from "@/components/ui/Input";
 
 const initialState = { success: false, error: "" };

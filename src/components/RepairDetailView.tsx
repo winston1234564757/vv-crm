@@ -328,7 +328,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-warm-surface border border-warm-border p-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-text-secondary">#{repair.id.substring(0, 8)}</span>
+            <span className="font-mono text-sm font-bold text-violet bg-violet/10 px-2 py-0.5 rounded-md">№ {repair.tracking_token || repair.id.substring(0, 8)}</span>
             <span className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold`}
                   style={{ 
                     background: `color-mix(in oklch, ${statusColors[repair.status] || 'var(--color-iris)'} 15%, transparent)`, 

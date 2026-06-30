@@ -9,6 +9,7 @@ import SeedDataButton from "@/app/admin/store-launch/components/SeedDataButton";
 import GlobalLaunchRadar from "@/app/admin/store-launch/components/GlobalLaunchRadar";
 import DomainCard from "@/app/admin/store-launch/components/DomainCard";
 import StoreLaunchCreateModal from "@/app/admin/store-launch/components/StoreLaunchCreateModal";
+import StoreLaunchAnalytics from "@/app/admin/store-launch/components/StoreLaunchAnalytics";
 
 export const metadata = {
   title: "Запуск Магазину (Mission Control) | VV CRM",
@@ -57,6 +58,15 @@ export default async function StoreLaunchPage() {
         totalSpent={totalSpent}
       />
 
+      {/* Analytics Cockpit (Focus Engine & Velocity) */}
+      <StoreLaunchAnalytics 
+        categories={categories}
+        tasks={tasks}
+        expenses={expenses}
+        totalBudget={totalBudget}
+        totalSpent={totalSpent}
+      />
+
       {/* Matrix of Operations (Bento Grid) */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -81,6 +91,7 @@ export default async function StoreLaunchPage() {
                   category={cat} 
                   tasks={catTasks} 
                   expenses={catExpenses} 
+                  allCategories={categories}
                 />
               );
             })

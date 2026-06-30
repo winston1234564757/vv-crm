@@ -9,7 +9,10 @@ export async function getCustomers() {
     .from("customers")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.error("Error in getCustomers:", error);
+    return [];
+  }
   return data ?? [];
 }
 
