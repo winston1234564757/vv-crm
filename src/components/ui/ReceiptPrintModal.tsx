@@ -6,8 +6,9 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { uk } from "date-fns/locale";
-import { IconClose } from "@/components/icons";
+import { IconClose, IconDownload, IconSpinner } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { toJpeg } from "html-to-image";
 import type { ReceiptSettings } from "@/lib/data-settings";
 import { supabaseCast } from "@/lib/utils/supabase";
 
@@ -44,6 +45,7 @@ interface ReceiptPrintModalProps {
 export default function ReceiptPrintModal({ isOpen, onClose, type, data }: ReceiptPrintModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Editable receipt fields
   const [companyName, setCompanyName] = useState("");
@@ -191,6 +193,26 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
     }, 150);
   };
 
+  const handleDownloadImage = async () => {
+    try {
+      setIsDownloading(true);
+      const el = document.getElementById("receipt-preview-container");
+      if (!el) return;
+      
+      const dataUrl = await toJpeg(el, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: 3 });
+      
+      const link = document.createElement("a");
+      link.download = `Receipt_${data.id.substring(0, 8)}.jpg`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Failed to generate image:", err);
+      alert("Не вдалося зберегти чек як зображення.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (!mounted || !isOpen) return null;
 
   const formattedDate = data.created_at
@@ -313,7 +335,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             <div className="space-y-0.5 text-[9px]">
               <p><strong>Модель:</strong> {deviceName}</p>
               {deviceImei && <p><strong>IMEI/SN:</strong> {deviceImei}</p>}
-              {issue && <p><strong>Несправність:</strong> {issue}</p>}
+              {issue && <p><strong>Виконані роботи:</strong> {issue}</p>}
             </div>
 
             {/* Parts & Services table */}
@@ -634,6 +656,15 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                   </button>
                   <button
                     type="button"
+                    onClick={handleDownloadImage}
+                    disabled={isDownloading}
+                    className="flex-1 btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet/10 py-3 text-xs font-semibold text-violet transition-colors hover:bg-violet/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {isDownloading ? <IconSpinner size={14} className="animate-spin" /> : <IconDownload size={14} />}
+                    <span>Зберегти JPG</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handlePrint}
                     className="flex-1 btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet py-3 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
                   >
@@ -652,7 +683,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 <p className="text-[9px] font-bold text-text-secondary uppercase tracking-wider mb-3">
                   Емулятор 80мм стрічки
                 </p>
-                <div className="w-full max-w-[280px] bg-white rounded-xl border border-warm-border shadow-md p-5 font-mono text-[9px] text-black space-y-3.5 relative overflow-hidden select-none">
+                <div id="receipt-preview-container" className="w-full max-w-[280px] bg-white rounded-xl border border-warm-border shadow-md p-5 font-mono text-[9px] text-black space-y-3.5 relative overflow-hidden select-none">
                   {/* Visual Tear Lines effect */}
                   <div className="absolute top-0 left-0 right-0 h-1 bg-violet/15" />
                   
