@@ -45,7 +45,7 @@ export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidge
   if (error) {
     return (
       <div className="rounded-xl border border-rose/20 bg-rose/5 p-4 text-xs text-rose">
-        Помилка відстеження ТТН {ttn}: {error}
+        Помилка відстеження ТТН {ttn}: {error?.message || "Невідома помилка"}
       </div>
     );
   }

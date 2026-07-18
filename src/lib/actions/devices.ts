@@ -131,6 +131,7 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     }
 
     // 2. Execute ATOMIC RPC for Device Purchase
+    // @ts-expect-error - register_device_purchase is missing from database.ts types
     const { data: insertedId, error: rpcError } = await supabase.rpc("register_device_purchase", {
       p_type: parsed.type as string,
       p_brand: parsed.brand,

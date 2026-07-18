@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { reconcileSaleWithMonobank } from "@/lib/actions/sales";
+import { useMonobankTransactions } from "@/lib/supabase/hooks/useMonobankTransactions";
 import type { MonobankTransaction } from "@/lib/services/monobank";
 
 type UnreconciledSale = {
@@ -27,7 +28,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
   const { data: bankTxData, isLoading: loading, isError, error } = useMonobankTransactions();
   
   // Filter out bank transactions that were reconciled in this session
-  const bankTx = (bankTxData || []).filter(tx => !hiddenBankTxIds.has(tx.id));
+  const bankTx = (bankTxData || []).filter((tx: MonobankTransaction) => !hiddenBankTxIds.has(tx.id));
 
   async function handleReconcile() {
     if (!selectedSale || !selectedBankTx) return;
@@ -94,7 +95,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
             </div>
           ) : (
             <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
-              {bankTx.map((tx) => {
+              {bankTx.map((tx: MonobankTransaction) => {
                 const amountUah = tx.amount / 100;
                 const txTime = new Date(tx.time * 1000).toLocaleString("uk-UA", {
                   day: "numeric",

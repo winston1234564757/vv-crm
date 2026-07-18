@@ -66,6 +66,7 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
       chosenSafeId = opexSafe?.id ?? null;
     }
 
+    // @ts-expect-error - register_part_purchase is missing from database.ts types
     const { error: rpcError } = await supabase.rpc("register_part_purchase", {
       p_name: parsed.name,
       p_part_number: parsed.part_number,

@@ -1,7 +1,6 @@
 "use server";
 import { requireRole } from "@/lib/utils/rbac";
 
-import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -578,7 +577,11 @@ export async function addPartToRepairAction(prevState: ActionState | null, formD
     const parsed = addPartSchema.parse(rawData);
     const supabase = await createClient();
 
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+
     // 1. Execute ATOMIC RPC to safely deduct stock, add to repair, and log status
+    // @ts-expect-error - add_part_to_repair is missing from database.ts types
     const { error: rpcErr } = await supabase.rpc("add_part_to_repair", {
       p_repair_id: parsed.repairId,
       p_part_id: parsed.partId,
@@ -603,6 +606,9 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
   try {
     const supabase = await createClient();
 
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+
     // 1. Get allocated part info (needed for sync afterwards)
     const { data: repairPart, error: fetchErr } = await supabase
       .from("repair_parts")
@@ -615,6 +621,7 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
     }
 
     // 2. Execute ATOMIC RPC to safely restore stock, remove from repair, and log status
+    // @ts-expect-error - remove_part_from_repair is missing from database.ts types
     const { error: rpcErr } = await supabase.rpc("remove_part_from_repair", {
       p_repair_part_id: repairPartId,
       p_user_id: user.id

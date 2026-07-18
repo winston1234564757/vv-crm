@@ -425,6 +425,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     }
 
     // 6. Execute ATOMIC RPC 
+    // @ts-expect-error - process_pos_sale is missing from database.ts types
     const { data: saleId, error: rpcError } = await supabase.rpc("process_pos_sale", {
       p_customer_id: parsed.customer_id || null,
       p_total_amount: finalTotal,
@@ -444,7 +445,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     });
 
     if (rpcError) throw rpcError;
-    createdSaleId = saleId;
+    createdSaleId = saleId as unknown as string;
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
