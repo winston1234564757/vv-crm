@@ -376,6 +376,7 @@ export async function updateRepairStatus(repairId: string, status: string): Prom
 const editRepairSchema = z.object({
   is_warranty: z.boolean().optional().default(false),
   id: z.string().uuid(),
+  issue: z.string().min(2, "Вкажіть несправність").optional(),
   status: z.enum([
     'received', 'diagnostics', 'in_progress', 'awaiting_parts',
     'ready', 'completed', 'handed_over', 'cancelled'
@@ -398,6 +399,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
   try {
     const data = {
       id: formData.get("id"),
+      issue: formData.get("issue"),
       is_warranty: formData.get("is_warranty") === "true",
       status: formData.get("status"),
       price: formData.get("price"),
@@ -427,6 +429,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
 
     const updateFields: RepairUpdate = {
       is_warranty: parsed.is_warranty,
+      issue: parsed.issue,
       status: parsed.status,
       price: parsed.price,
       cost: parsed.cost,

@@ -62,6 +62,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
   useEffect(() => { if (state.success) onSuccess(); }, [state.success, onSuccess]);
 
   const [status, setStatus] = useState(repair.status);
+  const [issue, setIssue] = useState<string>(repair.issue || "");
   const [isWarranty, setIsWarranty] = useState(repair.is_warranty || false);
   const [paymentStatus, setPaymentStatus] = useState(repair.payment_status ?? "unpaid");
   const [cost, setCost] = useState<string>(repair.cost.toString());
@@ -256,8 +257,19 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
           <p><strong className="text-text-secondary">Комплектація:</strong> {repair.device_accessories_included}</p>
         )}
 
-        <p><strong className="text-text-secondary">Несправність:</strong> {repair.issue}</p>
-        {repair.customer_name && <p><strong className="text-text-secondary">Клієнт:</strong> {repair.customer_name}</p>}
+        <div className="space-y-1.5 mt-2">
+          <label htmlFor="issue" className="block font-medium text-text-secondary">Несправність</label>
+          <textarea
+            id="issue"
+            name="issue"
+            rows={2}
+            value={issue}
+            onChange={(e) => setIssue(e.target.value)}
+            className="w-full rounded-lg border border-warm-border bg-white px-3 py-2 text-text-primary focus:border-violet focus:outline-none focus:ring-1 focus:ring-violet transition-colors resize-y"
+          />
+        </div>
+        
+        {repair.customer_name && <p className="mt-2"><strong className="text-text-secondary">Клієнт:</strong> {repair.customer_name}</p>}
       </div>
 
       {((repair.issue_nodes ?? []).length > 0 || (repair.issue_diagnostics ?? []).length > 0) && (
