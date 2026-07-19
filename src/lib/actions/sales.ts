@@ -4,7 +4,6 @@ import { requireRole } from "@/lib/utils/rbac";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import type { Database } from "@/types/database";
 import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
 
@@ -105,164 +104,59 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
       descriptionText = `Продаж аксесуару ${descriptionText ? `(${descriptionText})` : ""}`;
     }
 
-    // 3. Create the sale record
-    const { data: sale, error: saleError } = await supabase
-      .from("sales")
-      .insert({
-        is_warranty: parsed.is_warranty,
-        customer_id: parsed.customer_id,
-        total_amount: parsed.amount,
-        discount: parsed.discount,
-        notes: descriptionText,
-        created_by: userId,
-        sale_type: parsed.sale_type,
-        delivery_needed: parsed.delivery_needed,
-        delivery_address: parsed.delivery_address,
-        delivery_tracking: parsed.delivery_tracking,
-        warranty_start: parsed.warranty_start,
-        warranty_end: parsed.warranty_end,
-        return_reason: parsed.return_reason,
-        monobank_payment_id: parsed.monobank_payment_id,
-        partner_id: parsed.partner_id,
-        promo_code_used: parsed.promo_code_used
-      } as Database["public"]["Tables"]["sales"]["Insert"])
-      .select("id")
-      .single();
-
-    if (saleError) throw saleError;
-
-    // 4. Process the item
-    if (parsed.item_category === "device" && parsed.item_id) {
-      // 1. Fetch device cost price
-      const { data: dev } = await supabase
-        .from("devices")
-        .select("cost_price")
-        .eq("id", parsed.item_id)
-        .single();
-      const costPrice = dev?.cost_price || 0;
-
-      await supabase.from("sale_items").insert({
-        sale_id: sale.id,
-        item_type: "device",
-        item_id: parsed.item_id,
-        quantity: 1,
-        unit_price: parsed.amount,
-        total_price: parsed.amount,
-        unit_cost: costPrice
-      });
-      await supabase.from("devices").update({ status: "sold" }).eq("id", parsed.item_id);
-    } else if (parsed.item_category === "accessory" && parsed.item_id) {
-      // 1. Read current stock and cost price
-      const { data: acc, error: accReadErr } = await supabase
-        .from("accessories")
-        .select("stock, cost_price")
-        .eq("id", parsed.item_id)
-        .single();
-
-      if (accReadErr || !acc) throw new Error("Аксесуар не знайдено");
-      if (acc.stock < 1) throw new Error("Аксесуар закінчився на складі");
-
-      // 2. Optimistic lock — update WHERE stock = known_value
-      // If another request changed stock between our read and write → 0 rows updated → conflict
-      const { data: updatedAcc, error: accUpdateErr } = await supabase
-        .from("accessories")
-        .update({ stock: acc.stock - 1 })
-        .eq("id", parsed.item_id)
-        .eq("stock", acc.stock) // optimistic lock condition
-        .select("id");
-
-      if (accUpdateErr) throw accUpdateErr;
-      if (!updatedAcc || updatedAcc.length === 0) {
-        throw new Error("Конфлікт залишку: аксесуар щойно продано. Спробуйте ще раз.");
-      }
-
-      await supabase.from("sale_items").insert({
-        sale_id: sale.id,
-        item_type: "accessory",
-        item_id: parsed.item_id,
-        quantity: 1,
-        unit_price: parsed.amount,
-        total_price: parsed.amount,
-        unit_cost: acc.cost_price || 0
-      });
-    }
-
-    // 5. Process payments (split or single)
+    // Build payment parts. Validation stays in JS to give clear user-facing errors.
     interface PaymentSplitData {
       amount: number;
       method: "cash" | "card" | "transfer";
     }
-    
     const payments: PaymentSplitData[] = [];
     if (parsed.is_split) {
-      if (parsed.cash_amount > 0) {
-        payments.push({ amount: parsed.cash_amount, method: "cash" });
-      }
-      if (parsed.card_amount > 0) {
-        payments.push({ amount: parsed.card_amount, method: "card" });
-      }
-      
+      if (parsed.cash_amount > 0) payments.push({ amount: parsed.cash_amount, method: "cash" });
+      if (parsed.card_amount > 0) payments.push({ amount: parsed.card_amount, method: "card" });
+
       const totalSplit = parsed.cash_amount + parsed.card_amount;
       if (Math.abs(totalSplit - parsed.amount) > 1) {
         throw new Error(`Сума частин спліту (${totalSplit} грн) не збігається з сумою до оплати (${parsed.amount} грн)`);
       }
-    } else {
+    } else if (parsed.amount > 0) {
       payments.push({ amount: parsed.amount, method: parsed.method });
     }
 
-    for (const p of payments) {
-      // Create payment split record
-      const { error: splitError } = await supabase
-        .from("payment_splits")
-        .insert({
-          sale_id: sale.id,
-          amount: p.amount,
-          method: p.method,
-          cash_register_id: targetRegisterId
-        });
+    // Atomic write: sale header + item stock + payment splits + transactions +
+    // cash register balance, all in one DB transaction (no partial state on failure).
+    // @ts-expect-error - process_quick_sale is not in generated database.ts types
+    const { data: newSaleId, error: rpcError } = await supabase.rpc("process_quick_sale", {
+      p_is_warranty: parsed.is_warranty,
+      p_customer_id: parsed.customer_id ?? null,
+      p_amount: parsed.amount,
+      p_discount: parsed.discount,
+      p_notes: descriptionText,
+      p_created_by: userId,
+      p_sale_type: parsed.sale_type,
+      p_delivery_needed: parsed.delivery_needed,
+      p_delivery_address: parsed.delivery_address ?? null,
+      p_delivery_tracking: parsed.delivery_tracking ?? null,
+      p_warranty_start: parsed.warranty_start ?? null,
+      p_warranty_end: parsed.warranty_end ?? null,
+      p_return_reason: parsed.return_reason ?? null,
+      p_monobank_payment_id: parsed.monobank_payment_id ?? null,
+      p_partner_id: parsed.partner_id ?? null,
+      p_promo_code_used: parsed.promo_code_used ?? null,
+      p_item_category: parsed.item_category,
+      p_item_id: parsed.item_id ?? null,
+      p_cash_register_id: targetRegisterId,
+      p_payments: payments,
+    });
 
-      if (splitError) throw splitError;
-
-      // Create transaction log
-      const paymentMethodText = p.method === "cash" ? "Готівка" : p.method === "card" ? "Картка" : "Переказ";
-      const { error: txError } = await supabase
-        .from("transactions")
-        .insert({
-          amount: p.amount,
-          to_type: "cash_register",
-          to_id: targetRegisterId,
-          from_type: parsed.customer_id ? "customer" : "external",
-          from_id: parsed.customer_id,
-          reference_type: "sale",
-          reference_id: sale.id,
-          description: `${descriptionText} [Оплата: ${paymentMethodText}]`,
-          created_by: userId
-        });
-
-      if (txError) throw txError;
-
-      // Update cash register balance
-      const { data: cr } = await supabase
-        .from("cash_registers")
-        .select("balance")
-        .eq("id", targetRegisterId)
-        .single();
-        
-      if (cr) {
-        await supabase
-          .from("cash_registers")
-          .update({ balance: cr.balance + p.amount })
-          .eq("id", targetRegisterId);
-      }
-    }
+    if (rpcError) throw rpcError;
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
     revalidatePath("/admin/reports");
     revalidatePath("/admin/accessories");
-    
-    return { success: true, data: { saleId: sale.id } };
+
+    return { success: true, data: { saleId: newSaleId as unknown as string } };
   } catch (err) {
     return { success: false, error: parseError(err) };
   }
@@ -399,7 +293,10 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     }
 
     const rpcPayments = [];
+    // finalTotal === 0 (повністю знижений/безкоштовний продаж) → жодних оплат,
+    // інакше ділення на нуль дає NaN, який просочується у суми транзакцій.
     for (const p of payments) {
+      if (finalTotal <= 0) break;
       const distribution = [
         { type: "tech", amount: Math.round(p.amount * (techAmountFinal / finalTotal)) },
         { type: "accessories", amount: Math.round(p.amount * (accAmountFinal / finalTotal)) },
@@ -408,7 +305,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       distribution[2].amount = p.amount - distribution[0].amount - distribution[1].amount;
 
       for (const dist of distribution) {
-        if (dist.amount <= 0) continue;
+        if (!(dist.amount > 0)) continue;
         const targetRegisterId = regMap[dist.type];
         if (!targetRegisterId) continue;
 

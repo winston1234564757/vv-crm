@@ -71,6 +71,7 @@ type RepairDetailViewProps = {
     created_at: string;
     estimated_completion?: string | null;
     tracking_token?: string | null;
+    public_token?: string | null;
     ai_diagnostic?: AIDiagnosticData | null;
   };
   onEdit: () => void;
@@ -876,6 +877,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
           issue: repair.issue,
           warranty_months: repair.warranty_months,
           tracking_token: repair.tracking_token,
+          public_token: repair.public_token,
           price: repair.price,
           // For warranty receipt: parts from warehouse + main service
           repairItems: [

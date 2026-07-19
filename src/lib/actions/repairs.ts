@@ -202,7 +202,7 @@ const repairSchema = z.object({
   path: ["customer_id"]
 });
 
-export async function createRepair(prevState: ActionState | null, formData: FormData): Promise<ActionState<{ id: string, tracking_token: string, issue: string, price: number }>> {
+export async function createRepair(prevState: ActionState | null, formData: FormData): Promise<ActionState<{ id: string, tracking_token: string, public_token: string, issue: string, price: number }>> {
   try {
     let customerIdInput = formData.get("customer_id") as string | null;
     if (customerIdInput === "" || customerIdInput === "null" || customerIdInput === "undefined") {
@@ -277,7 +277,7 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       estimated_completion: parsed.estimated_completion,
       warranty_for_repair_id: parsed.warranty_for_repair_id,
       status: "received",
-    }).select("id, tracking_token").single();
+    }).select("id, tracking_token, public_token").single();
 
     if (error) throw error;
 
@@ -305,7 +305,7 @@ export async function createRepair(prevState: ActionState | null, formData: Form
     revalidatePath("/admin");
     revalidatePath("/admin/devices");
 
-    return { success: true, data: { id: newRepair.id, tracking_token: newRepair.tracking_token as string, issue: parsed.issue, price: parsed.price } };
+    return { success: true, data: { id: newRepair.id, tracking_token: newRepair.tracking_token as string, public_token: newRepair.public_token as string, issue: parsed.issue, price: parsed.price } };
   } catch (err) {
     return { success: false, error: parseError(err) };
   }
@@ -345,7 +345,7 @@ export async function updateRepairStatus(repairId: string, status: string): Prom
     // Notify customer about status update
     const { data: rep } = await supabase
       .from("repairs")
-      .select("device_name, tracking_token, price, cost, inventory_device_id, customers(telegram_id)")
+      .select("device_name, public_token, price, cost, inventory_device_id, customers(telegram_id)")
       .eq("id", repairId)
       .single();
 
@@ -354,10 +354,10 @@ export async function updateRepairStatus(repairId: string, status: string): Prom
     }
 
     const customer = hasCustomerTelegram(rep?.customers) ? rep.customers : null;
-    if (customer?.telegram_id && rep?.tracking_token) {
+    if (customer?.telegram_id && rep?.public_token) {
       await notifyCustomerRepairUpdate(
         customer.telegram_id,
-        rep.tracking_token,
+        rep.public_token,
         rep.device_name,
         status,
         rep.price
@@ -473,15 +473,15 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       // Notify customer about status update
       const { data: rep } = await supabase
         .from("repairs")
-        .select("device_name, tracking_token, customers(telegram_id)")
+        .select("device_name, public_token, customers(telegram_id)")
         .eq("id", parsed.id)
         .single();
 
       const customer = hasCustomerTelegram(rep?.customers) ? rep.customers : null;
-      if (customer?.telegram_id && rep?.tracking_token) {
+      if (customer?.telegram_id && rep?.public_token) {
         await notifyCustomerRepairUpdate(
           customer.telegram_id,
-          rep.tracking_token,
+          rep.public_token,
           rep.device_name,
           parsed.status,
           parsed.price

@@ -30,15 +30,15 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     const cleanPhone = decodedToken.replace(/\D/g, "");
     const { data: repairs, error: phoneError } = await supabase
       .from("repairs")
-      .select("id, tracking_token, device_name, status, created_at, customers!inner(phone)")
+      .select("id, tracking_token, public_token, device_name, status, created_at, customers!inner(phone)")
       .ilike("customers.phone", `%${cleanPhone.slice(-9)}%`)
       .order("created_at", { ascending: false });
 
     if (phoneError || !repairs || repairs.length === 0) notFound();
-    
-    // If only one repair found, redirect to its tracking token
+
+    // If only one repair found, redirect to its secret public token
     if (repairs.length === 1) {
-      redirect(`/track/${repairs[0].tracking_token}`);
+      redirect(`/track/${repairs[0].public_token}`);
     }
 
     // If multiple repairs found, render a list
@@ -61,7 +61,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
           
           <div className="space-y-4">
             {repairs.map((r: any) => (
-              <Link key={r.id} href={`/track/${r.tracking_token}`} className="block rounded-2xl border border-warm-border/60 bg-white p-5 transition-colors hover:border-violet/40 hover:bg-violet/[0.02]">
+              <Link key={r.id} href={`/track/${r.public_token}`} className="block rounded-2xl border border-warm-border/60 bg-white p-5 transition-colors hover:border-violet/40 hover:bg-violet/[0.02]">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-text-primary">{r.device_name}</h3>
@@ -79,11 +79,11 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     );
   }
 
-  // Default behavior: token is tracking_token
+  // Default behavior: token is the secret public_token (unguessable, not the 0001 number)
   const { data: repair, error } = await supabase
     .from("repairs")
     .select("*, customers(name)")
-    .eq("tracking_token", decodedToken.toUpperCase())
+    .eq("public_token", decodedToken)
     .single();
 
   if (error || !repair) notFound();

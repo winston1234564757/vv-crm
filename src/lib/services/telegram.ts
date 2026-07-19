@@ -68,7 +68,7 @@ export async function sendTelegramMessage(
  */
 export async function notifyCustomerRepairUpdate(
   telegramId: string,
-  trackingToken: string,
+  publicToken: string,
   deviceName: string,
   status: string,
   price: number
@@ -91,7 +91,7 @@ export async function notifyCustomerRepairUpdate(
       [
         {
           text: "🔗 Відстежити статус ремонту",
-          url: `${appUrl}/track/${trackingToken}`,
+          url: `${appUrl}/track/${publicToken}`,
         },
       ],
     ],

@@ -40,7 +40,7 @@ export async function getRepairByToken(token: string) {
   const { data, error } = await supabase
     .from("repairs")
     .select(repairWithCustomer)
-    .eq("tracking_token", token)
+    .eq("public_token", token)
     .single();
   if (error) return null;
   return attachCustomerName(data);

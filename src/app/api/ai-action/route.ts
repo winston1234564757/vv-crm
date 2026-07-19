@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       // Fetch latest repair to get device context
       const { data: latestRepair } = await adminClient
         .from("repairs")
-        .select("device_name, price, tracking_token")
+        .select("device_name, price, public_token")
         .eq("customer_id", entityId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
 
       const deviceName = latestRepair?.device_name || "ваш пристрій";
       const price = latestRepair?.price || 0;
-      const trackingUrl = latestRepair?.tracking_token 
-        ? `https://vv-crm.vercel.app/repair/${latestRepair.tracking_token}`
+      const trackingUrl = latestRepair?.public_token
+        ? `https://vv-crm.vercel.app/track/${latestRepair.public_token}`
         : "";
 
       let contextPrompt = "";

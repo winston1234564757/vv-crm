@@ -93,7 +93,7 @@ export function RepairForm({
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [selectedDiagnostics, setSelectedDiagnostics] = useState<string[]>([]);
 
-  const [createdData, setCreatedData] = useState<{id: string, tracking_token: string, issue: string, price: number} | null>(null);
+  const [createdData, setCreatedData] = useState<{id: string, tracking_token: string, public_token: string, issue: string, price: number} | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
 
@@ -203,6 +203,7 @@ export function RepairForm({
             device_name: deviceName,
             device_imei: deviceImei,
             tracking_token: createdData.tracking_token,
+            public_token: createdData.public_token,
             issue: createdData.issue || "Не вказано",
             price: createdData.price || 0
           }}

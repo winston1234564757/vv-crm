@@ -36,6 +36,7 @@ interface ReceiptPrintModalProps {
     issue?: string;
     warranty_months?: number;
     tracking_token?: string | null;
+    public_token?: string | null;
     price?: number;
     // For warranty receipt — list of parts/services performed:
     repairItems?: Array<{ name: string; quantity: number; unit_price: number }>;
@@ -221,8 +222,8 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
 
   const qrData = type === "sale"
     ? `VV-CRM-SALE-${data.id}`
-    : typeof window !== "undefined"
-      ? `${window.location.origin}/track/${data.tracking_token || data.id}`
+    : typeof window !== "undefined" && data.public_token
+      ? `${window.location.origin}/track/${data.public_token}`
       : `VV-CRM-REPAIR-${data.id}`;
 
   const renderReceiptContent = () => (

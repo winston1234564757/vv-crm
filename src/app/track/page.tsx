@@ -25,7 +25,7 @@ export default function TrackPage() {
           </span>
           <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary text-balance">Статус ремонту</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Введіть номер заявки або ваш номер телефону
+            Введіть ваш номер телефону або відскануйте QR-код із квитанції
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default function TrackPage() {
             required
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="Номер заявки або телефон"
+            placeholder="Ваш номер телефону"
             className="w-full rounded-xl border border-warm-border bg-warm-surface px-4 py-3.5 text-center text-lg font-semibold tracking-widest text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40"
           />
           <button

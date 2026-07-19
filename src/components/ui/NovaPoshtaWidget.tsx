@@ -24,8 +24,11 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 };
 
 export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidgetProps) {
-  const { data: fetchedStatus, isLoading, isError, error } = useNPTracking(ttn);
-  
+  // If the server already resolved the status (public tracking page), skip the
+  // client fetch entirely — /api/np-tracking now requires auth, and the public
+  // page is unauthenticated. Passing null disables the query (enabled: !!ttn).
+  const { data: fetchedStatus, isLoading, error } = useNPTracking(initialStatus ? null : ttn);
+
   // Use initialStatus if provided, otherwise fallback to fetched status
   const status = initialStatus || fetchedStatus;
   const loading = !initialStatus && isLoading;
