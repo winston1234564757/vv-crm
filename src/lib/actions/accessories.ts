@@ -29,6 +29,7 @@ const accessorySchema = z.object({
   source: z.string().optional().default("supplier"),
   barcode: z.string().nullable().optional(),
   warehouse_location: z.string().nullable().optional(),
+  photo_urls: z.array(z.string()).optional().default([]),
 });
 
 export async function createAccessory(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -45,9 +46,16 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       source: formData.get("source") || "supplier",
       barcode: formData.get("barcode") || null,
       warehouse_location: formData.get("warehouse_location") || null,
+      photo_urls: [], // will be handled after parsing
     };
 
     const parsed = accessorySchema.parse(data);
+
+    // Upload photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      parsed.photo_urls = await uploadMediaFiles(photoFiles, "accessories");
+    }
 
     const supabase = await createClient();
 
@@ -99,6 +107,7 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       source: parsed.source,
       barcode: parsed.barcode,
       warehouse_location: parsed.warehouse_location,
+      photo_urls: parsed.photo_urls,
       status: "active"
     } as AccessoryInsert).select("id").single();
 
@@ -149,11 +158,25 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       source: formData.get("source") || "supplier",
       barcode: formData.get("barcode") || null,
       warehouse_location: formData.get("warehouse_location") || null,
+      photo_urls: [], // placeholder
     };
 
     const parsed = accessorySchema.parse(data);
 
     const supabase = await createClient();
+    
+    // Upload photos if any
+    const photoFiles = formData.getAll("photos").filter(f => f instanceof File && f.size > 0) as File[];
+    if (photoFiles.length > 0) {
+      const { data: existingAcc } = await supabase.from("accessories").select("photo_urls").eq("id", id).single();
+      const existingUrls = existingAcc?.photo_urls || [];
+      const newUrls = await uploadMediaFiles(photoFiles, "accessories");
+      parsed.photo_urls = [...existingUrls, ...newUrls];
+    } else {
+      // Don't overwrite existing photos if no new ones are uploaded
+      delete (parsed as any).photo_urls;
+    }
+
     const { error } = await supabase.from("accessories").update(parsed as AccessoryUpdate).eq("id", id);
     if (error) throw error;
 

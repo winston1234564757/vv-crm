@@ -6,6 +6,8 @@ interface POSCatalogProps {
   activeMobileTab: "catalog" | "cart";
   activeCategory: "device" | "accessory" | "part" | "service" | null;
   setActiveCategory: (category: "device" | "accessory" | "part" | "service" | null) => void;
+  activeAccessoryCategory: string;
+  setActiveAccessoryCategory: (cat: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   filteredCatalogItems: CatalogItem[];
@@ -18,6 +20,8 @@ export function POSCatalog({
   activeMobileTab,
   activeCategory,
   setActiveCategory,
+  activeAccessoryCategory,
+  setActiveAccessoryCategory,
   searchQuery,
   setSearchQuery,
   filteredCatalogItems,
@@ -173,6 +177,33 @@ export function POSCatalog({
               className="w-full rounded-xl border border-warm-border bg-white pl-9 pr-4 py-3 text-sm text-text-primary outline-none focus:border-violet/40"
             />
           </div>
+
+          {/* Accessory Subcategories */}
+          {activeCategory === "accessory" && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {[
+                { id: "all", label: "Всі" },
+                { id: "case", label: "Чохли" },
+                { id: "charger", label: "Зарядні" },
+                { id: "cable", label: "Кабелі" },
+                { id: "headphones", label: "Навушники" },
+                { id: "screen_protector", label: "Скло" },
+                { id: "other", label: "Інше" }
+              ].map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => setActiveAccessoryCategory(sub.id)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    activeAccessoryCategory === sub.id
+                      ? "bg-violet text-white shadow-sm"
+                      : "bg-white border border-warm-border text-text-secondary hover:text-text-primary hover:border-violet/30"
+                  }`}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Grid display of filtered items */}
           {filteredCatalogItems.length === 0 ? (

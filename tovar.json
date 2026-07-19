@@ -1,0 +1,362 @@
+[
+    {
+        "name": "МЗП Hoco C104A PD20W (1USB-C) Білий",
+        "type": "charger",
+        "stock": 3,
+        "cost_price": 123,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Borofone BA97A PD30W (1USB-C) Чорний",
+        "type": "charger",
+        "stock": 3,
+        "cost_price": 153,
+        "price": 400,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco C145A Charm QC3.0 18W (1USB-A) Білий",
+        "type": "charger",
+        "stock": 2,
+        "cost_price": 109,
+        "price": 250,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Borofone BA95A Ilustre QC3.0 18W (1USB-A) Чорний",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 111,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco CS112A Lounge PD30W+QC3.0 (1USB-A/1C) Чорний",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 142,
+        "price": 350,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco CS112A Lounge PD30W+QC3.0 (1USB-A/1C) Білий",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 142,
+        "price": 350,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Borofone BN29 Fuente PD30W+QC3.0 (1USB-A/1C) Білий",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 170,
+        "price": 400,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco C149A Charm PD30W+QC3.0 (1USB-A/1C) Білий",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 179,
+        "price": 450,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco CS112A Lounge PD30W+QC3.0 + кабель Type-C to Type-C Чорний",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 167,
+        "price": 400,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco CS112A Lounge PD30W+QC3.0 + кабель Type-C to Type-C Білий",
+        "type": "charger",
+        "stock": 1,
+        "cost_price": 167,
+        "price": 400,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco N62 Gentle PD30W (1USB-C) + кабель Type-C to Lightning Чорний",
+        "type": "charger",
+        "stock": 2,
+        "cost_price": 197,
+        "price": 500,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "МЗП Hoco CS21A Rich QC3.0 18W + кабель USB to MicroUSB Чорний",
+        "type": "charger",
+        "stock": 2,
+        "cost_price": 116,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X109 Energy silicone USB to Lightning (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 51,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X109 Energy silicone USB to Lightning (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 51,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX114 Structure Type-C to Lightning 27W (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 70,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX114 Structure Type-C to Lightning 27W (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 70,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco U127 Power Type-C to Lightning (1.2m) Чорний",
+        "type": "cable",
+        "stock": 1,
+        "cost_price": 116,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco U127 Power Type-C to Lightning (1.2m) Срібний/Сірий",
+        "type": "cable",
+        "stock": 1,
+        "cost_price": 116,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель WIWU C086 Stellar USB to MicroUSB 2.1A (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 79,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Baseus Cafule USB to MicroUSB 2.4A (1m) Сірий/Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 107,
+        "price": 250,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX114 Structure USB to MicroUSB 2.4A (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 51,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX114 Structure USB to MicroUSB 2.4A (1m) Білий",
+        "type": "cable",
+        "stock": 1,
+        "cost_price": 51,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Baseus Cafule USB to Type-C 3A (1m) Чорний/Сірий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 102,
+        "price": 250,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Baseus Superior Series Fast Charging USB to Type-C 100W (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 121,
+        "price": 300,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX115 Lotto USB to Type-C 3A (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 53,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X96 Hyper Type-C to Type-C 100W (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 81,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X96 Hyper Type-C to Type-C 100W (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 81,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X127 Exceed Type-C to Type-C 60W (1m) Чорний",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 74,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Borofone BX115 Lotto Type-C to Type-C 60W (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 63,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Кабель Hoco X96 Hyper Type-C to Type-C 60W (1m) Білий",
+        "type": "cable",
+        "stock": 2,
+        "cost_price": 58,
+        "price": 150,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 14C / 17C / A4 / A5 / Poco C75 / C71 / M7 5G",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 13C / Poco C65",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi Note 11 / Note 11S / Note 12S",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 10C / 12C / A3 / A3x / Poco C40 / C61",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 10 / Note 10 5G / Poco M3 Pro",
+        "type": "screen_protector",
+        "stock": 1,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi Note 10 Pro / 11 Pro 4G/5G / 11E Pro / 12 Pro 4G",
+        "type": "screen_protector",
+        "stock": 2,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 9 / Poco M3 / Redmi 9T",
+        "type": "screen_protector",
+        "stock": 2,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi 9A / 9C / 10A / A1 / A1+ / A2 / A2+",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi Note 9s / Note 9 Pro / Note 9 Pro Max",
+        "type": "screen_protector",
+        "stock": 3,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    },
+    {
+        "name": "Захисне скло SKLO 5D (тех.пак) для Xiaomi Redmi Note 9 / Redmi 10X / Note 9T / Note 9 5G",
+        "type": "screen_protector",
+        "stock": 5,
+        "cost_price": 56,
+        "price": 200,
+        "min_stock": 2,
+        "status": "active"
+    }
+]

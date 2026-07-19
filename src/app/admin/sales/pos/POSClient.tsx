@@ -262,6 +262,8 @@ export function POSClient({
           activeMobileTab={activeMobileTab}
           activeCategory={catalog.activeCategory}
           setActiveCategory={catalog.setActiveCategory}
+          activeAccessoryCategory={catalog.activeAccessoryCategory}
+          setActiveAccessoryCategory={catalog.setActiveAccessoryCategory}
           searchQuery={catalog.searchQuery}
           setSearchQuery={catalog.setSearchQuery}
           filteredCatalogItems={catalog.filteredCatalogItems}

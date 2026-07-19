@@ -19,6 +19,11 @@ type AccessoryRow = {
   min_stock: number;
   description: string | null;
   is_visible: boolean;
+  warranty_months?: number;
+  source?: string;
+  barcode?: string | null;
+  warehouse_location?: string | null;
+  photo_urls?: string[] | null;
 };
 
 const typeLabels: Record<string, string> = { case: "Чохол", screen_protector: "Захисне скло", charger: "Зарядка", cable: "Кабель", headphones: "Навушники", other: "Інше" };

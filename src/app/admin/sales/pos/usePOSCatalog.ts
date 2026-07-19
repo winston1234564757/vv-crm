@@ -9,6 +9,7 @@ export function usePOSCatalog(
   cart: CartItem[]
 ) {
   const [activeCategory, setActiveCategory] = useState<"device" | "accessory" | "part" | "service" | null>(null);
+  const [activeAccessoryCategory, setActiveAccessoryCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const inStockDevices = useMemo(() => {
@@ -36,7 +37,11 @@ export function usePOSCatalog(
       );
     }
     if (activeCategory === "accessory") {
-      return activeAccessories.filter(a => 
+      let filtered = activeAccessories;
+      if (activeAccessoryCategory !== "all") {
+        filtered = filtered.filter(a => a.type === activeAccessoryCategory);
+      }
+      return filtered.filter(a => 
         a.name.toLowerCase().includes(query) || (a.sku && a.sku.toLowerCase().includes(query))
       );
     }
@@ -49,7 +54,7 @@ export function usePOSCatalog(
       return activeServices.filter(s => s.name.toLowerCase().includes(query));
     }
     return [];
-  }, [activeCategory, searchQuery, inStockDevices, activeAccessories, activeParts, activeServices]);
+  }, [activeCategory, activeAccessoryCategory, searchQuery, inStockDevices, activeAccessories, activeParts, activeServices]);
 
   const recommendations = useMemo(() => {
     if (cart.length === 0) return [];
@@ -198,6 +203,8 @@ export function usePOSCatalog(
   return {
     activeCategory,
     setActiveCategory,
+    activeAccessoryCategory,
+    setActiveAccessoryCategory,
     searchQuery,
     setSearchQuery,
     inStockDevices,

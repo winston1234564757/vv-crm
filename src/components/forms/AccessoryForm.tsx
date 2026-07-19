@@ -16,7 +16,7 @@ export function AccessoryForm({
   safes = []
 }: { 
   onSuccess: () => void; 
-  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null };
+  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null };
   safes?: Safe[];
 }) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
@@ -93,6 +93,18 @@ export function AccessoryForm({
         <input type="checkbox" name="is_visible" value="true" defaultChecked={accessory?.is_visible ?? false} className="h-4.5 w-4.5 rounded border-iris/20 text-violet focus:ring-violet" />
         <span className="text-sm font-medium text-text-primary">Показувати на вітрині</span>
       </label>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фотографії</label>
+        <input type="file" name="photos" multiple accept="image/*" className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white cursor-pointer hover:file:bg-violet-hover" />
+        {accessory?.photo_urls && accessory.photo_urls.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {accessory.photo_urls.map((url, i) => (
+              <img key={i} src={url} alt="Photo" className="h-16 w-16 object-cover rounded-lg border border-warm-border/50" />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="border-t border-warm-border/50 pt-4 space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
