@@ -74,28 +74,24 @@ export async function notifyCustomerRepairUpdate(
   price: number
 ): Promise<boolean> {
   const statusLabel = statusLabels[status] || status;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vv-crm.vercel.app";
-  
+  // Без фолбеку на чужий домен: якщо NEXT_PUBLIC_APP_URL не задано —
+  // не додаємо трекінг-посилання взагалі (краще без нього, ніж на чужий застосунок).
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const trackingUrl = appUrl ? `${appUrl}/track/${publicToken}` : null;
+
   const text = [
     `<b>Оновлення статусу вашого ремонту 🛠</b>\n`,
     `<b>Пристрій:</b> ${escHtml(deviceName)}`,
     `<b>Новий статус:</b> <code>${escHtml(statusLabel)}</code>`,
     price > 0 ? `<b>Вартість:</b> <code>${price.toLocaleString()} грн</code>` : "",
-    `\nВи можете переглянути детальну історію за посиланням нижче:`,
+    trackingUrl ? `\nВи можете переглянути детальну історію за посиланням нижче:` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
-  const replyMarkup = {
-    inline_keyboard: [
-      [
-        {
-          text: "🔗 Відстежити статус ремонту",
-          url: `${appUrl}/track/${publicToken}`,
-        },
-      ],
-    ],
-  };
+  const replyMarkup = trackingUrl
+    ? { inline_keyboard: [[{ text: "🔗 Відстежити статус ремонту", url: trackingUrl }]] }
+    : undefined;
 
   return sendTelegramMessage(telegramId, text, replyMarkup);
 }

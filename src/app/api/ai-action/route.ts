@@ -128,8 +128,10 @@ export async function POST(request: NextRequest) {
 
       const deviceName = latestRepair?.device_name || "ваш пристрій";
       const price = latestRepair?.price || 0;
-      const trackingUrl = latestRepair?.public_token
-        ? `https://vv-crm.vercel.app/track/${latestRepair.public_token}`
+      // Без хардкоду домену: посилання лише якщо задано NEXT_PUBLIC_APP_URL.
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const trackingUrl = (appUrl && latestRepair?.public_token)
+        ? `${appUrl}/track/${latestRepair.public_token}`
         : "";
 
       let contextPrompt = "";
