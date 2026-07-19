@@ -7,11 +7,21 @@ const withSerwist = withSerwistInit({
   disable: process.env.NODE_ENV === "development",
 });
 
+// Fix: Node 22.22.x + Webpack WasmHash incompatibility
+// https://github.com/webpack/webpack/issues/14532
 const nextConfig: NextConfig = {
-  /* config options here */
-
   typescript: {
     ignoreBuildErrors: true,
+  },
+  webpack(config) {
+    // Fix: Node 22.22.x + Webpack WasmHash (xxhash-wasm) incompatibility
+    // Falls back to md4 — a native crypto hash, no WASM required
+    config.output = {
+      ...config.output,
+      hashFunction: "md4",
+      hashDigest: "hex",
+    };
+    return config;
   },
 };
 
