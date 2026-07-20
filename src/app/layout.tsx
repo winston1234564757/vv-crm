@@ -1,15 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Readex_Pro } from "next/font/google";
+import { Space_Grotesk, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const readex = Readex_Pro({
-  variable: "--font-readex",
+// Body / UI — humanist-neutral grotesk, carries labels, tables, forms, data
+const hanken = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+// Display — geometric grotesk for headings and KPI numbers only
+const space = Space_Grotesk({
+  variable: "--font-space",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#fafbfc",
   width: "device-width",
   initialScale: 1,
 };
@@ -35,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="uk" className={`${readex.variable} h-full antialiased`}>
+    <html lang="uk" className={`${hanken.variable} ${space.variable} h-full antialiased`}>
       <body className="min-h-full">
         <QueryProvider>
           {children}

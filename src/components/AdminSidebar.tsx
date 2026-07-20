@@ -4,72 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { IconLogo, IconLogout, IconChevron } from "./icons";
+import { cn } from "@/lib/utils/cn";
 import {
-  IconGrid, IconDevice, IconAccessory, IconRepair,
-  IconCustomer, IconReport, IconFinance, IconLogo,
-  IconLogout, IconBox, IconSettings
-} from "./icons";
-
-// Unique semantic icons for each nav section
-function IconSupplier({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <rect x="2" y="3" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M13 7H16L18 10V16H13" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      <circle cx="5.5" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-      <circle cx="15.5" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-    </svg>
-  );
-}
-
-function IconSale({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M3 5C3 3.9 3.9 3 5 3H9.5L17 10.5L11.5 16L4 8.5V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      <circle cx="6.5" cy="6.5" r="1" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function IconPurchase({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M3 3H5L6.5 12H14.5L16 6H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="8" cy="15.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-      <circle cx="13" cy="15.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-    </svg>
-  );
-}
-
-function IconPartner({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-      <circle cx="13" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M2 17C2 14 4 12 7 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M18 17C18 14 16 12 13 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M9 17C9 14.5 10 13 10 13C10 13 11 14.5 11 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  );
-}
-
-const navItems = [
-  { href: "/admin",             label: "Дашборд",       icon: <IconGrid /> },
-  { href: "/admin/devices",     label: "Техніка",       icon: <IconDevice /> },
-  { href: "/admin/services",    label: "Послуги",       icon: <IconBox /> },
-  { href: "/admin/accessories", label: "Аксесуари",     icon: <IconAccessory /> },
-  { href: "/admin/parts",       label: "Запчастини",    icon: <IconRepair /> },
-  { href: "/admin/suppliers",   label: "Постачальники", icon: <IconSupplier /> },
-  { href: "/admin/purchases",   label: "Закупівлі",     icon: <IconPurchase /> },
-  { href: "/admin/sales",       label: "Продажі",       icon: <IconSale /> },
-  { href: "/admin/repairs",     label: "Ремонти",       icon: <IconRepair /> },
-  { href: "/admin/customers",   label: "Клієнти",       icon: <IconCustomer /> },
-  { href: "/admin/finance",     label: "Фінанси",       icon: <IconFinance /> },
-  { href: "/admin/partners",    label: "Партнери",      icon: <IconPartner /> },
-  { href: "/admin/reports",     label: "Звіти",         icon: <IconReport /> },
-  { href: "/admin/settings",    label: "Налаштування",  icon: <IconSettings /> },
-  { href: "/admin/store-launch",label: "Запуск Магазину",icon: <IconGrid />, ownerOnly: true },
-];
+  visibleGroups,
+  isItemActive,
+  getActiveGroup,
+  type NavGroup,
+} from "@/lib/nav-config";
 
 const roleLabels: Record<string, string> = {
   owner: "Власник",
@@ -86,18 +28,24 @@ export default function AdminSidebar() {
   const [rawRole, setRawRole] = useState<string>("admin");
   const [shopName, setShopName] = useState("VV CRM");
 
+  const activeGroup = getActiveGroup(pathname);
+  const [openId, setOpenId] = useState<string | null>(activeGroup?.id ?? null);
+
+  // Keep the active group expanded as the user navigates.
+  useEffect(() => {
+    if (activeGroup && !activeGroup.standalone) setOpenId(activeGroup.id);
+  }, [activeGroup]);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user && user.email) {
         setUserEmail(user.email);
-
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", user.id)
           .single();
-
         if (profile?.role) {
           setRawRole(profile.role);
           setUserRole(roleLabels[profile.role] ?? profile.role);
@@ -111,13 +59,9 @@ export default function AdminSidebar() {
       .eq("key", "shop_name")
       .single()
       .then(({ data }) => {
-        if (data && typeof data.value === "string") {
-          setShopName(data.value);
-        }
+        if (data && typeof data.value === "string") setShopName(data.value);
       });
   }, []);
-
-
 
   async function handleLogout() {
     const supabase = createClient();
@@ -126,50 +70,118 @@ export default function AdminSidebar() {
     router.refresh();
   }
 
+  const groups = visibleGroups(rawRole);
+
+  function handleGroupClick(group: NavGroup) {
+    setOpenId(group.id);
+    router.push(group.items[0].href);
+  }
+
   const SidebarContent = () => (
     <>
-      <div className="flex h-16 items-center gap-3 px-6 border-b border-warm-border">
-        <span className="text-violet"><IconLogo /></span>
-        <span className="text-lg font-semibold tracking-tight text-text-primary">
+      <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
+        <span className="text-accent"><IconLogo /></span>
+        <span className="text-lg font-semibold tracking-tight text-ink font-display">
           {shopName}
         </span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 pt-4 overflow-y-auto">
-        {navItems.filter(item => !('ownerOnly' in item) || (item.ownerOnly && (rawRole === "owner" || userRole === "Власник"))).map((item) => {
-          const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+      <nav className="flex-1 space-y-1 px-3 pt-4 overflow-y-auto">
+        {groups.map((group) => {
+          const isActiveGroup = activeGroup?.id === group.id;
+
+          // Standalone groups (Dashboard, Settings, Store launch) — a single link.
+          if (group.standalone) {
+            const item = group.items[0];
+            const Icon = item.icon;
+            const active = isItemActive(pathname, item.href);
+            return (
+              <Link
+                key={group.id}
+                href={item.href}
+                className={cn(
+                  "group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+                  active
+                    ? "bg-accent-subtle text-accent-ink"
+                    : "text-muted hover:bg-hover hover:text-ink",
+                )}
+              >
+                <span className="w-5 flex items-center justify-center shrink-0">
+                  <Icon size={20} />
+                </span>
+                {group.label}
+              </Link>
+            );
+          }
+
+          // Grouped section — header toggles expansion + navigates to first item.
+          const GroupIcon = group.icon;
+          const open = openId === group.id;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2 ${
-                active
-                  ? "bg-violet-subtle text-violet"
-                  : "text-text-secondary hover:bg-warm-hover hover:text-text-primary"
-              }`}
-            >
-              <span className="w-5 flex items-center justify-center shrink-0">
-                {item.icon}
-              </span>
-              {item.label}
-            </Link>
+            <div key={group.id}>
+              <button
+                type="button"
+                onClick={() => handleGroupClick(group)}
+                aria-expanded={open}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+                  isActiveGroup
+                    ? "text-ink font-semibold"
+                    : "text-muted hover:bg-hover hover:text-ink font-medium",
+                )}
+              >
+                <span className="w-5 flex items-center justify-center shrink-0">
+                  <GroupIcon size={20} />
+                </span>
+                <span className="flex-1 text-left">{group.label}</span>
+                <IconChevron
+                  size={14}
+                  className={cn(
+                    "shrink-0 text-faint transition-transform duration-200",
+                    open ? "rotate-90" : "",
+                  )}
+                />
+              </button>
+
+              {open && (
+                <div className="mt-0.5 space-y-0.5 pb-1">
+                  {group.items.map((item) => {
+                    const active = isItemActive(pathname, item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-[var(--radius-md)] py-2 pl-11 pr-3 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+                          active
+                            ? "bg-accent-subtle text-accent-ink font-medium"
+                            : "text-muted hover:bg-hover hover:text-ink",
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
 
-      <div className="border-t border-warm-border px-6 py-3">
+      <div className="border-t border-border px-6 py-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-subtle text-xs font-semibold text-violet capitalize">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent-ink capitalize">
             {userRole[0] ?? "А"}
           </span>
           <div>
-            <p className="text-sm font-medium text-text-primary">{userRole}</p>
-            <p className="text-xs text-text-secondary truncate max-w-[160px]" title={userEmail}>{userEmail}</p>
+            <p className="text-sm font-medium text-ink">{userRole}</p>
+            <p className="text-xs text-muted truncate max-w-[160px]" title={userEmail}>{userEmail}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="btn-press mt-3 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose"
+          className="btn-press mt-3 flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-danger-subtle hover:text-danger"
         >
           <IconLogout /> Вийти
         </button>
@@ -180,15 +192,15 @@ export default function AdminSidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex inset-y-0 left-0 z-40 w-72 flex-col bg-warm-sidebar transition-[transform] duration-200 ease-out border-r border-warm-border">
+      <aside className="hidden md:flex inset-y-0 left-0 z-40 w-72 flex-col bg-sidebar border-r border-border">
         {SidebarContent()}
       </aside>
 
       {/* Mobile: sticky top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between bg-warm-surface border-b border-warm-border px-4">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between bg-surface border-b border-border px-4">
         <div className="flex items-center gap-2">
-          <span className="text-violet"><IconLogo size={20} /></span>
-          <span className="text-base font-semibold tracking-tight text-text-primary">{shopName}</span>
+          <span className="text-accent"><IconLogo size={20} /></span>
+          <span className="text-base font-semibold tracking-tight text-ink font-display">{shopName}</span>
         </div>
       </div>
     </>

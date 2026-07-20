@@ -23,14 +23,14 @@ export interface DashboardClientProps {
 }
 
 export const statusColors: Record<string, string> = {
-  received: "#6366F1", // Neo-Violet
-  diagnostics: "#F59E0B", // Neon Amber
-  in_progress: "#A855F7", // Neon Purple
-  awaiting_parts: "#F43F5E", // Neon Rose
-  ready: "#06B6D4", // Electric Cyan
-  completed: "#10B981", // Green
-  handed_over: "#6B7280", // Gray
-  cancelled: "#EF4444", // Red
+  received: "var(--color-accent)",
+  diagnostics: "var(--color-warning)",
+  in_progress: "var(--color-info)",
+  awaiting_parts: "var(--color-danger)",
+  ready: "var(--color-success)",
+  completed: "var(--color-success)",
+  handed_over: "var(--color-muted)",
+  cancelled: "var(--color-danger)",
 };
 
 export const statusLabels: Record<string, string> = {
@@ -82,10 +82,10 @@ export type SmartInsight = {
 };
 
 export const URGENCY_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  CRITICAL: { label: "КРИТИЧНО", color: "#F43F5E", bg: "rgba(244,63,94,0.06)", border: "rgba(244,63,94,0.18)" },
-  LOW: { label: "МАЛО", color: "#F59E0B", bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.18)" },
-  DEAD_STOCK: { label: "DEAD STOCK", color: "#6366F1", bg: "rgba(99,102,241,0.06)", border: "rgba(99,102,241,0.18)" },
-  OK: { label: "ОК", color: "#10B981", bg: "rgba(16,185,129,0.06)", border: "rgba(16,185,129,0.18)" },
+  CRITICAL: { label: "КРИТИЧНО", color: "var(--color-danger)", bg: "var(--color-danger-subtle)", border: "var(--color-danger-subtle)" },
+  LOW: { label: "МАЛО", color: "var(--color-warning)", bg: "var(--color-warning-subtle)", border: "var(--color-warning-subtle)" },
+  DEAD_STOCK: { label: "МЕРТВИЙ СТОК", color: "var(--color-accent-ink)", bg: "var(--color-accent-subtle)", border: "var(--color-accent-subtle)" },
+  OK: { label: "ОК", color: "var(--color-success)", bg: "var(--color-success-subtle)", border: "var(--color-success-subtle)" },
 };
 
 export const DOW_UA = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];

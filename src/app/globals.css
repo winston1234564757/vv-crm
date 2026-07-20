@@ -1,53 +1,126 @@
 @import "tailwindcss";
 
-@theme inline {
-  --font-sans: var(--font-readex), system-ui, sans-serif;
+/*
+  VV CRM — Design tokens (v2: "Warm workshop, cool tool")
+  Light theme. Teal accent (cool). Neutral off-white surfaces (chroma ~0).
+  Warmth lives in copy, spacing, soft radii and human empty states — not in the bg hue.
+  OKLCH throughout. Legacy token names (--color-violet, --color-warm-*, …) are kept as
+  aliases with identical values so existing markup keeps working during migration.
+*/
 
-  --color-warm-bg: oklch(96% 0.006 60);
-  --color-warm-surface: oklch(100% 0 0 / 1);
-  --color-warm-sidebar: oklch(94% 0.005 60);
-  --color-warm-border: oklch(90% 0.005 60);
-  --color-warm-hover: oklch(92% 0.005 60);
+@theme {
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+  --font-display: var(--font-space), var(--font-hanken), system-ui, sans-serif;
 
-  --color-violet: oklch(50% 0.18 290);
-  --color-violet-hover: oklch(42% 0.18 290);
-  --color-violet-subtle: oklch(50% 0.06 290 / 0.1);
+  /* ----- Neutrals (cool-neutral, near chroma 0) ----- */
+  --color-bg: oklch(98.4% 0.002 240);
+  --color-surface: oklch(100% 0 0);
+  --color-elevated: oklch(99.2% 0.002 240);
+  --color-sidebar: oklch(97% 0.003 240);
+  --color-border: oklch(92% 0.004 240);
+  --color-border-strong: oklch(87% 0.006 240);
+  --color-hover: oklch(96% 0.004 240);
 
-  --color-text-primary: oklch(20% 0.01 60);
-  --color-text-secondary: oklch(40% 0.01 60);
-  --color-text-muted: oklch(55% 0.01 60);
+  /* ----- Ink / text ----- */
+  --color-ink: oklch(23% 0.012 250);
+  --color-muted: oklch(45% 0.012 250);
+  --color-faint: oklch(56% 0.012 250);
 
-  --color-iris: oklch(45% 0.01 60);
+  /* ----- Accent (teal) ----- */
+  --color-accent: oklch(51% 0.11 194);
+  --color-accent-hover: oklch(45% 0.11 194);
+  --color-accent-active: oklch(39% 0.10 194);
+  --color-accent-subtle: oklch(51% 0.08 194 / 0.12);
+  --color-accent-ink: oklch(40% 0.09 194);
+  --color-on-accent: oklch(100% 0 0);
 
-  --color-rose: oklch(50% 0.2 25);
-  --color-amber: oklch(65% 0.18 85);
-  --color-emerald: oklch(55% 0.15 145);
-  --color-cyan: oklch(55% 0.12 210);
+  /* ----- Semantic ----- */
+  --color-success: oklch(52% 0.13 162);
+  --color-success-subtle: oklch(52% 0.13 162 / 0.12);
+  --color-warning: oklch(62% 0.14 74);
+  --color-warning-subtle: oklch(62% 0.14 74 / 0.14);
+  --color-danger: oklch(53% 0.19 26);
+  --color-danger-subtle: oklch(53% 0.19 26 / 0.12);
+  --color-info: oklch(54% 0.11 236);
+  --color-info-subtle: oklch(54% 0.11 236 / 0.12);
+
+  /* ----- Radius scale ----- */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ----- Semantic z-index scale ----- */
+  --z-dropdown: 30;
+  --z-sticky: 40;
+  --z-drawer-backdrop: 50;
+  --z-drawer: 60;
+  --z-modal-backdrop: 70;
+  --z-modal: 80;
+  --z-toast: 90;
+  --z-tooltip: 100;
+
+  /* =========================================================
+     Legacy aliases (identical values) — remove file-by-file
+     ========================================================= */
+  --color-warm-bg: oklch(98.4% 0.002 240);
+  --color-warm-surface: oklch(100% 0 0);
+  --color-warm-sidebar: oklch(97% 0.003 240);
+  --color-warm-border: oklch(92% 0.004 240);
+  --color-warm-hover: oklch(96% 0.004 240);
+
+  --color-violet: oklch(51% 0.11 194);
+  --color-violet-hover: oklch(45% 0.11 194);
+  --color-violet-subtle: oklch(51% 0.08 194 / 0.12);
+
+  --color-text-primary: oklch(23% 0.012 250);
+  --color-text-secondary: oklch(45% 0.012 250);
+  --color-text-muted: oklch(56% 0.012 250);
+
+  --color-iris: oklch(45% 0.012 250);
+
+  --color-rose: oklch(53% 0.19 26);
+  --color-amber: oklch(62% 0.14 74);
+  --color-emerald: oklch(52% 0.13 162);
+  --color-cyan: oklch(54% 0.11 236);
 }
 
 body {
   min-height: 100vh;
-  background-color: var(--color-warm-bg);
-  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Display family for headings / KPI numbers */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Tabular figures for tables, money, KPI stats */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 .card {
-  background-color: var(--color-warm-surface);
-  border: 1px solid var(--color-warm-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.05);
 }
 
 .card-hover:hover {
-  box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
-  border-color: oklch(88% 0.005 60);
+  box-shadow: 0 4px 14px oklch(0% 0 0 / 0.08);
+  border-color: var(--color-border-strong);
 }
 
 *:focus-visible {
-  outline: 2px solid var(--color-violet);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -73,11 +146,11 @@ body {
 }
 
 .animate-entry {
-  animation: fade-slide-in 250ms ease-out both;
+  animation: fade-slide-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 .animate-entry-stagger {
-  animation: fade-slide-in 250ms ease-out both;
+  animation: fade-slide-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 /* Stagger delays */
@@ -107,16 +180,16 @@ body {
   }
 
   .card-hover:hover {
-    box-shadow: 0 1px 3px oklch(0% 0 0 / 0.06);
-    border-color: var(--color-warm-border);
+    box-shadow: 0 1px 3px oklch(0% 0 0 / 0.05);
+    border-color: var(--color-border);
   }
 }
 
 /* Touch device hover guard */
 @media (hover: hover) and (pointer: fine) {
   .card-hover:hover {
-    box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
-    border-color: oklch(88% 0.005 60);
+    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.08);
+    border-color: var(--color-border-strong);
   }
 }
 
@@ -127,16 +200,16 @@ body {
     display: none !important;
     visibility: hidden !important;
   }
-  
+
   body {
     background: white !important;
     color: #000 !important;
   }
-  
+
   body * {
     visibility: hidden;
   }
-  
+
   /* Only show printable areas */
   .printable-receipt {
     display: block !important;
@@ -160,7 +233,7 @@ body {
   .printable-receipt, .printable-receipt * {
     visibility: visible !important;
   }
-  
+
   /* Dotted dividers for clean receipt aesthetic */
   .receipt-divider {
     border-top: 1px dashed #000 !important;
@@ -168,4 +241,3 @@ body {
     height: 0 !important;
   }
 }
-

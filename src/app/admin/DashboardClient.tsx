@@ -1,27 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  IconPlus, 
-  IconWarning, 
-  IconSearch, 
-  IconDevice, 
-  IconCustomer, 
-  IconFinance, 
-  IconBox 
-} from "@/components/icons";
-import StandardCard from "@/components/ui/StandardCard";
+import { IconPlus, IconCustomer, IconBox } from "@/components/icons";
 import { AddRepairButton } from "./repairs/AddRepairButton";
 import { AddSaleButton } from "./AddSaleButton";
-import { AddDeviceButton } from "./devices/AddDeviceButton";
 import { CurrentTime } from "@/components/CurrentTime";
 import Drawer from "@/components/ui/Drawer";
+import { StatCard } from "@/components/ui/StatCard";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { SaleDetailView } from "@/components/SaleDetailView";
 import { RepairDetailView } from "@/components/RepairDetailView";
 import { EditRepairForm } from "@/components/forms/EditRepairForm";
 import { pluralUk } from "@/lib/utils/plural";
+import { cn } from "@/lib/utils/cn";
 
 import type { DashboardData } from "@/lib/data-dashboard";
 import type { getCustomers } from "@/lib/data-customers";
@@ -37,17 +30,6 @@ type Devices = Awaited<ReturnType<typeof getDevices>>;
 type Accessories = Awaited<ReturnType<typeof getAccessories>>;
 type Services = Awaited<ReturnType<typeof getServices>>;
 
-const statusColors: Record<string, string> = {
-  received: "#6366F1", // Neo-Violet
-  diagnostics: "#F59E0B", // Neon Amber
-  in_progress: "#A855F7", // Neon Purple
-  awaiting_parts: "#F43F5E", // Neon Rose
-  ready: "#06B6D4", // Electric Cyan
-  completed: "#10B981", // Green
-  handed_over: "#6B7280", // Gray
-  cancelled: "#EF4444", // Red
-};
-
 const statusLabels: Record<string, string> = {
   received: "Прийнято",
   diagnostics: "Діагностика",
@@ -58,6 +40,31 @@ const statusLabels: Record<string, string> = {
   handed_over: "Видано",
   cancelled: "Скасовано",
 };
+
+const statusTones: Record<string, BadgeTone> = {
+  received: "info",
+  diagnostics: "warning",
+  in_progress: "accent",
+  awaiting_parts: "danger",
+  ready: "success",
+  completed: "success",
+  handed_over: "neutral",
+  cancelled: "danger",
+};
+
+const btnPrimary =
+  "btn-press inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] h-10 px-4 text-sm font-medium bg-accent text-on-accent hover:bg-accent-hover transition-colors";
+const btnSecondary =
+  "btn-press inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] h-10 px-4 text-sm font-medium bg-surface text-ink border border-border-strong hover:bg-hover transition-colors";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-muted">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
 interface DashboardClientProps {
   userRole: "owner" | "manager" | "technician" | "sales";
@@ -76,15 +83,13 @@ import {
   SalesTargetRing,
   OpexRunwayCard,
   RefurbishmentWidget,
-  RefurbishmentDetailsModal,
   B2BPartnerShareWidget,
   CrossSellWidget,
   SalesVelocityMatrix,
   PhoneModelDemandWidget,
   RevenueHeatmapWidget,
   StockoutIntelligenceWidget,
-  AIInsightPanel,
-  StockAlerts
+  StockAlerts,
 } from "@/components/dashboard/Widgets";
 
 export function DashboardClient({ userRole, stats, repairs, customers, cashRegisters, devices, accessories, services }: DashboardClientProps) {
@@ -92,150 +97,119 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
   const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
   const [selectedRepair, setSelectedRepair] = useState<any | null>(null);
   const [isEditingRepair, setIsEditingRepair] = useState(false);
-  const [isRefurbModalOpen, setIsRefurbModalOpen] = useState(false);
   const today = new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
 
+  const isLeadership = userRole === "owner" || userRole === "manager";
+
   return (
-    <div className="space-y-6 text-text-primary">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-5">
+    <div className="space-y-8">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-5">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5 text-balance">Панель керування <CurrentTime /></h1>
-          <p className="mt-1 text-xs text-slate-500 capitalize font-medium">{today}</p>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink flex items-center gap-2.5 text-balance">
+            Панель керування <CurrentTime />
+          </h1>
+          <p className="mt-1 text-sm text-muted capitalize">{today}</p>
         </div>
-        {(userRole === "owner" || userRole === "manager") && (
-          <div className="flex flex-row gap-2 mt-4 md:mt-0 w-full md:w-auto">
-            <AddSaleButton 
-              customers={customers} 
-              cashRegisters={cashRegisters} 
-              devices={devices} 
-              accessories={accessories} 
-              services={services} 
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-violet px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer shadow-sm"
-            >
+        {isLeadership && (
+          <div className="flex flex-row gap-2 w-full md:w-auto">
+            <AddSaleButton customers={customers} cashRegisters={cashRegisters} devices={devices} accessories={accessories} services={services} className={cn(btnPrimary, "flex-1 md:flex-none")}>
               <IconPlus /> <span className="hidden sm:inline">Новий продаж</span><span className="sm:hidden">Продаж</span>
             </AddSaleButton>
-            <AddRepairButton 
-              customers={customers} 
-              devices={devices} 
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl border border-[#6366F1]/30 bg-[#6366F1]/10 px-4 py-2.5 text-sm font-semibold text-[#6366F1] transition-all hover:bg-[#6366F1]/20 cursor-pointer shadow-sm"
-            >
+            <AddRepairButton customers={customers} devices={devices} className={cn(btnSecondary, "flex-1 md:flex-none")}>
               <IconPlus /> <span className="hidden sm:inline">Прийняти в ремонт</span><span className="sm:hidden">Ремонт</span>
             </AddRepairButton>
           </div>
         )}
-      </div>
+      </header>
 
-      {/* Sales Target Status Line Widget */}
-      {(userRole === "owner" || userRole === "manager") && stats.ownerStats && (
-        <TodaySalesStatusLine 
-          todayTotal={stats.ownerStats.todaySalesTotal} 
-          target={stats.ownerStats.salesTarget} 
-        />
+      {isLeadership && stats.ownerStats && (
+        <TodaySalesStatusLine todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} />
       )}
       {userRole === "sales" && stats.salesStats && (
-        <TodaySalesStatusLine 
-          todayTotal={stats.salesStats.todaySalesTotal} 
-          target={15000} // Target is 15k
-        />
+        <TodaySalesStatusLine todayTotal={stats.salesStats.todaySalesTotal} target={15000} />
       )}
 
-      {(userRole === "owner" || userRole === "manager") && stats.ownerStats && (
+      {isLeadership && stats.ownerStats && (
         <>
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
-            <div className="md:col-span-3 flex flex-col md:flex-row gap-4 md:gap-6">
-              <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
-              <SalesTargetRing todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} progress={stats.ownerStats.salesProgress} />
-              <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
-            </div>
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
-              <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Утримання клієнтів</h3>
-                <h4 className="text-sm font-bold text-slate-900 mt-0.5">Retention & Loyalty</h4>
+          <Section title="Сьогодні">
+            <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-4">
+              <div className="md:col-span-3 flex flex-col md:flex-row gap-4 md:gap-5">
+                <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
+                <SalesTargetRing todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} progress={stats.ownerStats.salesProgress} />
+                <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
               </div>
-              <div className="my-3">
-                <p className="text-[10px] text-slate-500">Коефіцієнт повернень (90д)</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-extrabold font-mono text-[#06B6D4]">{stats.ownerStats.customerReturnRate}%</span>
-                  <span className="text-[9px] text-[#10B981] font-semibold">Повторні візити</span>
-                </div>
-                <div className="mt-3.5 border-t border-slate-100 pt-2 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>Активні клієнти зміни:</span>
-                  <span className="text-slate-800 font-bold">{stats.ownerStats.newCustomers} нових</span>
-                </div>
-              </div>
-              <div className="text-[9px] text-slate-400 border-t border-slate-100 pt-2 flex items-center justify-between font-mono">
-                <span>Loyalty metrics</span>
-                <span className="text-[#06B6D4] font-medium">LTV Flow</span>
+              <StatCard
+                label="Утримання клієнтів"
+                tone="info"
+                value={`${stats.ownerStats.customerReturnRate}%`}
+                sub={<>Повторні візити (90д) · <span className="text-ink font-medium">{stats.ownerStats.newCustomers}</span> нових</>}
+              />
+            </div>
+          </Section>
+
+          <Section title="Гроші">
+            <div className="card p-5">
+              <p className="text-sm font-medium text-muted mb-4">Фінансові баланси</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-6">
+                {stats.ownerStats.cashRegisters.map((cr) => (
+                  <button key={cr.id} onClick={() => router.push("/admin/finance")} className="btn-press flex flex-col justify-between rounded-[var(--radius-md)] bg-hover p-4 text-left cursor-pointer border border-border hover:border-border-strong transition-colors">
+                    <span className="text-xs font-medium text-muted truncate">{cr.name}</span>
+                    <p className="mt-3 text-lg font-semibold tabular text-ink">{cr.balance.toLocaleString()} ₴</p>
+                  </button>
+                ))}
+                {stats.ownerStats.safes.map((sf) => (
+                  <button key={sf.id} onClick={() => router.push("/admin/finance")} className="btn-press flex flex-col justify-between rounded-[var(--radius-md)] bg-hover p-4 text-left cursor-pointer border border-border hover:border-border-strong transition-colors">
+                    <span className="text-xs font-medium text-muted truncate">Сейф: {sf.name}</span>
+                    <p className="mt-3 text-lg font-semibold tabular text-accent-ink">{sf.balance.toLocaleString()} ₴</p>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
+          </Section>
 
-          <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            <SalesVelocityMatrix velocity={stats.ownerStats.salesVelocity} peakHours={stats.ownerStats.peakHours} />
-            <RefurbishmentWidget 
-              capital={stats.ownerStats.refurbishmentCapital} 
-              margin={stats.ownerStats.refurbishmentMargin} 
-              onClick={() => setIsRefurbModalOpen(true)}
-            />
-            <B2BPartnerShareWidget share={stats.ownerStats.partnerVolumeShare} revenue={stats.ownerStats.partnerRevenueTotal} />
-            <CrossSellWidget conversionRate={stats.ownerStats.crossSellConversionRate} revenue={stats.ownerStats.crossSellRevenue30Days} dealsCount={stats.ownerStats.crossSellDealsCount} />
-            <StockAlerts alerts={stats.ownerStats.alerts} />
-          </div>
-
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-4 tracking-tight">💰 Фінансові баланси</h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-6">
-              {stats.ownerStats.cashRegisters.map((cr) => (
-                <div key={cr.id} onClick={() => router.push("/admin/finance")} className="group flex flex-col justify-between rounded-xl bg-slate-50 p-4 cursor-pointer hover:bg-slate-100/60 transition-all border border-slate-200/40 hover:border-[#6366F1]/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500 truncate max-w-[80px]">{cr.name}</span>
-                    <span className="h-2 w-2 rounded-full bg-[#06B6D4] animate-pulse shrink-0" />
-                  </div>
-                  <p className="mt-3 text-lg font-bold font-mono text-slate-900">{cr.balance.toLocaleString()} ₴</p>
-                </div>
-              ))}
-              {stats.ownerStats.safes.map((sf) => (
-                <div key={sf.id} onClick={() => router.push("/admin/finance")} className="group flex flex-col justify-between rounded-xl bg-slate-50 p-4 cursor-pointer hover:bg-slate-100/60 transition-all border border-slate-200/40 hover:border-[#A855F7]/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500 truncate max-w-[80px]">Сейф: {sf.name}</span>
-                    <span className="h-2 w-2 rounded-full bg-[#A855F7] animate-pulse shrink-0" />
-                  </div>
-                  <p className="mt-3 text-lg font-bold font-mono text-[#A855F7]">{sf.balance.toLocaleString()} ₴</p>
-                </div>
-              ))}
+          <Section title="Продажі та канали">
+            <div className="grid grid-cols-1 gap-4 md:gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <SalesVelocityMatrix velocity={stats.ownerStats.salesVelocity} peakHours={stats.ownerStats.peakHours} />
+              <RefurbishmentWidget capital={stats.ownerStats.refurbishmentCapital} margin={stats.ownerStats.refurbishmentMargin} onClick={() => router.push("/admin/devices")} />
+              <B2BPartnerShareWidget share={stats.ownerStats.partnerVolumeShare} revenue={stats.ownerStats.partnerRevenueTotal} />
+              <CrossSellWidget conversionRate={stats.ownerStats.crossSellConversionRate} revenue={stats.ownerStats.crossSellRevenue30Days} dealsCount={stats.ownerStats.crossSellDealsCount} />
             </div>
-          </div>
+          </Section>
 
-          {/* Smart Intelligence Row 1: Model Demand + Revenue Heatmap */}
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
-            <PhoneModelDemandWidget models={stats.ownerStats.modelAnalytics} />
-            <RevenueHeatmapWidget heatmap={stats.ownerStats.revenueHeatmap} />
-          </div>
+          <Section title="Склад — сигнали">
+            <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-2">
+              <StockAlerts alerts={stats.ownerStats.alerts} />
+              <StockoutIntelligenceWidget items={stats.ownerStats.stockoutForecast} />
+            </div>
+          </Section>
 
-          {/* Smart Intelligence Row 2: Stockout + AI Insights */}
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
-            <StockoutIntelligenceWidget items={stats.ownerStats.stockoutForecast} />
-            <AIInsightPanel insights={[]} />
-          </div>
+          <Section title="Аналітика">
+            <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
+              <PhoneModelDemandWidget models={stats.ownerStats.modelAnalytics} />
+              <RevenueHeatmapWidget heatmap={stats.ownerStats.revenueHeatmap} />
+            </div>
+          </Section>
         </>
       )}
 
       {userRole === "technician" && stats.techStats && (
-        <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 mb-4 tracking-tight">Мої ремонти в роботі</h3>
+        <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
+          <div className="md:col-span-2 card p-5">
+            <h3 className="text-sm font-semibold text-ink mb-3">Мої ремонти в роботі</h3>
             {stats.techStats.repairs.map((r) => (
-              <div key={r.id} onClick={() => setSelectedRepair(r)} className="flex items-center justify-between py-3 cursor-pointer border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                <span className="text-slate-800">{r.device_name}</span>
-                <span className="text-xs px-2 py-1 rounded bg-slate-50" style={{ color: statusColors[r.status] }}>{statusLabels[r.status]}</span>
-              </div>
+              <button key={r.id} onClick={() => setSelectedRepair(r)} className="flex w-full items-center justify-between py-3 text-left cursor-pointer border-b border-border last:border-0 hover:bg-hover transition-colors rounded-[var(--radius-sm)] px-2 -mx-2">
+                <span className="text-ink">{r.device_name}</span>
+                <Badge tone={statusTones[r.status] ?? "neutral"}>{statusLabels[r.status] ?? r.status}</Badge>
+              </button>
             ))}
           </div>
-          <div className="flex flex-col gap-4 md:gap-6">
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">Заблоковані ремонти</h3>
+          <div className="flex flex-col gap-4 md:gap-5">
+            <div className="card p-5">
+              <h3 className="text-sm font-semibold text-ink mb-2">Заблоковані ремонти</h3>
               {stats.techStats.frozenRepairs.map((fr, i) => (
-                <div key={i} className="text-xs text-red-600 p-2.5 bg-red-50/60 border border-red-100/50 rounded-xl mt-2">{fr.device_name} (Бракує: {fr.missing_part})</div>
+                <div key={i} className="text-xs text-danger p-2.5 bg-danger-subtle rounded-[var(--radius-md)] mt-2">
+                  {fr.device_name} — бракує: {fr.missing_part}
+                </div>
               ))}
             </div>
             <StockAlerts alerts={stats.techStats.alerts} title="Деталі майстерні" />
@@ -244,133 +218,76 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
       )}
 
       {userRole === "sales" && stats.salesStats && (
-        <div className="space-y-6">
-          {/* Top Metric Cards */}
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden group hover:border-[#06B6D4]/30 transition-all duration-300 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[#06B6D4]/5 rounded-full blur-2xl group-hover:bg-[#06B6D4]/10 transition-all duration-500" />
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Моя зміна</p>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-3xl font-extrabold font-mono text-[#06B6D4]">{stats.salesStats.todaySalesTotal.toLocaleString()} ₴</span>
-              </div>
-              <p className="text-[10px] text-slate-500 mt-2 font-mono">Всього продажів за сьогодні</p>
-            </div>
-
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden group hover:border-[#A855F7]/30 transition-all duration-300 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[#A855F7]/5 rounded-full blur-2xl group-hover:bg-[#A855F7]/10 transition-all duration-500" />
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Угоди через партнерів</p>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-3xl font-extrabold font-mono text-[#A855F7]">{stats.salesStats.partnerDealsCount}</span>
-              </div>
-              <p className="text-[10px] text-slate-500 mt-2 font-mono">Залучено B2B контактів за 30д</p>
-            </div>
-
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 relative overflow-hidden group hover:border-[#10B981]/30 transition-all duration-300 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[#10B981]/5 rounded-full blur-2xl group-hover:bg-[#10B981]/10 transition-all duration-500" />
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Чеки з аксесуарами</p>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-3xl font-extrabold font-mono text-[#10B981]">{stats.salesStats.accessoriesSharePercent}%</span>
-              </div>
-              <p className="text-[10px] text-slate-500 mt-2 font-mono">Частка додаткових продажів за 30д</p>
-            </div>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
+            <StatCard label="Моя зміна" tone="info" value={`${stats.salesStats.todaySalesTotal.toLocaleString()} ₴`} sub="Всього продажів за сьогодні" />
+            <StatCard label="Угоди через партнерів" tone="accent" value={stats.salesStats.partnerDealsCount} sub="Залучено B2B контактів за 30д" />
+            <StatCard label="Чеки з аксесуарами" tone="success" value={`${stats.salesStats.accessoriesSharePercent}%`} sub="Частка додаткових продажів за 30д" />
           </div>
 
-          {/* Bento Grid layout for actions, feed and stock */}
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
-            {/* Block 1: POS Quick Actions */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between group hover:border-[#6366F1]/30 transition-all duration-300 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
+            <div className="card p-5 flex flex-col justify-between">
               <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Швидкі дії POS</h3>
-                <h4 className="text-sm font-bold text-slate-900 mt-0.5">POS Quick Actions</h4>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed font-light">
-                  Швидкий перехід до створення нових угод, пошуку клієнтів у базі або перевірки наявності товарів.
+                <h3 className="text-sm font-semibold text-ink">Швидкі дії POS</h3>
+                <p className="text-xs text-muted mt-2 leading-relaxed">
+                  Швидкий перехід до нових угод, пошуку клієнтів або перевірки наявності товарів.
                 </p>
               </div>
-
               <div className="mt-5 space-y-3">
-                <AddSaleButton 
-                  customers={customers} 
-                  cashRegisters={cashRegisters} 
-                  devices={devices} 
-                  accessories={accessories} 
-                  services={services} 
-                  className="flex items-center justify-center gap-2 rounded-xl bg-violet text-white font-bold py-3.5 px-4 shadow-lg hover:shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full cursor-pointer text-sm font-semibold"
-                >
+                <AddSaleButton customers={customers} cashRegisters={cashRegisters} devices={devices} accessories={accessories} services={services} className={cn(btnPrimary, "w-full")}>
                   <IconPlus /> Відкрити POS термінал
                 </AddSaleButton>
-
                 <div className="grid grid-cols-2 gap-2">
-                  <Link 
-                    href="/admin/customers"
-                    className="flex flex-col items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-200/40 hover:bg-slate-100 hover:border-slate-200 p-3.5 transition-all text-center group/btn text-slate-500 hover:text-slate-800"
-                  >
+                  <Link href="/admin/customers" className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] bg-hover border border-border hover:border-border-strong p-3.5 transition-colors text-center text-muted hover:text-ink">
                     <IconCustomer size={20} />
-                    <span className="text-[10px] font-bold text-slate-700 mt-1">Пошук клієнтів</span>
+                    <span className="text-xs font-medium mt-1">Пошук клієнтів</span>
                   </Link>
-
-                  <Link 
-                    href="/admin/accessories"
-                    className="flex flex-col items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-200/40 hover:bg-slate-100 hover:border-slate-200 p-3.5 transition-all text-center group/btn text-slate-500 hover:text-slate-800"
-                  >
+                  <Link href="/admin/accessories" className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] bg-hover border border-border hover:border-border-strong p-3.5 transition-colors text-center text-muted hover:text-ink">
                     <IconBox size={20} />
-                    <span className="text-[10px] font-bold text-slate-700 mt-1">Перевірка складу</span>
+                    <span className="text-xs font-medium mt-1">Перевірка складу</span>
                   </Link>
                 </div>
               </div>
             </div>
 
-            {/* Block 2: Recent Sales Feed */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 md:col-span-2 flex flex-col justify-between shadow-sm">
-              <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Продажі зміни</h3>
-                <h4 className="text-sm font-bold text-slate-900 mt-0.5">Останні продажі та транзакції</h4>
-              </div>
-
+            <div className="card p-5 md:col-span-2 flex flex-col">
+              <h3 className="text-sm font-semibold text-ink">Останні продажі зміни</h3>
               <div className="mt-4 flex-1">
                 {stats.salesStats.recentSales.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-                    <p className="text-xs text-slate-400 italic">Сьогодні ви ще не здійснювали продажів</p>
-                    <p className="text-[10px] text-slate-400 mt-1">Оформіть новий продаж через POS термінал</p>
+                    <p className="text-sm text-muted">Сьогодні ви ще не здійснювали продажів</p>
+                    <p className="text-xs text-faint mt-1">Оформіть новий продаж через POS термінал</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-700">
+                    <table className="w-full text-left text-sm text-ink">
                       <thead>
-                        <tr className="border-b border-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                          <th className="py-2.5">Час</th>
-                          <th className="py-2.5">Клієнт</th>
-                          <th className="py-2.5 text-center">Товари</th>
-                          <th className="py-2.5 text-right">Сума</th>
-                          <th className="py-2.5 text-right">Дія</th>
+                        <tr className="border-b border-border text-xs font-medium text-muted">
+                          <th className="py-2.5 font-medium">Час</th>
+                          <th className="py-2.5 font-medium">Клієнт</th>
+                          <th className="py-2.5 font-medium text-center">Товари</th>
+                          <th className="py-2.5 font-medium text-right">Сума</th>
+                          <th className="py-2.5 font-medium text-right">Дія</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-border">
                         {stats.salesStats.recentSales.map((sale: any) => {
                           const date = new Date(sale.created_at);
                           const timeStr = date.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
                           const itemCount = sale.items?.length || 0;
                           return (
-                            <tr key={sale.id} className="group hover:bg-slate-50/50">
-                              <td className="py-3 font-mono text-[11px] text-slate-500">{timeStr}</td>
+                            <tr key={sale.id} className="hover:bg-hover">
+                              <td className="py-3 tabular text-xs text-muted">{timeStr}</td>
                               <td className="py-3">
-                                <div className="font-semibold text-slate-900">{sale.customer_name}</div>
-                                {sale.customer_phone && (
-                                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">{sale.customer_phone}</div>
-                                )}
+                                <div className="font-medium text-ink">{sale.customer_name}</div>
+                                {sale.customer_phone && <div className="text-xs text-muted tabular mt-0.5">{sale.customer_phone}</div>}
                               </td>
-                              <td className="py-3 text-center font-mono">
-                                <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/50 text-[10px] text-slate-700">
-                                  {itemCount} {pluralUk(itemCount, "товар", "товари", "товарів")}
-                                </span>
+                              <td className="py-3 text-center">
+                                <Badge tone="neutral">{itemCount} {pluralUk(itemCount, "товар", "товари", "товарів")}</Badge>
                               </td>
-                              <td className="py-3 text-right font-bold font-mono text-[#10B981]">
-                                {sale.total_amount.toLocaleString()} ₴
-                              </td>
+                              <td className="py-3 text-right font-semibold tabular text-success">{sale.total_amount.toLocaleString()} ₴</td>
                               <td className="py-3 text-right">
-                                <button
-                                  onClick={() => setSelectedSale(sale)}
-                                  className="text-[10px] font-bold text-[#6366F1] hover:text-[#06B6D4] transition-colors bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded px-2.5 py-1"
-                                >
+                                <button onClick={() => setSelectedSale(sale)} className="text-xs font-medium text-accent-ink hover:text-accent transition-colors">
                                   Деталі
                                 </button>
                               </td>
@@ -385,31 +302,23 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             </div>
           </div>
 
-          {/* Additional lower row: Stock warnings for sales representative */}
-          <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
             <StockAlerts alerts={stats.salesStats.alerts} title="Склад аксесуарів" />
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between md:col-span-2 shadow-sm">
-              <div>
-                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider tracking-tight">Робочі інструкції</h3>
-                <h4 className="text-sm font-bold text-slate-900 mt-0.5">Операційні стандарти</h4>
-              </div>
-              <div className="my-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/40">
-                  <p className="font-bold text-[#06B6D4] mb-1 font-semibold">Продаж аксесуарів</p>
-                  <p className="text-slate-500 leading-relaxed text-[11px] font-light">
-                    Завжди пропонуйте захисне скло або чохол до кожного купленого пристрою. Це збільшує середній чек та підвищує загальний показник маржинальності.
+            <div className="card p-5 md:col-span-2">
+              <h3 className="text-sm font-semibold text-ink">Робочі інструкції</h3>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-[var(--radius-md)] bg-hover border border-border">
+                  <p className="font-semibold text-accent-ink mb-1">Продаж аксесуарів</p>
+                  <p className="text-muted leading-relaxed">
+                    Завжди пропонуйте захисне скло або чохол до кожного пристрою — це збільшує середній чек і маржинальність.
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/40">
-                  <p className="font-bold text-[#A855F7] mb-1 font-semibold">Партнерська програма</p>
-                  <p className="text-slate-500 leading-relaxed text-[11px] font-light">
-                    При проведенні угод B2B обов&apos;язково вказуйте ідентифікатор партнера для коректного нарахування кешбеку та відстеження обсягів продажів.
+                <div className="p-3.5 rounded-[var(--radius-md)] bg-hover border border-border">
+                  <p className="font-semibold text-info mb-1">Партнерська програма</p>
+                  <p className="text-muted leading-relaxed">
+                    У B2B-угодах обов&apos;язково вказуйте ідентифікатор партнера для коректного кешбеку та обліку обсягів.
                   </p>
                 </div>
-              </div>
-              <div className="text-[9px] text-slate-400 border-t border-slate-100 pt-2 flex items-center justify-between font-mono">
-                <span>KPI target checklist</span>
-                <span className="text-[#10B981] font-medium">Active Session</span>
               </div>
             </div>
           </div>

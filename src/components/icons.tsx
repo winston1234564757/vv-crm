@@ -268,4 +268,83 @@ function IconTruck({ size = 16, className }: { size?: number; className?: string
   );
 }
 
-export { IconDownload, IconCash, IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck };
+// ----- Navigation section icons -----
+
+function IconSupplier({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="2" y="3" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M13 7H16L18 10V16H13" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <circle cx="5.5" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="15.5" cy="17" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+function IconSale({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M3 5C3 3.9 3.9 3 5 3H9.5L17 10.5L11.5 16L4 8.5V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <circle cx="6.5" cy="6.5" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function IconPurchase({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M3 3H5L6.5 12H14.5L16 6H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="8" cy="15.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="13" cy="15.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+function IconPartner({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="13" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M2 17C2 14 4 12 7 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M18 17C18 14 16 12 13 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M9 17C9 14.5 10 13 10 13C10 13 11 14.5 11 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconParts({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="6" y="6" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M8 3V6M12 3V6M8 14V17M12 14V17M3 8H6M3 12H6M14 8H17M14 12H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconService({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M12.5 3.5A3 3 0 0 0 8.7 7.3L3.5 12.5a1.5 1.5 0 0 0 2.1 2.1l5.2-5.2a3 3 0 0 0 3.8-3.8l-1.9 1.9-1.6-.4-.4-1.6 1.8-1.8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconRocket({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M10 2C13 3 15 6 15 10L12 13H8L5 10C5 6 7 3 10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <circle cx="10" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M8 13L6.5 17M12 13L13.5 17M10 13V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconChevron({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+export { IconDownload, IconCash, IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck, IconSupplier, IconSale, IconPurchase, IconPartner, IconParts, IconService, IconRocket, IconChevron };

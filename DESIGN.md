@@ -1,131 +1,101 @@
 ---
 name: VV CRM
-description: Warm workshop dashboard for electronics sales and repair management
+description: Light workshop dashboard for electronics sales and repair management
 ---
 
-# Design System: VV CRM
+# Design System: VV CRM (v2)
 
 ## 1. Overview
 
-**Creative North Star: "The Workshop Bench"**
+**Creative North Star: "Warm workshop, cool tool."**
 
-VV CRM is a digital companion for a working electronics workshop. It lives behind the counter, on a desktop, during active customer interactions. The interface feels tangible and warm — like a well-worn workbench, not a sterile dashboard.
+VV CRM is a digital companion for a working electronics workshop — behind the counter, on a desktop, during active customer interactions. The brand personality stays warm and human (a craftsperson's companion, not a boardroom ERP), but that warmth lives in **copy, spacing, soft radii and human empty states**, not in the background hue.
 
-Design decisions serve clarity and speed. Every element earns its place. Color has purpose. Motion has reason. Silence is a design tool.
+The visual system is a **light, restrained, cool-neutral** interface with a single **teal accent**. It is deliberately not the warm cream / violet-on-ivory look of v1 (that palette reads as a generic AI-CRM default). Surfaces are near-white and neutral; the teal earns attention only on interactive and stateful elements.
 
-**Key Characteristics:**
-- Warm light theme with solid, not gradient, backgrounds
-- Solid cards with subtle warm shadows (no backdrop-blur, no glass)
-- Consistent, predictable grids
-- One restrained accent color for interactive elements
-- Readex Pro typography, weight-driven hierarchy
-- Space as hierarchy — generous where it matters, compact where it doesn't
+**Key characteristics:**
+- Light theme, clean off-white neutral surfaces (chroma ~0) — no warm cream tint.
+- One cool teal accent, used for actions / selection / state only (≤10% of surface).
+- Solid surfaces. No glassmorphism, no backdrop-blur, no gradient fills.
+- Grotesk type pairing: Space Grotesk (display / KPI numbers) + Hanken Grotesk (body / UI).
+- Tabular figures for all tables, money and KPI stats.
+- Space and weight carry hierarchy; motion conveys state, never decorates.
 
-## 2. Color
+## 2. Color (OKLCH, tokens in `src/app/globals.css`)
 
-**The Warm Surface Rule.** Every surface is solid. No transparency, no backdrop-blur, no glass. Shadows are warm and shallow: `0 1px 3px oklch(0% 0 0 / 0.06)`.
+**The solid-surface rule.** Every panel is opaque. Shadows are shallow and neutral: `0 1px 3px oklch(0% 0 0 / 0.05)`.
 
-### Background
-- **Page Surface** (`oklch(96% 0.006 60)`): Warm ivory, solid fill. The entire application sits on this.
-- **Card Surface** (`oklch(100% 0 0 / 1)`): Pure white cards with warm shadow.
-- **Sidebar Surface** (`oklch(94% 0.005 60)`): Slightly deeper warm tone to distinguish from content area.
+### Neutrals (cool-neutral, near chroma 0)
+- `--color-bg` `oklch(98.4% 0.002 240)` — page background.
+- `--color-surface` `oklch(100% 0 0)` — cards / panels.
+- `--color-sidebar` `oklch(97% 0.003 240)` — sidebar / secondary panel layer.
+- `--color-border` `oklch(92% 0.004 240)`, `--color-border-strong` `oklch(87% 0.006 240)`.
+- `--color-hover` `oklch(96% 0.004 240)` — hover / selected-row wash.
 
-### Primary
-- **Warm Violet** (`oklch(50% 0.18 290)`): Primary actions, interactive elements. Saturated but not harsh.
-- **Violet Hover** (`oklch(42% 0.18 290)`): Hover and pressed states.
-- **Violet Subtle** (`oklch(50% 0.06 290 / 0.1)`): Light tint for active states, selected rows.
+### Ink / text
+- `--color-ink` `oklch(23% 0.012 250)` — primary text (≥4.5:1 on surface).
+- `--color-muted` `oklch(45% 0.012 250)` — secondary text / labels.
+- `--color-faint` `oklch(56% 0.012 250)` — tertiary only; never for body or placeholders.
 
-### Text
-- **Primary Text** (`oklch(20% 0.01 60)`): Warm near-black for headings and body.
-- **Secondary Text** (`oklch(40% 0.01 60)`): Warm mid-gray for labels, metadata.
-- **Muted Text** (`oklch(55% 0.01 60)`): Placeholder text, disabled states.
+### Accent (teal)
+- `--color-accent` `oklch(51% 0.11 194)` — primary actions, active tab, selection. Use as a **fill with `--color-on-accent` (white) text**; contrast-verified for button labels.
+- `--color-accent-hover` `oklch(45% 0.11 194)`, `--color-accent-active` `oklch(39% 0.10 194)`.
+- `--color-accent-subtle` `oklch(51% 0.08 194 / 0.12)` — active/selected tint.
+- `--color-accent-ink` `oklch(40% 0.09 194)` — teal **text** on light backgrounds (darkened for ≥4.5:1).
 
-### Semantics
-- **Error** (`oklch(50% 0.2 25)`): Errors, destructive actions.
-- **Warning** (`oklch(65% 0.18 85)`): Low stock, attention-needed states.
-- **Success** (`oklch(55% 0.15 145)`): Completed states, confirmations.
-- **Info** (`oklch(55% 0.12 210)`): Informational badges, data indicators.
+### Semantic (each with a `-subtle` tint for badges)
+- `--color-success` `oklch(52% 0.13 162)` — completed, in stock, confirmations.
+- `--color-warning` `oklch(62% 0.14 74)` — low stock, attention.
+- `--color-danger` `oklch(53% 0.19 26)` — errors, destructive, overdue.
+- `--color-info` `oklch(54% 0.11 236)` — informational indicators.
+
+Legacy token names (`--color-violet`, `--color-warm-*`, `--color-text-*`, `--color-rose/amber/emerald/cyan`, `--color-iris`) remain as aliases with identical values so un-migrated markup keeps working. Migrate off them file-by-file; do not add new usages.
 
 ## 3. Typography
 
-**Font:** Readex Pro — variable humanist sans. Single family carries everything.
+- **Display** — Space Grotesk. Headings and KPI numbers only. `.font-display`, letter-spacing -0.02em (floor -0.04em). Never in body, labels, buttons.
+- **Body / UI** — Hanken Grotesk (`--font-sans`). Carries labels, buttons, tables, forms, body.
+- **Numbers** — `.tabular` (`font-variant-numeric: tabular-nums`) on every table cell, money value and stat.
+- Fixed rem scale (not fluid). Tighter ratio (~1.2). Prose 65–75ch; data tables may run denser.
+- Do not pair with Inter / Roboto / system defaults for display.
 
-### Fixed rem scale
+## 4. Elevation, radius, spacing
 
-| Style | Weight | Size | Line Height | Letter Spacing |
-|-------|--------|------|-------------|----------------|
-| Display | Bold 700 | 1.75rem / 28px | 1.15 | -0.02em |
-| Headline | SemiBold 600 | 1.25rem / 20px | 1.2 | -0.01em |
-| Title | Medium 500 | 1rem / 16px | 1.3 | 0 |
-| Body | Regular 400 | 0.9375rem / 15px | 1.5 | 0 |
-| Label | Medium 500 | 0.75rem / 12px | 1.3 | 0.01em |
-| Stat | SemiBold 600 | 1.5rem / 24px | 1 | -0.01em |
-
-Line length: 65-75ch for prose; tables and data can run wider.
-
-## 4. Elevation & Surfaces
-
-Cards use solid white backgrounds with warm, shallow shadows. No backdrop-blur. No transparency.
-
-- **Card Shadow**: `0 1px 3px oklch(0% 0 0 / 0.06)`, hover `0 4px 12px oklch(0% 0 0 / 0.1)`
-- **Card Radius**: `12px`
-- **Card Padding**: `p-5` (1.25rem)
+- Card shadow `0 1px 3px oklch(0% 0 0 / 0.05)`, hover `0 4px 14px oklch(0% 0 0 / 0.08)`.
+- Radius scale: `--radius-xs 6 · sm 8 · md 10 · lg 12 · xl 16`. Cards `lg`, buttons/inputs `md`, badges pill.
+- Vary spacing for rhythm; space is hierarchy. Avoid nested cards (a card inside a card is always wrong).
 
 ## 5. Components
 
-### Standard Card
-- **Background**: `oklch(100% 0 0 / 1)`
-- **Border**: `1px solid oklch(90% 0.005 60)`
-- **Radius**: `12px`
-- **Shadow**: `0 1px 3px oklch(0% 0 0 / 0.06)`
-
-### Buttons
-- **Primary**: Warm Violet fill, 10px radius, 0.875rem text, 500 weight
-- **Secondary**: Outlined variant with same radius, warm violet text on transparent
-- **Ghost**: Transparent, warm violet text, hover fills at 10% opacity
-- **Danger**: Error red fill
-- **All buttons**: `transform: scale(0.97)` on `:active` for physical press feedback
-
-### Navigation
-- **Sidebar**: Warm neutral surface (`oklch(94% 0.005 60)`), full height. Active item: Warm Violet tinted background (`oklch(50% 0.06 290 / 0.1)`), filled text.
-- **No side-stripe accents**. Use full background tint instead.
-
-### Forms
-- **Label**: Above input, 0.75rem, 500 weight, secondary text color
-- **Input**: 1px border, 10px radius, 0.875rem text, inner padding 0.75rem vertical / 1rem horizontal
-- **Focus**: Warm Violet border + ring
-- **Error**: Red border + inline message below input
-- **Select**: Same styling as input
-
-### Tables
-- **Clean borders**: top-border or bottom-border separation, no card-in-card
-- **Header**: Label style, secondary text
-- **Rows**: Body style, hover background on interactive rows
-- **Mobile**: `overflow-x-auto` with sticky first column
+- **Button** (`ui/Button.tsx`) — the single primitive. Variants: primary (teal fill), secondary (bordered), ghost, danger. Sizes sm/md/lg. Always has default/hover/active/focus/disabled/loading. Replaces all copy-pasted CTA blocks.
+- **Tabs** (`ui/Tabs.tsx`) — accessible state-based tabs (`role=tablist`, arrow-key nav, underline). For in-page toggles.
+- **SectionTabs** (`layout/SectionTabs.tsx`) — route-based tabs derived from `nav-config`; the "theme → page with tabs" navigation pattern. Mounted once in `admin/layout.tsx`.
+- **Badge** (`ui/Badge.tsx`) — semantic pill (neutral/accent/success/warning/danger/info).
+- **StandardCard**, **Input**, **Drawer**, **SearchSelect**, **TagSelect** — existing primitives, retone to new tokens.
+- **Navigation** — grouped sidebar (5 domain groups + Dashboard/Settings/Store-launch standalone), single source `src/lib/nav-config.ts`. Active state = full background tint (`--color-accent-subtle`), never a side-stripe.
+- **Tables** — border separation, no card-in-card. Header = label style. Hover wash on interactive rows. `overflow-x-auto` on mobile.
 
 ## 6. Motion
 
-- **Duration**: 150-250ms for UI transitions (never block flow)
-- **Easing**: `cubic-bezier(0.23, 1, 0.32, 1)` — strong ease-out
-- **Press feedback**: `transform: scale(0.97)` on `:active` — 100ms
-- **Entry**: Opacity + translateY(4px), stagger 40ms between items
-- **`prefers-reduced-motion`**: Keep opacity/color transitions, remove all position/movement
-- **No decorative motion**: Every animation conveys state or prevents jarring changes
+- 150–250 ms UI transitions; easing `cubic-bezier(0.23, 1, 0.32, 1)` (strong ease-out, no bounce).
+- Press feedback `scale(0.97)` on `:active` (`.btn-press`).
+- Entry: opacity + translateY(4px), 40 ms stagger. No orchestrated page-load sequences.
+- `prefers-reduced-motion`: keep opacity/color, drop movement (already guarded in globals.css).
+- Motion conveys state only. No decorative micro-motion.
 
-## 7. Do's and Don'ts
+## 7. Do / Don't
 
-### Do:
-- **Do** use solid surfaces — every panel is opaque, warm, and grounded
-- **Do** keep the palette restrained — one accent color, muted neutrals
-- **Do** use space as hierarchy — more space = more importance
-- **Do** make every form label visible and above its input
-- **Do** show inline errors with recovery suggestions
+### Do
+- Keep surfaces solid, neutral and near-white.
+- Keep the palette restrained — one teal accent, semantic colors for meaning.
+- Use `.font-display` for headings/KPIs and `.tabular` for all figures.
+- Give every interactive component all its states.
+- Write warm, human copy and generous, teaching empty states.
 
-### Don't:
-- **Don't** use glassmorphism, backdrop-blur, or transparent surfaces
-- **Don't** use gradient backgrounds
-- **Don't** use side-stripe accent borders
-- **Don't** use `alert()` for error messages
-- **Don't** use display fonts or serif fonts in UI
-- **Don't** animate layout properties (width, height, top, left)
-- **Don't** show loading spinners — use skeleton states
+### Don't
+- Don't reintroduce warm-cream backgrounds or violet-on-ivory.
+- Don't use glassmorphism, backdrop-blur, gradient fills or glow orbs.
+- Don't use side-stripe accent borders or gradient text.
+- Don't use display/serif fonts in labels, buttons or data.
+- Don't nest cards or animate layout properties (width/height/top/left).
+- Don't reach for a modal first — exhaust inline / progressive alternatives.
