@@ -14,19 +14,26 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack(config) {
-    // Both of webpack's default hashers are WASM-backed: "xxhash64" (default)
-    // and "md4" (webpack ships its own md4 WASM build — it is NOT native crypto,
-    // which is why the previous md4 workaround did not actually fix anything and
-    // the crash kept resurfacing on incremental/cached builds).
-    // "sha256" routes through Node's native crypto.createHash — no WASM, no pool
-    // corruption. Slightly slower to hash, but builds stop being a lottery.
+  webpack(config, { dev }) {
+    // "sha256" goes through Node's native crypto.createHash instead of webpack's
+    // WASM hashers ("xxhash64" default, and "md4" — which is also WASM, not
+    // native crypto, so the old md4 workaround never fixed anything).
     config.output = {
       ...config.output,
       hashFunction: "sha256",
       hashDigest: "hex",
       hashDigestLength: 16,
     };
+
+    // The real cause of the recurring build crash is webpack's persistent
+    // filesystem cache: after a large change set it feeds `undefined` into the
+    // hasher, which surfaces as "Cannot read properties of undefined (reading
+    // 'length')" (WASM hashers) or ERR_INVALID_ARG_TYPE (native ones). A clean
+    // build always succeeds, a cached one is a coin flip — including on Vercel,
+    // which restores the cache between deployments.
+    // Disabled for production builds only; dev keeps its cache and stays fast.
+    if (!dev) config.cache = false;
+
     return config;
   },
 };

@@ -134,13 +134,22 @@ export function RepairForm({
     }
   }, [state.success, state.data]);
 
+  // Every hook must run before the early return below. These four used to sit
+  // after `if (createdData)`, so the moment a repair was created React rendered
+  // fewer hooks than the previous pass and threw error #300 — the repair was
+  // saved, but the form crashed and only a page reload recovered it.
+  const [source, setSource] = useState("store");
+  const [promoCode, setPromoCode] = useState("");
+  const [partnerId, setPartnerId] = useState("");
+  const [promoMessage, setPromoMessage] = useState<{text: string, type: "success" | "error"} | null>(null);
+
   if (createdData) {
     const customer = localCustomers.find((c) => c.id === selectedCustomerId);
     
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center space-y-6 animate-entry">
         {/* Animated Checkmark Icon */}
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald/10 text-emerald animate-bounce">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success-subtle text-success">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
@@ -219,11 +228,6 @@ export function RepairForm({
   function toggleDiagnostic(value: string) {
     setSelectedDiagnostics(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
   }
-
-  const [source, setSource] = useState("store");
-  const [promoCode, setPromoCode] = useState("");
-  const [partnerId, setPartnerId] = useState("");
-  const [promoMessage, setPromoMessage] = useState<{text: string, type: "success" | "error"} | null>(null);
 
   async function handleCheckPromo() {
     if (!promoCode.trim()) return;

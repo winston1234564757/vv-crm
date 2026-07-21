@@ -1,5 +1,6 @@
 "use client";
 
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { useState } from "react";
 import { IconSearch, IconEdit, IconDelete, IconWarning } from "@/components/icons";
 import { deleteAccessory } from "@/lib/actions/accessories";
@@ -20,7 +21,7 @@ type AccessoryRow = {
   description: string | null;
   is_visible: boolean;
   warranty_months?: number;
-  source?: string;
+  source?: string | null;
   barcode?: string | null;
   warehouse_location?: string | null;
   photo_urls?: string[] | null;
@@ -46,6 +47,8 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
     if (!query) return true;
     return a.name.toLowerCase().includes(query.toLowerCase());
   });
+
+  const pager = usePagination(filtered, { resetKey: `${query}|${filter}` });
 
   return (
     <>
@@ -80,7 +83,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((a) => {
+            pager.pageItems.map((a) => {
               const isLow = a.stock <= a.min_stock;
               const isOut = a.stock === 0;
               return (
@@ -173,7 +176,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                   <td colSpan={8} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
                 </tr>
               ) : (
-                filtered.map((a) => (
+                pager.pageItems.map((a) => (
                   <tr 
                     key={a.id} 
                     onClick={() => { setSelectedAccessory(a); setIsEditingAccessory(false); }}
@@ -213,6 +216,18 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="аксесуарів"
+        />
       </div>
 
       <Drawer 

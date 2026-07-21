@@ -16,7 +16,7 @@ export function AccessoryForm({
   safes = []
 }: { 
   onSuccess: () => void; 
-  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null };
+  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null };
   safes?: Safe[];
 }) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
