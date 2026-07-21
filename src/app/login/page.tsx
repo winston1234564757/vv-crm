@@ -14,42 +14,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
 
+  // Self-registration is deliberately absent. The signup form that used to live
+  // here handed anyone who found /login an `authenticated` session, and the
+  // handle_new_user trigger assigned them role 'sales' — which the RLS policies
+  // trust with full read/write on customers, sales, repairs and devices.
+  // Accounts are created by an owner in Supabase; signup is disabled project-wide.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    if (mode === "signin") {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (authError) {
-        setError(parseError(authError));
-        setLoading(false);
-        return;
-      }
-
-      router.push("/admin");
-      router.refresh();
-    } else {
-      const { data, error: authError } = await supabase.auth.signUp({ email, password });
-
-      if (authError) {
-        setError(parseError(authError));
-        setLoading(false);
-        return;
-      }
-
-      if (data?.session) {
-        router.push("/admin");
-        router.refresh();
-      } else {
-        setMode("signin");
-        setError("Акаунт створено. Підтвердьте email");
-        setLoading(false);
-      }
+    if (authError) {
+      setError(parseError(authError));
+      setLoading(false);
+      return;
     }
+
+    router.push("/admin");
+    router.refresh();
   }
 
   return (
@@ -58,9 +43,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center text-center">
           <span className="text-violet"><IconLogo size={32} /></span>
           <h1 className="mt-3 text-xl font-semibold tracking-tight text-text-primary text-balance">VV CRM</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {mode === "signin" ? "Увійдіть у систему" : "Створіть акаунт"}
-          </p>
+          <p className="mt-1 text-sm text-text-secondary">Увійдіть у систему</p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -91,37 +74,19 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
-            <p className={`text-center text-sm ${error === "Акаунт створено. Увійдіть зі своїм паролем" ? "text-cyan" : "text-rose"}`}>
-              {error}
-            </p>
-          )}
+          {error && <p className="text-center text-sm text-rose">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="btn-press w-full rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
           >
-            {loading ? "Зачекайте..." : mode === "signin" ? "Увійти" : "Створити акаунт"}
+            {loading ? "Зачекайте..." : "Увійти"}
           </button>
         </form>
 
         <p className="mt-4 text-center text-xs text-text-secondary">
-          {mode === "signin" ? (
-            <>
-              Немає акаунту?{" "}
-              <button onClick={() => { setMode("signup"); setError(""); }} className="text-violet underline underline-offset-2 hover:text-violet-hover">
-                Створити
-              </button>
-            </>
-          ) : (
-            <>
-              Вже є акаунт?{" "}
-              <button onClick={() => { setMode("signin"); setError(""); }} className="text-violet underline underline-offset-2 hover:text-violet-hover">
-                Увійти
-              </button>
-            </>
-          )}
+          Немає доступу? Зверніться до власника — акаунти створює він.
         </p>
       </div>
     </div>
