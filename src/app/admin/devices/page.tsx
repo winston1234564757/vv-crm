@@ -13,66 +13,7 @@ import { pluralUk } from "@/lib/utils/plural";
 import StandardCard from "@/components/ui/StandardCard";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { IconDevice, IconBox, IconFinance } from "@/components/icons";
-
-function StatCard({
-  label,
-  value,
-  accent,
-  sub,
-  icon,
-  delay = 0,
-}: {
-  label: string;
-  value: string | number;
-  accent: "violet" | "cyan" | "rose" | "amber" | "iris";
-  sub?: string;
-  icon: React.ReactNode;
-  delay?: number;
-}) {
-  const accentColors = {
-    violet: { bg: "bg-violet/[0.06] border-violet/10", text: "text-violet" },
-    cyan:   { bg: "bg-cyan/[0.06] border-cyan/10",   text: "text-cyan" },
-    rose:   { bg: "bg-rose/[0.06] border-rose/10",   text: "text-rose" },
-    amber:  { bg: "bg-amber/[0.06] border-amber/10",  text: "text-amber" },
-    iris:   { bg: "bg-iris/[0.06] border-iris/10",   text: "text-iris" },
-  };
-  const c = accentColors[accent];
-
-  return (
-    <div 
-      className={`rounded-[2rem] border border-border bg-hover p-1.5 shadow-sm shadow-border-strong/30 flex flex-col transition-all duration-500 hover:shadow-md hover:border-border animate-entry-stagger delay-${delay}`}
-    >
-      <div 
-        className="rounded-[calc(2rem-0.375rem)] bg-surface p-5 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,1)] relative overflow-hidden"
-      >
-        {/* Subtle background glow orb */}
-        <div className={`absolute -right-4 -bottom-4 w-12 h-12 rounded-full blur-2xl opacity-20 ${c.bg}`} />
-        
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-faint mb-1 block">Склад</span>
-            <p className="text-xs font-semibold text-muted leading-tight">{label}</p>
-          </div>
-          <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${c.bg} ${c.text} shrink-0 border shadow-sm`}>
-            {icon}
-          </span>
-        </div>
-        
-        <div>
-          <p className="text-3xl font-extrabold tracking-tight text-ink font-mono">
-            {value}
-          </p>
-          {sub && (
-            <p className="mt-1 text-[10px] text-faint font-medium flex items-center gap-1 font-mono">
-              <span>●</span>
-              <span>{sub}</span>
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+import { StatCard } from "@/components/ui/StatCard";
 
 export default async function DevicesPage() {
   const [devices, customers, cashRegisters, accessories, services, parts, safes] = await Promise.all([
@@ -119,34 +60,34 @@ export default async function DevicesPage() {
         <StatCard
           label="В наявності"
           value={`${inStock} шт`}
-          accent="cyan"
+          tone="info"
           sub="усі пристрої"
           icon={<IconDevice size={16} />}
-          delay={0}
+          className="animate-entry-stagger delay-0"
         />
         <StatCard
           label="Сума запасів (виручка)"
           value={`${totalValue.toLocaleString()} ₴`}
-          accent="iris"
+          tone="default"
           sub="ціна продажу"
           icon={<IconFinance size={16} />}
-          delay={1}
+          className="animate-entry-stagger delay-1"
         />
         <StatCard
           label="Вкладено"
           value={`${totalCost.toLocaleString()} ₴`}
-          accent="amber"
+          tone="warning"
           sub="собів. + ремонт"
           icon={<IconBox size={16} />}
-          delay={2}
+          className="animate-entry-stagger delay-2"
         />
         <StatCard
           label="Очікуваний прибуток"
           value={`${expectedProfit.toLocaleString()} ₴`}
-          accent="violet"
+          tone="accent"
           sub="очікувана маржа"
           icon={<IconFinance size={16} />}
-          delay={3}
+          className="animate-entry-stagger delay-3"
         />
       </div>
 

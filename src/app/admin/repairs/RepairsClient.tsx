@@ -5,6 +5,7 @@ import { RepairsTable } from "./table";
 import { AddRepairButton } from "./AddRepairButton";
 import { IconRepair, IconBox, IconWarning, IconList, IconGrid } from "@/components/icons";
 import StandardCard from "@/components/ui/StandardCard";
+import { StatCard } from "@/components/ui/StatCard";
 import { pluralUk } from "@/lib/utils/plural";
 
 interface Customer {
@@ -55,66 +56,6 @@ export interface RepairRow {
   markup_amount: number;
   created_at: string;
   estimated_completion?: string | null;
-}
-
-function StatCard({
-  label,
-  value,
-  accent,
-  sub,
-  icon,
-  delay = 0,
-}: {
-  label: string;
-  value: string | number;
-  accent: "violet" | "cyan" | "rose" | "amber" | "iris";
-  sub?: string;
-  icon: React.ReactNode;
-  delay?: number;
-}) {
-  const accentColors = {
-    violet: { bg: "bg-violet/[0.06] border-violet/10", text: "text-violet" },
-    cyan: { bg: "bg-cyan/[0.06] border-cyan/10", text: "text-cyan" },
-    rose: { bg: "bg-rose/[0.06] border-rose/10", text: "text-rose" },
-    amber: { bg: "bg-amber/[0.06] border-amber/10", text: "text-amber" },
-    iris: { bg: "bg-iris/[0.06] border-iris/10", text: "text-iris" },
-  };
-  const c = accentColors[accent];
-
-  return (
-    <div 
-      className={`rounded-[2rem] border border-border bg-hover p-1.5 shadow-sm shadow-border-strong/30 flex flex-col transition-all duration-500 hover:shadow-md hover:border-border animate-entry-stagger delay-${delay}`}
-    >
-      <div 
-        className="rounded-[calc(2rem-0.375rem)] bg-surface p-5 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,1)] relative overflow-hidden"
-      >
-        {/* Subtle background glow orb */}
-        <div className={`absolute -right-4 -bottom-4 w-12 h-12 rounded-full blur-2xl opacity-20 ${c.bg}`} />
-        
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-faint mb-1 block">Показник</span>
-            <p className="text-xs font-semibold text-muted leading-tight">{label}</p>
-          </div>
-          <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${c.bg} ${c.text} shrink-0 border shadow-sm`}>
-            {icon}
-          </span>
-        </div>
-        
-        <div>
-          <p className="text-3xl font-extrabold tracking-tight text-ink font-mono">
-            {value}
-          </p>
-          {sub && (
-            <p className="mt-1 text-[10px] text-faint font-medium flex items-center gap-1 font-mono">
-              <span>●</span>
-              <span>{sub}</span>
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function RepairsClient({
@@ -172,38 +113,38 @@ export function RepairsClient({
         <StatCard
           label="Активні ремонти"
           value={activeRepairs.length}
-          accent="violet"
+          tone="accent"
           sub={`${repairs.length} усього`}
           icon={<IconRepair size={16} />}
-          delay={0}
+          className="animate-entry-stagger delay-0"
         />
         <StatCard
           label="Готові до видачі"
           value={readyCount}
-          accent="cyan"
+          tone="info"
           sub="можна забирати"
           icon={
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           }
-          delay={1}
+          className="animate-entry-stagger delay-1"
         />
         <StatCard
           label="Чекають деталі"
           value={awaitingParts}
-          accent="rose"
+          tone="danger"
           sub="постачання в очікуванні"
           icon={<IconBox size={16} />}
-          delay={2}
+          className="animate-entry-stagger delay-2"
         />
         <StatCard
           label="Прострочено"
           value={overdueCount}
-          accent={overdueCount > 0 ? "rose" : "iris"}
+          tone={overdueCount > 0 ? "danger" : "default"}
           sub="дедлайн минув"
           icon={<IconWarning size={16} />}
-          delay={3}
+          className="animate-entry-stagger delay-3"
         />
       </div>
 
@@ -236,13 +177,13 @@ export function RepairsClient({
         {/* View Toggle */}
         <button
           onClick={() => setViewMode(viewMode === "kanban" ? "table" : "kanban")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-warm-surface hover:bg-warm-surface active:scale-95 transition-all text-white cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-surface/15 hover:bg-surface/25 active:scale-95 transition-all text-white cursor-pointer"
           title={viewMode === "kanban" ? "Перемкнути на список" : "Перемкнути на дошку"}
         >
           {viewMode === "kanban" ? <IconList size={16} /> : <IconGrid size={16} />}
         </button>
 
-        <div className="h-5 w-px bg-warm-surface shrink-0" />
+        <div className="h-5 w-px bg-surface/25 shrink-0" />
 
         {/* Add Repair Button */}
         <AddRepairButton 
