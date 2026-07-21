@@ -2,23 +2,21 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { uk } from "date-fns/locale";
 import { IconSearch } from "@/components/icons";
 import { SaleDetailView } from "@/components/SaleDetailView";
 import Drawer from "@/components/ui/Drawer";
+import { Badge } from "@/components/ui/Badge";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import type { SaleWithDetails } from "@/lib/data-sales";
 
 const paymentMethods: Record<string, string> = {
   cash: "Готівка",
   card: "Картка",
-  transfer: "Переказ"
+  transfer: "Переказ",
 };
 
-const categoryLabels: Record<string, string> = {
-  device: "Техніка",
-  accessory: "Аксесуар",
-  service: "Послуга"
-};
+const selectClass =
+  "rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent cursor-pointer";
 
 export function SalesTable({ sales }: { sales: SaleWithDetails[] }) {
   const [query, setQuery] = useState("");
@@ -26,68 +24,62 @@ export function SalesTable({ sales }: { sales: SaleWithDetails[] }) {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
 
-  // Filter Sales
   const filtered = sales.filter((s) => {
-    // Search filter (customer name, notes, item names, sale ID)
     const q = query.toLowerCase();
-    const matchesSearch = !q || 
-      s.customer_name.toLowerCase().includes(q) || 
-      (s.notes && s.notes.toLowerCase().includes(q)) || 
+    const matchesSearch =
+      !q ||
+      s.customer_name.toLowerCase().includes(q) ||
+      (s.notes && s.notes.toLowerCase().includes(q)) ||
       s.id.toLowerCase().includes(q) ||
-      s.items.some(item => item.name.toLowerCase().includes(q));
+      s.items.some((item) => item.name.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
-    // Category filter
     if (categoryFilter !== "all") {
-      const hasCategory = s.items.some(item => item.item_type === categoryFilter);
-      // Fallback check if category is set via notes description (e.g. services)
+      const hasCategory = s.items.some((item) => item.item_type === categoryFilter);
       const matchesNotes = categoryFilter === "service" && s.notes?.toLowerCase().includes("послуга");
       if (!hasCategory && !matchesNotes) return false;
     }
 
-    // Payment method filter
     if (paymentFilter !== "all") {
-      const hasPaymentMethod = s.payments.some(p => p.method === paymentFilter);
+      const hasPaymentMethod = s.payments.some((p) => p.method === paymentFilter);
       if (!hasPaymentMethod) return false;
     }
 
     return true;
   });
 
+  const pager = usePagination(filtered, {
+    resetKey: `${query}|${categoryFilter}|${paymentFilter}`,
+  });
+
+  function summarize(sale: SaleWithDetails) {
+    return sale.items.length > 0
+      ? sale.items.map((i) => `${i.name} (x${i.quantity})`).join(", ")
+      : sale.notes || "Товар / Послуга";
+  }
+
   return (
     <>
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="relative flex-1 max-w-xs">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"><IconSearch size={15} /></span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"><IconSearch size={15} /></span>
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Пошук за товаром, покупцем..."
-            className="w-full rounded-xl border border-warm-border bg-warm-surface pl-9 pr-4 py-2 text-sm text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40"
+            className="w-full rounded-[var(--radius-md)] border border-border bg-surface pl-9 pr-4 py-2 text-base md:text-sm text-ink placeholder-faint outline-none transition-colors focus:border-accent"
           />
         </div>
-        <div className="flex gap-2 flex-wrap text-xs">
-          {/* Category Filters */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-xl border border-warm-border bg-warm-surface px-3 py-2 text-text-primary outline-none focus:border-violet/40 cursor-pointer"
-          >
+        <div className="flex gap-2 flex-wrap">
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selectClass}>
             <option value="all">Всі категорії</option>
             <option value="device">Техніка</option>
             <option value="accessory">Аксесуари</option>
             <option value="service">Послуги</option>
           </select>
-
-          {/* Payment Method Filters */}
-          <select
-            value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value)}
-            className="rounded-xl border border-warm-border bg-warm-surface px-3 py-2 text-text-primary outline-none focus:border-violet/40 cursor-pointer"
-          >
+          <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={selectClass}>
             <option value="all">Всі оплати</option>
             <option value="cash">Готівка</option>
             <option value="card">Картка</option>
@@ -96,111 +88,101 @@ export function SalesTable({ sales }: { sales: SaleWithDetails[] }) {
         </div>
       </div>
 
-      {/* Sales Table list */}
-      <div>
-        {/* Мобільний список карток */}
-        <div className="grid grid-cols-1 gap-3 md:hidden">
-          {filtered.length === 0 ? (
-            <p className="py-12 text-center text-sm text-text-secondary">Продажів не знайдено</p>
-          ) : (
-            filtered.map((sale) => {
-              const date = new Date(sale.created_at);
-              const formattedDate = format(date, "dd.MM.yyyy HH:mm");
-              const paymentsList = sale.payments.map(p => paymentMethods[p.method] || p.method).join(" + ");
-              const itemsSummary = sale.items.length > 0 
-                ? sale.items.map(i => `${i.name} (x${i.quantity})`).join(", ")
-                : sale.notes || "Товар / Послуга";
-
-              return (
-                <div
-                  key={sale.id}
-                  onClick={() => setSelectedSale(sale)}
-                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="font-mono text-xs font-bold text-slate-800">#{sale.id.substring(0, 8)}</span>
-                      <h4 className="font-bold text-sm text-text-primary mt-1">{sale.customer_name}</h4>
-                    </div>
-                    <span className="text-[11px] text-text-secondary font-mono bg-warm-sidebar px-2 py-0.5 rounded">
-                      {paymentsList || "—"}
-                    </span>
+      {/* Мобільний список карток */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {pager.pageItems.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted">Продажів не знайдено</p>
+        ) : (
+          pager.pageItems.map((sale) => {
+            const paymentsList = sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ");
+            return (
+              <button
+                key={sale.id}
+                onClick={() => setSelectedSale(sale)}
+                className="card card-hover btn-press p-4 flex flex-col gap-2.5 text-left cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="tabular text-xs text-muted">#{sale.id.substring(0, 8)}</span>
+                    <h4 className="font-semibold text-sm text-ink mt-1">{sale.customer_name}</h4>
                   </div>
-
-                  <div className="text-xs text-text-secondary border-t border-slate-100/60 pt-2.5">
-                    <span className="font-medium text-text-primary">{itemsSummary}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
-                    <span className="text-[10px] text-text-muted">{formattedDate}</span>
-                    <span className="font-bold text-sm text-emerald-600">{sale.is_warranty ? <span className="text-violet flex items-center gap-1"><span className="text-[10px]">🛡️</span> Гарантія</span> : `${sale.total_amount.toLocaleString()} ₴`}</span>
-                  </div>
+                  <Badge tone="neutral">{paymentsList || "—"}</Badge>
                 </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Десктопна таблиця */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-                <th className="pb-2 pr-4">ID</th>
-                <th className="pb-2 pr-4">Дата</th>
-                <th className="pb-2 pr-4">Клієнт</th>
-                <th className="pb-2 pr-4">Товари</th>
-                <th className="pb-2 pr-4">Метод оплати</th>
-                <th className="pb-2 pr-4 text-right">Сума</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Продажів не знайдено</td>
-                </tr>
-              ) : (
-                filtered.map((sale) => {
-                  const date = new Date(sale.created_at);
-                  const formattedDate = format(date, "dd.MM.yyyy HH:mm");
-                  const paymentsList = sale.payments.map(p => paymentMethods[p.method] || p.method).join(" + ");
-                  const itemsSummary = sale.items.length > 0 
-                    ? sale.items.map(i => `${i.name} (x${i.quantity})`).join(", ")
-                    : sale.notes || "Товар / Послуга";
-
-                  return (
-                    <tr
-                      key={sale.id}
-                      onClick={() => setSelectedSale(sale)}
-                      className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
-                    >
-                      <td className="py-3 pr-4 font-mono text-xs text-text-secondary">{sale.id.substring(0, 8)}</td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary">{formattedDate}</td>
-                      <td className="py-3 pr-4 font-medium">{sale.customer_name}</td>
-                      <td className="py-3 pr-4 max-w-[240px] truncate text-xs" title={itemsSummary}>{itemsSummary}</td>
-                      <td className="py-3 pr-4 text-xs text-text-secondary">{paymentsList || "—"}</td>
-                      <td className="py-3 pr-4 text-right font-semibold text-text-primary">
-                        {sale.is_warranty ? <span className="inline-flex items-center gap-1 rounded bg-violet/10 px-2 py-0.5 text-[10px] font-bold text-violet">🛡️ Гарантія</span> : `${sale.total_amount.toLocaleString()} ₴`}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                <div className="text-xs text-muted border-t border-border pt-2.5">
+                  <span className="text-ink">{summarize(sale)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
+                  <span className="text-muted tabular">{format(new Date(sale.created_at), "dd.MM.yyyy HH:mm")}</span>
+                  {sale.is_warranty ? (
+                    <Badge tone="accent">Гарантія</Badge>
+                  ) : (
+                    <span className="font-semibold text-sm text-success tabular">{sale.total_amount.toLocaleString()} ₴</span>
+                  )}
+                </div>
+              </button>
+            );
+          })
+        )}
       </div>
 
-      {/* Sale Detail Drawer */}
-      <Drawer
-        isOpen={!!selectedSale}
-        onClose={() => setSelectedSale(null)}
-        title="Деталі продажу"
-        size="half"
-      >
-        {selectedSale && (
-          <SaleDetailView sale={selectedSale} onClose={() => setSelectedSale(null)} />
-        )}
+      {/* Десктопна таблиця */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs font-medium text-muted">
+              <th className="pb-2 pr-4 font-medium">ID</th>
+              <th className="pb-2 pr-4 font-medium">Дата</th>
+              <th className="pb-2 pr-4 font-medium">Клієнт</th>
+              <th className="pb-2 pr-4 font-medium">Товари</th>
+              <th className="pb-2 pr-4 font-medium">Метод оплати</th>
+              <th className="pb-2 pr-4 font-medium text-right">Сума</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pager.pageItems.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-sm text-muted">Продажів не знайдено</td>
+              </tr>
+            ) : (
+              pager.pageItems.map((sale) => {
+                const paymentsList = sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ");
+                const itemsSummary = summarize(sale);
+                return (
+                  <tr
+                    key={sale.id}
+                    onClick={() => setSelectedSale(sale)}
+                    className="border-b border-border text-ink transition-colors hover:bg-hover cursor-pointer"
+                  >
+                    <td className="py-3 pr-4 tabular text-xs text-muted">{sale.id.substring(0, 8)}</td>
+                    <td className="py-3 pr-4 text-xs text-muted tabular">{format(new Date(sale.created_at), "dd.MM.yyyy HH:mm")}</td>
+                    <td className="py-3 pr-4 font-medium">{sale.customer_name}</td>
+                    <td className="py-3 pr-4 max-w-[240px] truncate text-xs" title={itemsSummary}>{itemsSummary}</td>
+                    <td className="py-3 pr-4 text-xs text-muted">{paymentsList || "—"}</td>
+                    <td className="py-3 pr-4 text-right font-semibold tabular">
+                      {sale.is_warranty ? <Badge tone="accent">Гарантія</Badge> : `${sale.total_amount.toLocaleString()} ₴`}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination
+        page={pager.page}
+        pageCount={pager.pageCount}
+        total={pager.total}
+        start={pager.start}
+        shown={pager.pageItems.length}
+        pageSize={pager.pageSize}
+        onPageChange={pager.setPage}
+        onPageSizeChange={pager.setPageSize}
+        itemLabel="продажів"
+      />
+
+      <Drawer isOpen={!!selectedSale} onClose={() => setSelectedSale(null)} title="Деталі продажу" size="half">
+        {selectedSale && <SaleDetailView sale={selectedSale} onClose={() => setSelectedSale(null)} />}
       </Drawer>
     </>
   );

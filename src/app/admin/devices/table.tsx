@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { 
   IconSearch, 
   IconEdit, 
@@ -276,10 +277,15 @@ export function DevicesTable({
     }
   });
 
-  // Групування для Канбану
+  // Групування для Канбану (канбан не пагінується — він згрупований за статусами)
   const transitDevices = sorted.filter((d) => d.status === "transit");
   const inStockDevices = sorted.filter((d) => d.status === "in_stock");
   const serviceDevices = sorted.filter((d) => d.status === "service");
+
+  // Архів росте без меж — пагінуємо саме його
+  const archivePager = usePagination(sorted, {
+    resetKey: `${activeTab}|${query}|${filterType}|${filterBrand}|${filterCondition}|${archiveStatusFilter}|${marginFilter}|${dateFilter}|${sortBy}`,
+  });
 
   const hasActiveFilters = 
     filterType !== "all" || 
@@ -606,15 +612,28 @@ export function DevicesTable({
             }}
           />
         ) : (
-          <DeviceArchiveView
-            sorted={sorted}
-            selectedDeviceIds={selectedDeviceIds}
-            setSelectedDeviceIds={setSelectedDeviceIds}
-            setSelectedDevice={setSelectedDevice}
-            setIsEditingDevice={setIsEditingDevice}
-            handleStatusChange={handleStatusChange}
-            handleDelete={handleDelete}
-          />
+          <>
+            <DeviceArchiveView
+              sorted={archivePager.pageItems}
+              selectedDeviceIds={selectedDeviceIds}
+              setSelectedDeviceIds={setSelectedDeviceIds}
+              setSelectedDevice={setSelectedDevice}
+              setIsEditingDevice={setIsEditingDevice}
+              handleStatusChange={handleStatusChange}
+              handleDelete={handleDelete}
+            />
+            <Pagination
+              page={archivePager.page}
+              pageCount={archivePager.pageCount}
+              total={archivePager.total}
+              start={archivePager.start}
+              shown={archivePager.pageItems.length}
+              pageSize={archivePager.pageSize}
+              onPageChange={archivePager.setPage}
+              onPageSizeChange={archivePager.setPageSize}
+              itemLabel="пристроїв"
+            />
+          </>
         )}
       </div>
 

@@ -8,6 +8,7 @@ import { EditRepairForm } from "@/components/forms/EditRepairForm";
 import { RepairDetailView } from "@/components/RepairDetailView";
 import Drawer from "@/components/ui/Drawer";
 import { RepairsKanban } from "./RepairsKanban";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { updateRepairStatus, bulkUpdateRepairsStatus, bulkUpdateRepairsTtn } from "@/lib/actions/repairs";
 
 type RepairRow = {
@@ -86,6 +87,9 @@ export function RepairsTable({
     const q = query.toLowerCase();
     return r.customer_name.toLowerCase().includes(q) || r.device_name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
   });
+
+  // Table view is paginated; the kanban stays whole (it is grouped by status).
+  const pager = usePagination(filtered, { resetKey: `${query}|${filter}` });
 
   async function handleStatusChange(repairId: string, status: string, e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
@@ -262,9 +266,9 @@ export function RepairsTable({
           {/* Мобільні картки ремонтів */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
             {filtered.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
+              <p className="py-12 text-center text-sm text-muted">Нічого не знайдено</p>
             ) : (
-              filtered.map((r) => {
+              pager.pageItems.map((r) => {
                 const isSelected = selectedIds.includes(r.id);
                 const isOverdue = r.estimated_completion &&
                   new Date(r.estimated_completion) < new Date() &&
@@ -383,12 +387,13 @@ export function RepairsTable({
                   <th className="pb-2 pr-4 w-10">
                     <input
                       type="checkbox"
-                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      checked={pager.pageItems.length > 0 && pager.pageItems.every((r) => selectedIds.includes(r.id))}
                       onChange={(e) => {
+                        const pageIds = pager.pageItems.map((r) => r.id);
                         if (e.target.checked) {
-                          setSelectedIds(filtered.map(r => r.id));
+                          setSelectedIds(Array.from(new Set([...selectedIds, ...pageIds])));
                         } else {
-                          setSelectedIds([]);
+                          setSelectedIds(selectedIds.filter((id) => !pageIds.includes(id)));
                         }
                       }}
                       className="rounded border-iris/20 text-violet focus:ring-violet h-4 w-4 cursor-pointer bg-transparent"
@@ -410,10 +415,10 @@ export function RepairsTable({
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
+                    <td colSpan={12} className="py-12 text-center text-sm text-muted">Нічого не знайдено</td>
                   </tr>
                 ) : (
-                  filtered.map((r) => {
+                  pager.pageItems.map((r) => {
                     const isSelected = selectedIds.includes(r.id);
                     return (
                       <tr 
@@ -548,6 +553,18 @@ export function RepairsTable({
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            page={pager.page}
+            pageCount={pager.pageCount}
+            total={pager.total}
+            start={pager.start}
+            shown={pager.pageItems.length}
+            pageSize={pager.pageSize}
+            onPageChange={pager.setPage}
+            onPageSizeChange={pager.setPageSize}
+            itemLabel="ремонтів"
+          />
         </div>
       )}
 
