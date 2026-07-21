@@ -196,16 +196,30 @@ body {
 /* ---------------------------------------------------------------------------
    Thermal receipt printing — 58 mm roll
    ---------------------------------------------------------------------------
-   58 mm paper carries a 48 mm printable band; the remaining ~5 mm per side is
-   the printer's hardware margin. So the page box is the full 58 mm with zero
-   CSS margin, and the slip itself is pinned to 48 mm and centred — nothing can
-   land under the cut edge. `auto` height makes it one continuous slip instead
-   of paginating against a fixed sheet length.
+   The paper is 58 mm; the printable band inside it is narrower, because the
+   head cannot reach the edges. The page box is the full 58 mm with zero CSS
+   margin, and the slip is pinned to the printable width and centred, so
+   nothing lands under the cut edge. `auto` height keeps it one continuous
+   slip rather than paginating against a fixed sheet length.
 
-   Keep these numbers in sync with the WYSIWYG preview in ReceiptPrintModal
-   ("Емулятор 58 мм стрічки"): the preview is deliberately the same 48 mm box
-   with the same 2 mm padding, so what is on screen is what the printer emits.
+   --receipt-print-width is the ONE number to tune if the print comes out
+   clipped or too narrow. Both the @media print rules below and the WYSIWYG
+   preview in ReceiptPrintModal read it, so the preview cannot drift from the
+   paper. Reduce it if the right edge is cut; raise it to use more of the roll.
+   (The one thing it does not drive is the "Друкована ширина — NN мм" caption
+   above that preview, which is plain text — update it here and there.)
+
+   Set to 54 mm on the owner's printer. Note this is wider than the 48 mm his
+   print driver advertises as the printable area of "58(48) x 297 mm" — if the
+   right edge clips, that driver figure is the truth and this must come back
+   down toward 48 mm.
    --------------------------------------------------------------------------- */
+:root {
+  --receipt-paper-width: 58mm;
+  --receipt-print-width: 54mm;
+  --receipt-print-padding: 2mm;
+}
+
 @page {
   size: 58mm auto;
   margin: 0;
@@ -220,7 +234,7 @@ body {
 
 @media print {
   html, body {
-    width: 58mm;
+    width: var(--receipt-paper-width);
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
@@ -241,9 +255,9 @@ body {
   }
 
   .printable-receipt {
-    width: 48mm;
+    width: var(--receipt-print-width);
     margin: 0 auto !important;
-    padding: 2mm !important;
+    padding: var(--receipt-print-padding) !important;
     border: 0 !important;
     box-shadow: none !important;
     background: #fff !important;

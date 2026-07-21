@@ -692,14 +692,15 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                   Емулятор 58 мм стрічки
                 </p>
                 <p className="text-[9px] text-text-secondary mb-3">
-                  Друкована ширина — 48 мм
+                  Друкована ширина — 54 мм
                 </p>
-                {/* Same 48 mm box and 2 mm padding as the @media print rules in
-                    globals.css, so this preview is the actual printed width
-                    rather than an approximation. Change one, change the other. */}
+                {/* Reads the same custom properties as the @media print rules in
+                    globals.css (--receipt-print-width / --receipt-print-padding),
+                    so this preview is the actual printed width and cannot drift
+                    from the paper. Tune the width there, not here. */}
                 <div
                   id="receipt-preview-container"
-                  className="w-[48mm] shrink-0 bg-white rounded-lg border border-warm-border shadow-md p-[2mm] font-mono text-[9px] leading-[1.35] text-black relative overflow-hidden select-none [&>*+*]:mt-[5px]"
+                  className="w-[var(--receipt-print-width)] shrink-0 bg-white rounded-lg border border-warm-border shadow-md p-[var(--receipt-print-padding)] font-mono text-[9px] leading-[1.35] text-black relative overflow-hidden select-none [&>*+*]:mt-[5px]"
                 >
                   {renderReceiptContent()}
                 </div>
