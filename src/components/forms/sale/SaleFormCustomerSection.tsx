@@ -66,11 +66,11 @@ export default function SaleFormCustomerSection({
           const selectedCust = customers.find(c => c.id === selectedCustomerId);
           if (selectedCust && selectedCust.notes) {
             return (
-              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-amber/10 p-3 text-sm text-amber-700 animate-entry">
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-amber/10 p-3 text-sm text-warning animate-entry">
                 <span className="text-amber mt-0.5">⚠️</span>
                 <div>
                   <p className="font-semibold mb-0.5 text-amber">Нотатка про клієнта</p>
-                  <p className="text-amber-800 leading-snug">{selectedCust.notes}</p>
+                  <p className="text-warning leading-snug">{selectedCust.notes}</p>
                 </div>
               </div>
             );
@@ -145,7 +145,7 @@ function NewCustomerFields({
           }}
           onBlur={() => setNameTouched(true)}
           placeholder="Ім'я *"
-          className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
+          className={`w-full rounded-xl border bg-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
             nameError ? "border-rose focus:border-rose" : "border-iris/20 focus:border-violet"
           }`}
         />
@@ -163,7 +163,7 @@ function NewCustomerFields({
           }}
           onBlur={() => setPhoneTouched(true)}
           placeholder="Телефон *"
-          className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
+          className={`w-full rounded-xl border bg-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
             phoneError ? "border-rose focus:border-rose" : "border-iris/20 focus:border-violet"
           }`}
         />
@@ -181,7 +181,7 @@ function NewCustomerFields({
           }}
           onBlur={() => setEmailTouched(true)}
           placeholder="Email (опціонально)"
-          className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
+          className={`w-full rounded-xl border bg-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors ${
             emailError ? "border-rose focus:border-rose" : "border-iris/20 focus:border-violet"
           }`}
         />

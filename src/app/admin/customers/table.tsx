@@ -41,7 +41,7 @@ type CustomerRow = {
 type RepairRow = Awaited<ReturnType<typeof getRepairs>>[number];
 
 const vipLabels: Record<string, string> = { regular: "Звичайний", silver: "Срібний", gold: "Золотий", platinum: "Платінум" };
-const vipColors: Record<string, string> = { regular: "text-text-secondary bg-iris/5", silver: "text-slate-600 bg-slate-100", gold: "text-amber bg-amber/10", platinum: "text-cyan bg-cyan/10" };
+const vipColors: Record<string, string> = { regular: "text-text-secondary bg-iris/5", silver: "text-muted bg-hover", gold: "text-amber bg-amber/10", platinum: "text-cyan bg-cyan/10" };
 
 const statusLabels: Record<string, string> = {
   received: "Прийнято", diagnostics: "Діагностика", in_progress: "В роботі",
@@ -171,7 +171,7 @@ export function CustomersTable({
                   setGeneratedMessage(null);
                   setIsCopilotOpen(false);
                 }}
-                className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                className="rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors hover:border-border-strong cursor-pointer"
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -192,12 +192,12 @@ export function CustomersTable({
                   </span>
                 </div>
 
-                <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                   <span>Статистика:</span>
                   <span className="text-text-primary font-medium">{c.total_visits} візитів / {c.total_spent.toLocaleString()} грн</span>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xxs text-text-muted">
+                <div className="flex items-center justify-between border-t border-border pt-2.5 text-xxs text-text-muted">
                   <span>Реєстрація: {c.created_at.split("T")[0]}</span>
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -337,7 +337,7 @@ export function CustomersTable({
                 </button>
                 <button
                   onClick={() => setIsEditingCustomer(true)}
-                  className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-white hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
+                  className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
                 >
                   <IconEdit size={14} /> Редагувати профіль
                 </button>
@@ -405,21 +405,21 @@ export function CustomersTable({
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Psychotype card */}
-                      <div className="rounded-2xl border border-violet/10 bg-white p-4 space-y-2">
+                      <div className="rounded-2xl border border-violet/10 bg-surface p-4 space-y-2">
                         <span className="text-[10px] uppercase tracking-wider text-text-secondary font-semibold">Психотип клієнта</span>
                         <p className="text-sm font-bold text-violet">{aiProfile.psychotype}</p>
                         <p className="text-xs text-text-secondary leading-relaxed">{aiProfile.summary}</p>
                       </div>
 
                       {/* Churn risk card */}
-                      <div className="rounded-2xl border border-violet/10 bg-white p-4 space-y-2">
+                      <div className="rounded-2xl border border-violet/10 bg-surface p-4 space-y-2">
                         <span className="text-[10px] uppercase tracking-wider text-text-secondary font-semibold">Ризик відтоку</span>
                         <div>
                           <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
                             aiProfile.retention_risk === "low" 
-                              ? "bg-emerald-500/10 text-emerald-600" 
+                              ? "bg-success/10 text-success" 
                               : aiProfile.retention_risk === "medium"
-                              ? "bg-amber-500/10 text-amber-600"
+                              ? "bg-warning/10 text-warning"
                               : "bg-rose-500/10 text-rose-600"
                           }`}>
                             {aiProfile.retention_risk === "low" ? "Низький" : aiProfile.retention_risk === "medium" ? "Середній" : "Високий"}
@@ -451,14 +451,14 @@ export function CustomersTable({
                         <button
                           onClick={() => handleGenerateMessage("repair_ready")}
                           disabled={isGeneratingMsg}
-                          className="btn-press flex-1 rounded-xl bg-white border border-warm-border hover:bg-warm-hover text-xs font-semibold py-2 transition-colors cursor-pointer disabled:opacity-50"
+                          className="btn-press flex-1 rounded-xl bg-surface border border-warm-border hover:bg-warm-hover text-xs font-semibold py-2 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           {isGeneratingMsg && msgTemplate === "repair_ready" ? "Генерація..." : "Ремонт готовий"}
                         </button>
                         <button
                           onClick={() => handleGenerateMessage("promo")}
                           disabled={isGeneratingMsg}
-                          className="btn-press flex-1 rounded-xl bg-white border border-warm-border hover:bg-warm-hover text-xs font-semibold py-2 transition-colors cursor-pointer disabled:opacity-50"
+                          className="btn-press flex-1 rounded-xl bg-surface border border-warm-border hover:bg-warm-hover text-xs font-semibold py-2 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           {isGeneratingMsg && msgTemplate === "promo" ? "Генерація..." : "Пропозиція послуги"}
                         </button>
@@ -470,7 +470,7 @@ export function CustomersTable({
                             <textarea
                               readOnly
                               value={generatedMessage}
-                              className="w-full min-h-[90px] rounded-xl border border-warm-border bg-white p-3 text-xs text-text-primary placeholder-iris/40 outline-none resize-none font-sans"
+                              className="w-full min-h-[90px] rounded-xl border border-warm-border bg-surface p-3 text-xs text-text-primary placeholder-iris/40 outline-none resize-none font-sans"
                             />
                           </div>
                           <div className="flex justify-end">
@@ -511,7 +511,7 @@ export function CustomersTable({
                         <div 
                           key={sale.id} 
                           onClick={() => setSelectedSale(sale)}
-                          className="rounded-xl border border-warm-border/60 bg-white p-3.5 space-y-2 text-xs cursor-pointer hover:border-violet/40 hover:shadow-sm transition-all"
+                          className="rounded-xl border border-warm-border/60 bg-surface p-3.5 space-y-2 text-xs cursor-pointer hover:border-violet/40 hover:shadow-sm transition-all"
                         >
                           <div className="flex justify-between items-center text-text-secondary">
                             <span className="hover:text-violet transition-colors">{sale.created_at.split("T")[0]} {sale.created_at.split("T")[1]?.substring(0, 5)}</span>
@@ -542,7 +542,7 @@ export function CustomersTable({
                         <div 
                           key={rep.id} 
                           onClick={() => setSelectedRepair(rep)}
-                          className="rounded-xl border border-warm-border/60 bg-white p-3.5 space-y-1 text-xs cursor-pointer hover:border-violet/40 hover:shadow-sm transition-all"
+                          className="rounded-xl border border-warm-border/60 bg-surface p-3.5 space-y-1 text-xs cursor-pointer hover:border-violet/40 hover:shadow-sm transition-all"
                         >
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-text-primary hover:text-violet transition-colors">{rep.device_name}</span>

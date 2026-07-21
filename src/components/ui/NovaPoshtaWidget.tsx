@@ -37,7 +37,7 @@ export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidge
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-warm-border bg-white p-4 space-y-2 animate-pulse">
+      <div className="rounded-xl border border-warm-border bg-surface p-4 space-y-2 animate-pulse">
         <div className="h-4 bg-warm-bg rounded w-1/3" />
         <div className="h-3 bg-warm-bg rounded w-3/4" />
         <div className="h-3 bg-warm-bg rounded w-1/2" />
@@ -55,7 +55,7 @@ export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidge
 
   if (!status) {
     return (
-      <div className="rounded-xl border border-warm-border bg-white p-4 text-xs text-text-secondary">
+      <div className="rounded-xl border border-warm-border bg-surface p-4 text-xs text-text-secondary">
         ТТН <span className="font-mono">{ttn}</span> не знайдено в базі Нової Пошти або відсутній API-ключ.
       </div>
     );
@@ -65,7 +65,7 @@ export default function NovaPoshtaWidget({ ttn, initialStatus }: NovaPoshtaWidge
   const deliveryDate = status.ActualDeliveryDate || status.ScheduledDeliveryDate;
 
   return (
-    <div className="rounded-xl border border-warm-border bg-white p-4 text-xs text-text-primary">
+    <div className="rounded-xl border border-warm-border bg-surface p-4 text-xs text-text-primary">
       <div className="flex items-center justify-between gap-2 border-b border-warm-border pb-2.5 mb-2.5">
         <div>
           <p className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">Нова Пошта ТТН</p>

@@ -87,7 +87,7 @@ export function PartForm({
               className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
                 !isTransit
                   ? "border-emerald/60 bg-emerald/5 text-emerald"
-                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
               }`}
             >
               <span>📦</span>
@@ -99,7 +99,7 @@ export function PartForm({
               className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors cursor-pointer ${
                 isTransit
                   ? "border-amber/60 bg-amber/5 text-amber"
-                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
               }`}
             >
               <span>🚚</span>
@@ -157,7 +157,7 @@ export function PartForm({
               className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                 paymentStatus === "paid"
                   ? "border-violet bg-violet/5 text-violet"
-                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
               }`}
             >
               <span>💳</span>
@@ -169,7 +169,7 @@ export function PartForm({
               className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                 paymentStatus === "deferred"
                   ? "border-rose bg-rose/5 text-rose"
-                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                  : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
               }`}
             >
               <span>📅</span>

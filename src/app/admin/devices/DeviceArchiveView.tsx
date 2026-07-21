@@ -36,8 +36,8 @@ export function DeviceArchiveView({
             <div 
               key={d.id} 
               onClick={() => { setSelectedDevice(d); setIsEditingDevice(false); }}
-              className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-3 transition-colors ${
-                isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-slate-300"
+              className={`rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-3 transition-colors ${
+                isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-border-strong"
               }`}
             >
               <div className="flex items-start justify-between">

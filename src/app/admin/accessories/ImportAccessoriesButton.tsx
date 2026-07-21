@@ -166,11 +166,11 @@ export function ImportAccessoriesButton() {
           <div className="rounded-xl border border-warm-border/50 bg-violet/5 p-5 text-sm text-text-primary">
             <h3 className="font-semibold mb-2 text-violet tracking-tight">Інструкція з імпорту:</h3>
             <p className="mb-2">Будь ласка, завантажте CSV-файл, який містить такі стовпці в першому рядку (заголовки):</p>
-            <code className="block bg-white p-2.5 rounded-lg border border-iris/10 text-xs font-mono text-violet overflow-x-auto">
+            <code className="block bg-surface p-2.5 rounded-lg border border-iris/10 text-xs font-mono text-violet overflow-x-auto">
               name, type, price, cost_price, stock, min_stock
             </code>
             <div className="mt-3 space-y-1 text-xs text-text-secondary">
-              <p>• <strong className="text-text-primary">type</strong> може мати лише такі значення: <span className="font-mono bg-white px-1 py-0.5 rounded">case</span> (чохол), <span className="font-mono bg-white px-1 py-0.5 rounded">charger</span> (зарядка), <span className="font-mono bg-white px-1 py-0.5 rounded">cable</span> (кабель), <span className="font-mono bg-white px-1 py-0.5 rounded">headphones</span> (навушники), <span className="font-mono bg-white px-1 py-0.5 rounded">screen_protector</span> (скло/плівка), <span className="font-mono bg-white px-1 py-0.5 rounded">other</span> (інше).</p>
+              <p>• <strong className="text-text-primary">type</strong> може мати лише такі значення: <span className="font-mono bg-surface px-1 py-0.5 rounded">case</span> (чохол), <span className="font-mono bg-surface px-1 py-0.5 rounded">charger</span> (зарядка), <span className="font-mono bg-surface px-1 py-0.5 rounded">cable</span> (кабель), <span className="font-mono bg-surface px-1 py-0.5 rounded">headphones</span> (навушники), <span className="font-mono bg-surface px-1 py-0.5 rounded">screen_protector</span> (скло/плівка), <span className="font-mono bg-surface px-1 py-0.5 rounded">other</span> (інше).</p>
               <p>• Розділювачем стовпців може бути кома або крапка з комою.</p>
             </div>
           </div>

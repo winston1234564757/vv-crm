@@ -16,20 +16,20 @@ type AnalyticsProps = {
 
 const colorBgMap: Record<string, string> = {
   violet: 'bg-violet',
-  blue: 'bg-blue-500',
+  blue: 'bg-info',
   emerald: 'bg-emerald',
-  amber: 'bg-amber-500',
+  amber: 'bg-warning',
   rose: 'bg-rose',
-  slate: 'bg-slate-500',
+  slate: 'bg-muted',
 };
 
 const colorTextMap: Record<string, string> = {
   violet: 'text-violet',
-  blue: 'text-blue-500',
+  blue: 'text-info',
   emerald: 'text-emerald',
-  amber: 'text-amber-500',
+  amber: 'text-warning',
   rose: 'text-rose',
-  slate: 'text-slate-500',
+  slate: 'text-muted',
 };
 
 export default function StoreLaunchAnalytics({ categories, tasks, expenses, totalBudget, totalSpent }: AnalyticsProps) {
@@ -107,9 +107,9 @@ export default function StoreLaunchAnalytics({ categories, tasks, expenses, tota
             {insights.slice(0, 3).map((insight, idx) => (
               <div key={idx} className={`flex gap-3 p-4 rounded-2xl border ${
                 insight.type === 'danger' ? 'bg-rose/5 border-rose/20 text-rose' :
-                insight.type === 'warning' ? 'bg-amber-500/5 border-amber-500/20 text-amber-500' :
+                insight.type === 'warning' ? 'bg-warning/5 border-warning/20 text-warning' :
                 insight.type === 'success' ? 'bg-emerald/5 border-emerald/20 text-emerald' :
-                'bg-blue-500/5 border-blue-500/20 text-blue-500'
+                'bg-info/5 border-info/20 text-info'
               }`}>
                 <div className="shrink-0 mt-0.5">
                   {insight.type === 'danger' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>}
@@ -140,11 +140,11 @@ export default function StoreLaunchAnalytics({ categories, tasks, expenses, tota
             </div>
 
             {totalAllocated === 0 ? (
-              <div className="h-6 w-full bg-black/5 dark:bg-white/5 rounded-full" />
+              <div className="h-6 w-full bg-black/5 dark:bg-surface/5 rounded-full" />
             ) : (
               <div className="flex flex-col gap-4">
                 {/* Stacked Bar */}
-                <div className="flex h-6 w-full bg-black/5 dark:bg-white/5 rounded-full overflow-hidden shadow-inner">
+                <div className="flex h-6 w-full bg-black/5 dark:bg-surface/5 rounded-full overflow-hidden shadow-inner">
                   {validCategories.map(c => {
                     const pct = (c.budget_limit / totalAllocated) * 100;
                     if (pct === 0) return null;

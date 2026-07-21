@@ -114,7 +114,7 @@ export default function SaleFormPaymentFields({
                 max={amount || undefined}
                 value={cashAmount}
                 onChange={(e) => onCashAmountChange(e.target.value)}
-                className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
+                className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
               />
             </div>
             <div>
@@ -131,7 +131,7 @@ export default function SaleFormPaymentFields({
                 max={amount || undefined}
                 value={cardAmount}
                 onChange={(e) => onCardAmountChange(e.target.value)}
-                className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
+                className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
               />
             </div>
           </div>

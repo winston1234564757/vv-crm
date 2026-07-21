@@ -23,11 +23,11 @@ type DomainCardProps = {
 
 const colorMap: Record<string, string> = {
   violet: 'bg-violet text-violet shadow-violet/30 border-violet',
-  blue: 'bg-blue-500 text-blue-500 shadow-blue-500/30 border-blue-500',
+  blue: 'bg-info text-info shadow-info/30 border-info',
   emerald: 'bg-emerald text-emerald shadow-emerald/30 border-emerald',
-  amber: 'bg-amber-500 text-amber-500 shadow-amber-500/30 border-amber-500',
+  amber: 'bg-warning text-warning shadow-warning/30 border-warning',
   rose: 'bg-rose text-rose shadow-rose/30 border-rose',
-  slate: 'bg-slate-500 text-slate-500 shadow-slate-500/30 border-slate-500',
+  slate: 'bg-muted text-muted shadow-border-strong/30 border-border-strong',
 };
 
 export default function DomainCard({ category, tasks, expenses, allCategories }: DomainCardProps) {
@@ -161,7 +161,7 @@ export default function DomainCard({ category, tasks, expenses, allCategories }:
                 </div>
 
                 {addingTask && (
-                  <form onSubmit={handleCreateTask} className="flex gap-2 p-3 rounded-xl border border-warm-border/60 bg-white dark:bg-black/20">
+                  <form onSubmit={handleCreateTask} className="flex gap-2 p-3 rounded-xl border border-warm-border/60 bg-surface dark:bg-black/20">
                     <input name="title" required autoFocus placeholder="Назва завдання..." className="flex-1 bg-transparent text-sm font-medium outline-none text-text-primary" />
                     <button type="submit" disabled={isPending} className="px-3 rounded-lg bg-violet text-white text-xs font-semibold">Зберегти</button>
                   </form>
@@ -169,7 +169,7 @@ export default function DomainCard({ category, tasks, expenses, allCategories }:
 
                 <div className="flex flex-col gap-2">
                   {tasks.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-black/20 border border-warm-border/40 hover:border-violet/30 transition-colors group/task relative">
+                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface dark:bg-black/20 border border-warm-border/40 hover:border-violet/30 transition-colors group/task relative">
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleTaskStatus(task.id, task.status); }}
                         className={`flex w-6 h-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${task.status === 'done' ? 'border-emerald bg-emerald text-white' : 'border-warm-border hover:border-violet text-transparent'}`}
@@ -200,7 +200,7 @@ export default function DomainCard({ category, tasks, expenses, allCategories }:
                 </div>
 
                 {addingExpense && (
-                  <form onSubmit={handleCreateExpense} className="flex flex-col gap-2 p-3 rounded-xl border border-warm-border/60 bg-white dark:bg-black/20">
+                  <form onSubmit={handleCreateExpense} className="flex flex-col gap-2 p-3 rounded-xl border border-warm-border/60 bg-surface dark:bg-black/20">
                     <div className="flex gap-2">
                       <input name="title" required autoFocus placeholder="Назва витрати..." className="flex-1 bg-transparent text-sm font-medium outline-none text-text-primary" />
                       <input name="amount" type="number" required placeholder="Сума" className="w-24 bg-transparent text-sm font-mono outline-none text-text-primary" />
@@ -217,7 +217,7 @@ export default function DomainCard({ category, tasks, expenses, allCategories }:
 
                 <div className="flex flex-col gap-2">
                   {expenses.map(exp => (
-                    <div key={exp.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-black/20 border border-warm-border/40 hover:border-violet/30 transition-colors group/exp relative">
+                    <div key={exp.id} className="flex items-center justify-between p-3 rounded-xl bg-surface dark:bg-black/20 border border-warm-border/40 hover:border-violet/30 transition-colors group/exp relative">
                       <div className="flex flex-col gap-0.5 overflow-hidden pr-12">
                         <span className="text-sm font-medium text-text-primary truncate">{exp.title}</span>
                         <span className="text-[10px] font-mono text-text-secondary">{exp.amount.toLocaleString("uk-UA")} ₴</span>
@@ -226,7 +226,7 @@ export default function DomainCard({ category, tasks, expenses, allCategories }:
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleExpenseStatus(exp.id, exp.status); }}
-                          className={`text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider ${exp.status === 'received' ? 'bg-emerald/10 text-emerald' : exp.status === 'paid' ? 'bg-amber-500/10 text-amber-500' : 'bg-black/5 text-text-secondary'}`}
+                          className={`text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider ${exp.status === 'received' ? 'bg-emerald/10 text-emerald' : exp.status === 'paid' ? 'bg-warning/10 text-warning' : 'bg-black/5 text-text-secondary'}`}
                         >
                           {exp.status === 'planned' ? 'План' : exp.status === 'paid' ? 'Оплачено' : 'Отримано'}
                         </button>

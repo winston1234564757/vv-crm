@@ -156,7 +156,7 @@ export function RepairsTable({
                   e.target.value = "";
                 }
               }}
-              className="rounded-xl border border-warm-border bg-white px-3 py-2 text-xs font-medium text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
+              className="rounded-xl border border-warm-border bg-surface px-3 py-2 text-xs font-medium text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
             >
               <option value="">Змінити статус...</option>
               {Object.entries(statusLabels).map(([val, label]) => (
@@ -171,7 +171,7 @@ export function RepairsTable({
               value={bulkTtn}
               onChange={(e) => setBulkTtn(e.target.value)}
               placeholder="ТТН відправки..."
-              className="rounded-xl border border-warm-border bg-white px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[150px]"
+              className="rounded-xl border border-warm-border bg-surface px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[150px]"
             />
             <button
               onClick={handleBulkUpdateTtn}
@@ -182,7 +182,7 @@ export function RepairsTable({
             </button>
             <button
               onClick={() => { setSelectedIds([]); setBulkTtn(""); }}
-              className="rounded-xl border border-warm-border bg-white hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
+              className="rounded-xl border border-warm-border bg-surface hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
             >
               Скасувати
             </button>
@@ -209,7 +209,7 @@ export function RepairsTable({
               onClick={() => setViewMode("kanban")}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
                 viewMode === "kanban"
-                  ? "bg-white text-text-primary shadow-sm"
+                  ? "bg-surface text-text-primary shadow-sm"
                   : "text-text-secondary hover:text-text-primary"
               }`}
               title="Дошка"
@@ -220,7 +220,7 @@ export function RepairsTable({
               onClick={() => setViewMode("table")}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white text-text-primary shadow-sm"
+                  ? "bg-surface text-text-primary shadow-sm"
                   : "text-text-secondary hover:text-text-primary"
               }`}
               title="Список"
@@ -278,8 +278,8 @@ export function RepairsTable({
                   <div
                     key={r.id}
                     onClick={() => { setSelectedRepair(r); setIsEditing(false); }}
-                    className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-3 transition-colors ${
-                      isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-slate-300"
+                    className={`rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-3 transition-colors ${
+                      isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-border-strong"
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -299,7 +299,7 @@ export function RepairsTable({
                         />
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-xs font-bold text-slate-800">#{r.id.substring(0, 8)}</span>
+                            <span className="font-mono text-xs font-bold text-ink">#{r.id.substring(0, 8)}</span>
                             <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[8px] font-bold ${
                               r.repair_type === "internal"
                                 ? "bg-amber/10 text-amber"
@@ -334,7 +334,7 @@ export function RepairsTable({
                             }}
                           >
                             {Object.entries(statusLabels).map(([val, label]) => (
-                              <option key={val} value={val} className="text-text-primary bg-white">{label}</option>
+                              <option key={val} value={val} className="text-text-primary bg-surface">{label}</option>
                             ))}
                           </select>
                         )}
@@ -344,7 +344,7 @@ export function RepairsTable({
                       </div>
                     </div>
 
-                    <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                    <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                       <span>Вартість ремонту:</span>
                       <span className="text-text-primary font-bold">{r.is_warranty ? <span className="text-violet flex items-center gap-1"><span className="text-[10px]">🛡️</span> Гарантія</span> : `${r.price.toLocaleString()} грн`}</span>
                     </div>
@@ -534,7 +534,7 @@ export function RepairsTable({
                               }}
                             >
                               {Object.entries(statusLabels).map(([val, label]) => (
-                                <option key={val} value={val} className="text-text-primary bg-white">{label}</option>
+                                <option key={val} value={val} className="text-text-primary bg-surface">{label}</option>
                               ))}
                             </select>
                           )}

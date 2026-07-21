@@ -80,7 +80,7 @@ export function PurchaseForm({
       <div className="rounded-xl bg-violet/5 p-4 border border-violet/10">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-text-primary tracking-tight">Позиції закупівлі</h3>
-          <button type="button" onClick={addItem} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-violet transition-colors hover:bg-violet/10 border border-violet/20">
+          <button type="button" onClick={addItem} className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-xs font-medium text-violet transition-colors hover:bg-violet/10 border border-violet/20">
             <IconPlus size={14} /> Додати позицію
           </button>
         </div>
@@ -90,7 +90,7 @@ export function PurchaseForm({
         ) : (
           <div className="space-y-3">
             {items.map((item, index) => (
-              <div key={item.id} className="relative rounded-xl border border-iris/20 bg-white p-3 shadow-sm flex flex-col gap-3">
+              <div key={item.id} className="relative rounded-xl border border-iris/20 bg-surface p-3 shadow-sm flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-text-secondary">Позиція #{index + 1}</span>
                   <button type="button" onClick={() => removeItem(item.id)} className="text-rose hover:text-rose-hover transition-colors">
@@ -183,7 +183,7 @@ export function PurchaseForm({
                 <select
                   value={prepaidSafeId}
                   onChange={(e) => setPrepaidSafeId(e.target.value)}
-                  className="w-full rounded-lg border border-violet/30 bg-white px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-violet cursor-pointer"
+                  className="w-full rounded-lg border border-violet/30 bg-surface px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-violet cursor-pointer"
                 >
                   {safes.map((safe) => (
                     <option key={safe.id} value={safe.id}>

@@ -80,7 +80,7 @@ export function PayPurchaseModal({
         <div className="mt-6 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-xl border border-warm-border bg-white hover:bg-warm-hover text-text-secondary px-4 py-2 text-xs font-semibold cursor-pointer transition-colors"
+            className="rounded-xl border border-warm-border bg-surface hover:bg-warm-hover text-text-secondary px-4 py-2 text-xs font-semibold cursor-pointer transition-colors"
           >
             Скасувати
           </button>

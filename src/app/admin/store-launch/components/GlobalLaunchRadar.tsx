@@ -60,17 +60,17 @@ export default function GlobalLaunchRadar({ milestones, totalBudget, totalSpent 
                 {/* Milestone Nodes */}
                 {sortedMilestones.map((m, i) => (
                   <div key={m.id} className="relative z-10 flex flex-col items-center group/node cursor-default">
-                    <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 transition-all duration-500 shadow-sm ${m.is_completed ? 'bg-violet border-violet scale-110 shadow-violet/30' : 'bg-white dark:bg-slate-900 border-warm-border/80'}`} />
+                    <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 transition-all duration-500 shadow-sm ${m.is_completed ? 'bg-violet border-violet scale-110 shadow-violet/30' : 'bg-surface dark:bg-slate-900 border-warm-border/80'}`} />
                     
                     {/* Tooltip */}
-                    <div className="absolute -bottom-12 opacity-0 group-hover/node:opacity-100 pointer-events-none group-hover/node:pointer-events-auto transition-all duration-300 translate-y-2 group-hover/node:translate-y-0 whitespace-nowrap bg-black dark:bg-white text-white dark:text-black text-xs font-medium px-3 py-1.5 rounded-lg shadow-xl z-20 flex items-center gap-3">
+                    <div className="absolute -bottom-12 opacity-0 group-hover/node:opacity-100 pointer-events-none group-hover/node:pointer-events-auto transition-all duration-300 translate-y-2 group-hover/node:translate-y-0 whitespace-nowrap bg-black dark:bg-surface text-white dark:text-black text-xs font-medium px-3 py-1.5 rounded-lg shadow-xl z-20 flex items-center gap-3">
                       <div className="flex flex-col">
                         <div className="font-bold">{m.title}</div>
                         {m.target_date && <div className="text-[10px] opacity-80">{format(parseISO(m.target_date), "d MMM", { locale: uk })}</div>}
                       </div>
                       <button 
                         onClick={() => setEditingMilestone(m)}
-                        className="ml-2 p-1.5 bg-white/20 dark:bg-black/10 rounded hover:bg-white/30 dark:hover:bg-black/20 transition-colors"
+                        className="ml-2 p-1.5 bg-surface/20 dark:bg-black/10 rounded hover:bg-surface/30 dark:hover:bg-black/20 transition-colors"
                         title="Редагувати"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>

@@ -90,14 +90,14 @@ export default function StoreLaunchEditModal({
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва завдання</label>
-                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Відповідальний</label>
                   <div className="relative">
-                    <select name="assignee" defaultValue={itemData.assignee || ""} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                    <select name="assignee" defaultValue={itemData.assignee || ""} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                       <option value="">Не призначено</option>
                       <option value="Власник">Власник</option>
                       <option value="Менеджер">Менеджер</option>
@@ -111,14 +111,14 @@ export default function StoreLaunchEditModal({
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дедлайн</label>
-                  <input name="due_date" type="date" defaultValue={itemData.due_date || ""} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                  <input name="due_date" type="date" defaultValue={itemData.due_date || ""} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Напрямок (Категорія)</label>
                 <div className="relative">
-                  <select name="category_id" defaultValue={itemData.category_id || ""} required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                  <select name="category_id" defaultValue={itemData.category_id || ""} required className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                     <option value="" disabled>Оберіть напрямок...</option>
                     {categories.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -137,18 +137,18 @@ export default function StoreLaunchEditModal({
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва витрати</label>
-                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Сума (₴)</label>
-                  <input name="amount" type="number" defaultValue={itemData.amount} required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary" />
+                  <input name="amount" type="number" defaultValue={itemData.amount} required className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Статус</label>
                   <div className="relative">
-                    <select name="status" defaultValue={itemData.status} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                    <select name="status" defaultValue={itemData.status} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                       <option value="planned">План (Заплановано)</option>
                       <option value="paid">Оплачено</option>
                       <option value="received">Отримано (Доставлено)</option>
@@ -164,7 +164,7 @@ export default function StoreLaunchEditModal({
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Напрямок (Бюджет)</label>
                   <div className="relative">
-                    <select name="category_id" defaultValue={itemData.category_id || ""} required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                    <select name="category_id" defaultValue={itemData.category_id || ""} required className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                       <option value="" disabled>Оберіть напрямок...</option>
                       {categories.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -178,7 +178,7 @@ export default function StoreLaunchEditModal({
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Тип витрати</label>
                   <div className="relative">
-                    <select name="type" defaultValue={itemData.type} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                    <select name="type" defaultValue={itemData.type} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                       <option value="fee">Послуга</option>
                       <option value="purchase">Товар / Матеріали</option>
                     </select>
@@ -192,11 +192,11 @@ export default function StoreLaunchEditModal({
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Посилання</label>
-                  <input name="url" type="url" defaultValue={itemData.url || ""} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                  <input name="url" type="url" defaultValue={itemData.url || ""} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дата оплати</label>
-                  <input name="paid_at" type="date" defaultValue={itemData.paid_at || ""} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                  <input name="paid_at" type="date" defaultValue={itemData.paid_at || ""} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
                 </div>
               </div>
             </div>
@@ -206,17 +206,17 @@ export default function StoreLaunchEditModal({
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва напрямку</label>
-                <input name="name" defaultValue={itemData.name} required autoFocus className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                <input name="name" defaultValue={itemData.name} required autoFocus className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Плановий Бюджет (₴)</label>
-                  <input name="budget_limit" type="number" defaultValue={itemData.budget_limit} required className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary" />
+                  <input name="budget_limit" type="number" defaultValue={itemData.budget_limit} required className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-mono text-text-primary" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Колір маркеру</label>
                   <div className="relative">
-                    <select name="color" defaultValue={itemData.color} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
+                    <select name="color" defaultValue={itemData.color} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary appearance-none cursor-pointer">
                       <option value="violet">Фіолетовий</option>
                       <option value="blue">Синій</option>
                       <option value="emerald">Смарагдовий</option>
@@ -237,11 +237,11 @@ export default function StoreLaunchEditModal({
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Назва етапу</label>
-                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                <input name="title" defaultValue={itemData.title} required autoFocus className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider pl-1">Дедлайн</label>
-                <input name="target_date" type="date" defaultValue={itemData.target_date || ""} className="w-full px-4 py-3 rounded-xl bg-white border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
+                <input name="target_date" type="date" defaultValue={itemData.target_date || ""} className="w-full px-4 py-3 rounded-xl bg-surface border border-warm-border/60 outline-none focus:border-violet focus:ring-1 focus:ring-violet transition-all text-sm font-medium text-text-primary" />
               </div>
             </div>
           )}

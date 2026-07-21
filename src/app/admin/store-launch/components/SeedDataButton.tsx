@@ -49,7 +49,7 @@ export default function SeedDataButton() {
         ) : (
           <span className="flex items-center gap-4">
             <span className="text-sm font-semibold tracking-wide">Демо-дані</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-black shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-[1px] group-hover:translate-x-1 group-hover:scale-[1.01] duration-300 ease-out">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface dark:bg-black shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-[1px] group-hover:translate-x-1 group-hover:scale-[1.01] duration-300 ease-out">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-black dark:text-white"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
             </div>
           </span>

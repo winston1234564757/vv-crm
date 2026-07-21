@@ -130,7 +130,7 @@ export function RepairsKanban({ repairs, onCardClick, onEditClick }: RepairsKanb
       <div
         key={repair.id}
         onClick={() => onCardClick(repair)}
-        className={`group relative flex flex-col gap-0 rounded-xl border bg-white transition-all duration-200 cursor-pointer active:scale-[0.99] border-t-[3px] ${col.accentClass} ${
+        className={`group relative flex flex-col gap-0 rounded-xl border bg-surface transition-all duration-200 cursor-pointer active:scale-[0.99] border-t-[3px] ${col.accentClass} ${
           isOverdue
             ? "border-rose/30"
             : "border-warm-border"

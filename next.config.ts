@@ -7,19 +7,25 @@ const withSerwist = withSerwistInit({
   disable: process.env.NODE_ENV === "development",
 });
 
-// Fix: Node 22.22.x + Webpack WasmHash incompatibility
+// Fix: Webpack WasmHash instability -> "Cannot read properties of undefined
+// (reading 'length')" during "Creating an optimized production build".
 // https://github.com/webpack/webpack/issues/14532
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
   webpack(config) {
-    // Fix: Node 22.22.x + Webpack WasmHash (xxhash-wasm) incompatibility
-    // Falls back to md4 — a native crypto hash, no WASM required
+    // Both of webpack's default hashers are WASM-backed: "xxhash64" (default)
+    // and "md4" (webpack ships its own md4 WASM build — it is NOT native crypto,
+    // which is why the previous md4 workaround did not actually fix anything and
+    // the crash kept resurfacing on incremental/cached builds).
+    // "sha256" routes through Node's native crypto.createHash — no WASM, no pool
+    // corruption. Slightly slower to hash, but builds stop being a lottery.
     config.output = {
       ...config.output,
-      hashFunction: "md4",
+      hashFunction: "sha256",
       hashDigest: "hex",
+      hashDigestLength: 16,
     };
     return config;
   },

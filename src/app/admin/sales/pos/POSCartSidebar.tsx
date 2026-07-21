@@ -83,7 +83,7 @@ export function POSCartSidebar({
   setNotes
 }: POSCartSidebarProps) {
   return (
-    <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between rounded-xl p-5 bg-white shadow-[0_1px_3px_oklch(0%_0_0_/_0.06)] border border-warm-border max-h-[85vh] overflow-y-auto`}>
+    <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between rounded-xl p-5 bg-surface shadow-[0_1px_3px_oklch(0%_0_0_/_0.06)] border border-warm-border max-h-[85vh] overflow-y-auto`}>
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-iris/10 pb-3">
           <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Кошик замовлення</h2>
@@ -104,14 +104,14 @@ export function POSCartSidebar({
                   placeholder="Ім'я"
                   value={newCustName}
                   onChange={e => setNewCustName(e.target.value)}
-                  className="w-full rounded-lg border border-iris/20 bg-white px-2.5 py-1.5 outline-none focus:border-violet"
+                  className="w-full rounded-lg border border-iris/20 bg-surface px-2.5 py-1.5 outline-none focus:border-violet"
                 />
                 <input
                   type="text"
                   placeholder="Телефон"
                   value={newCustPhone}
                   onChange={e => setNewCustPhone(e.target.value)}
-                  className="w-full rounded-lg border border-iris/20 bg-white px-2.5 py-1.5 outline-none focus:border-violet"
+                  className="w-full rounded-lg border border-iris/20 bg-surface px-2.5 py-1.5 outline-none focus:border-violet"
                 />
               </div>
               {custError && <p className="text-[10px] text-rose font-medium">{custError}</p>}
@@ -136,7 +136,7 @@ export function POSCartSidebar({
             <select
               value={selectedCustomerId}
               onChange={e => handleCustomerChange(e.target.value)}
-              className="w-full rounded-xl border border-iris/20 bg-white px-3.5 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+              className="w-full rounded-xl border border-iris/20 bg-surface px-3.5 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
             >
               <option value="">Роздрібний покупець (Гість)</option>
               <option value="__new__">+ Новий клієнт...</option>
@@ -175,7 +175,7 @@ export function POSCartSidebar({
                       animate={{ opacity: 1, height: "auto", y: 0 }}
                       exit={{ opacity: 0, height: 0, y: -12 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      className={`flex items-center justify-between p-3 rounded-xl bg-white border transition-all duration-200 overflow-hidden ${
+                      className={`flex items-center justify-between p-3 rounded-xl bg-surface border transition-all duration-200 overflow-hidden ${
                         isUnderCost ? "border-amber/40 bg-amber/[0.02] hover:border-amber/65" : "border-warm-border/60 hover:border-violet/25"
                       }`}
                     >
@@ -271,7 +271,7 @@ export function POSCartSidebar({
             placeholder="Внутрішня нотатка..."
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2 text-xs outline-none focus:border-violet"
+            className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2 text-xs outline-none focus:border-violet"
           />
         </div>
 
@@ -288,7 +288,7 @@ export function POSCartSidebar({
         )}
 
         {/* Split payments calculator */}
-        <div className="p-3.5 bg-white dark:bg-zinc-900 rounded-xl border border-warm-border/60 text-xs space-y-3.5 shadow-sm">
+        <div className="p-3.5 bg-surface dark:bg-zinc-900 rounded-xl border border-warm-border/60 text-xs space-y-3.5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="text-text-secondary font-semibold">Метод оплати</span>
             <div className="flex bg-black/5 rounded-xl p-1 border border-warm-border/50 relative">
@@ -368,7 +368,7 @@ export function POSCartSidebar({
                       const val = parseFloat(e.target.value) || 0;
                       setCardAmount(Math.max(0, finalTotal - val).toString());
                     }}
-                    className="w-full rounded-lg border border-iris/20 bg-white px-2 py-1.5 outline-none focus:border-violet text-right"
+                    className="w-full rounded-lg border border-iris/20 bg-surface px-2 py-1.5 outline-none focus:border-violet text-right"
                   />
                 </div>
                 <div>
@@ -382,7 +382,7 @@ export function POSCartSidebar({
                       const val = parseFloat(e.target.value) || 0;
                       setCashAmount(Math.max(0, finalTotal - val).toString());
                     }}
-                    className="w-full rounded-lg border border-iris/20 bg-white px-2 py-1.5 outline-none focus:border-violet text-right"
+                    className="w-full rounded-lg border border-iris/20 bg-surface px-2 py-1.5 outline-none focus:border-violet text-right"
                   />
                 </div>
               </motion.div>

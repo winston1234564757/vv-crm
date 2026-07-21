@@ -193,7 +193,7 @@ export function POSClient({
           onClick={() => setActiveMobileTab("catalog")}
           className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all ${
             activeMobileTab === "catalog"
-              ? "bg-white text-text-primary shadow-sm"
+              ? "bg-surface text-text-primary shadow-sm"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
@@ -204,7 +204,7 @@ export function POSClient({
           onClick={() => setActiveMobileTab("cart")}
           className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all relative ${
             activeMobileTab === "cart"
-              ? "bg-white text-text-primary shadow-sm"
+              ? "bg-surface text-text-primary shadow-sm"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
@@ -276,7 +276,7 @@ export function POSClient({
       {/* Success checkout Dialog overlay */}
       <AnimatePresence>
         {successSaleId && (
-          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4">
             <style>{`
               @keyframes draw-circle {
                 to { stroke-dashoffset: 0; }
@@ -290,7 +290,7 @@ export function POSClient({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className="bg-white dark:bg-zinc-900 rounded-3xl max-w-md w-full p-7 text-center shadow-xl space-y-5 border border-warm-border dark:border-zinc-800"
+              className="bg-surface dark:bg-zinc-900 rounded-3xl max-w-md w-full p-7 text-center shadow-xl space-y-5 border border-warm-border dark:border-border-strong"
             >
               <div className="h-16 w-16 rounded-full bg-emerald/15 text-emerald mx-auto flex items-center justify-center relative overflow-hidden">
                 <svg className="w-10 h-10 stroke-current stroke-[3.5] fill-none" viewBox="0 0 52 52">
@@ -323,7 +323,7 @@ export function POSClient({
 
               <div>
                 <h3 className="text-lg font-bold text-text-primary dark:text-white tracking-tight">Продаж успішно проведено!</h3>
-                <p className="text-xs text-text-secondary dark:text-zinc-400 mt-1.5 leading-relaxed">
+                <p className="text-xs text-text-secondary dark:text-faint mt-1.5 leading-relaxed">
                   Транзакцію успішно записано. Виберіть подальшу дію або роздрукуйте чек для клієнта.
                 </p>
               </div>
@@ -332,7 +332,7 @@ export function POSClient({
                 <button
                   type="button"
                   onClick={() => setSuccessSaleId(null)}
-                  className="flex-1 btn-press py-3 px-4 border border-warm-border/80 bg-warm-surface text-text-secondary dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700 hover:bg-iris/5 text-xs font-semibold rounded-xl cursor-pointer transition-colors active:scale-[0.98]"
+                  className="flex-1 btn-press py-3 px-4 border border-warm-border/80 bg-warm-surface text-text-secondary dark:bg-zinc-800 dark:border-border-strong dark:text-zinc-200 dark:hover:bg-zinc-700 hover:bg-iris/5 text-xs font-semibold rounded-xl cursor-pointer transition-colors active:scale-[0.98]"
                 >
                   Новий продаж
                 </button>
@@ -356,7 +356,7 @@ export function POSClient({
                   setSuccessSaleId(null);
                   router.push("/admin/sales");
                 }}
-                className="w-full text-xs font-medium text-text-secondary/60 dark:text-zinc-400 hover:text-violet hover:underline pt-1 cursor-pointer transition-colors"
+                className="w-full text-xs font-medium text-text-secondary/60 dark:text-faint hover:text-violet hover:underline pt-1 cursor-pointer transition-colors"
               >
                 Перейти до списку всіх продажів →
               </button>

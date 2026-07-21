@@ -353,7 +353,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
           </button>
           <button
             onClick={onEdit}
-            className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-white hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
+            className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
           >
             <IconEdit size={14} /> Редагувати
           </button>
@@ -409,7 +409,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Possible causes */}
-                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-white">
+                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-surface">
                   <h4 className="font-bold text-text-primary text-xs tracking-wide">Ймовірні причини поломки:</h4>
                   <ul className="space-y-1.5 list-disc list-inside text-text-secondary">
                     {aiDiagnostic.possible_causes?.map((cause: string, i: number) => (
@@ -419,7 +419,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
                 </div>
 
                 {/* Recommended parts */}
-                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-white">
+                <div className="rounded-xl border border-warm-border p-4 space-y-2 bg-surface">
                   <h4 className="font-bold text-text-primary text-xs tracking-wide">Необхідні деталі:</h4>
                   <ul className="space-y-1.5 list-disc list-inside text-text-secondary">
                     {aiDiagnostic.required_parts?.map((part: string, i: number) => (
@@ -819,7 +819,7 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
             </button>
             <button
               onClick={() => handlePrint("warranty")}
-              className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-white hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary cursor-pointer transition-colors"
+              className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary cursor-pointer transition-colors"
             >
               Друк гарантійного чеку ремонту
             </button>

@@ -87,7 +87,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                 <div
                   key={a.id}
                   onClick={() => { setSelectedAccessory(a); setIsEditingAccessory(false); }}
-                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                  className="rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors hover:border-border-strong cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -101,7 +101,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                     </span>
                   </div>
 
-                  <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                  <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                     <span>Ціна:</span>
                     <span className="text-text-primary font-bold">{a.price.toLocaleString()} грн</span>
                   </div>
@@ -111,10 +111,10 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                     <span className="text-text-primary font-medium">{a.cost_price.toLocaleString()} грн</span>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
                     <div className="flex items-center gap-1">
                       <span>Запас:</span>
-                      <span className={`font-bold ${isOut ? "text-rose" : isLow ? "text-amber-500" : "text-cyan"}`}>
+                      <span className={`font-bold ${isOut ? "text-rose" : isLow ? "text-warning" : "text-cyan"}`}>
                         {a.stock} шт
                       </span>
                       <span className="text-text-secondary text-[10px]">(мін {a.min_stock})</span>
@@ -131,7 +131,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 border-t border-slate-100/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2 border-t border-border pt-2.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => { setSelectedAccessory(a); setIsEditingAccessory(true); }}
                       className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"

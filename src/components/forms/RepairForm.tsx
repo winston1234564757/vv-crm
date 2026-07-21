@@ -185,7 +185,7 @@ export function RepairForm({
           <button
             type="button"
             onClick={onSuccess}
-            className="btn-press w-full rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
+            className="btn-press w-full rounded-xl bg-surface border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
           >
             Закрити вікно
           </button>
@@ -375,9 +375,9 @@ export function RepairForm({
           {showNewCustomer && (
             <div className="mt-3 rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-3">
               <p className="text-xs font-medium text-text-secondary">Новий клієнт</p>
-              <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім&apos;я *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-              <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-              <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім&apos;я *" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+              <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
               <button type="button" onClick={handleCreateCustomer} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover">
                 Створити клієнта
               </button>
@@ -515,7 +515,7 @@ export function RepairForm({
                   value={promoCode} 
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                   placeholder="VVC-XXXX"
-                  className="flex-1 rounded-lg border border-iris/20 bg-white px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet" 
+                  className="flex-1 rounded-lg border border-iris/20 bg-surface px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet" 
                 />
                 <button type="button" onClick={handleCheckPromo} className="rounded-lg bg-violet px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-hover">
                   Перевірити
@@ -578,7 +578,7 @@ export function RepairForm({
 
       <label className="flex items-center gap-3 cursor-pointer bg-violet/5 hover:bg-violet/10 px-4 py-3 rounded-xl transition-colors border border-violet/10 group mt-2 mb-2">
         <div className="relative flex items-center justify-center">
-          <input type="checkbox" name="is_warranty" value="true" checked={isWarranty} onChange={e => setIsWarranty(e.target.checked)} className="peer w-5 h-5 rounded border-violet/30 text-violet focus:ring-violet focus:ring-offset-0 bg-white" />
+          <input type="checkbox" name="is_warranty" value="true" checked={isWarranty} onChange={e => setIsWarranty(e.target.checked)} className="peer w-5 h-5 rounded border-violet/30 text-violet focus:ring-violet focus:ring-offset-0 bg-surface" />
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-semibold text-violet">🛡️ Це гарантійний випадок</span>
@@ -598,7 +598,7 @@ export function RepairForm({
               placeholder="Пошук за моделлю, IMEI або проблемою..."
               value={pastRepairsSearch}
               onChange={(e) => setPastRepairsSearch(e.target.value)}
-              className="w-full mb-3 rounded-xl border border-violet/20 bg-white px-4 py-2.5 text-sm outline-none focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/50"
+              className="w-full mb-3 rounded-xl border border-violet/20 bg-surface px-4 py-2.5 text-sm outline-none focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/50"
             />
           )}
 
@@ -608,7 +608,7 @@ export function RepairForm({
             <select 
               value={selectedPastRepairId}
               onChange={handleSelectPastRepair}
-              className="w-full rounded-xl border border-violet/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet focus:ring-1 focus:ring-violet"
+              className="w-full rounded-xl border border-violet/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet focus:ring-1 focus:ring-violet"
             >
               <option value="">-- Оберіть ремонт для гарантії --</option>
               {pastRepairs.map((pr: any) => (

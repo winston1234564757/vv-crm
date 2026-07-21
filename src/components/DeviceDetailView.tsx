@@ -134,7 +134,7 @@ export function DeviceDetailView({ device, onEdit, onSell, onClose }: DeviceDeta
           )}
           <button
             onClick={onEdit}
-            className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-white hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
+            className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
           >
             <IconEdit size={14} /> Редагувати
           </button>

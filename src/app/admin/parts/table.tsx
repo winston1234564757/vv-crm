@@ -116,7 +116,7 @@ export function PartsTable({
               value={bulkTtn}
               onChange={(e) => setBulkTtn(e.target.value)}
               placeholder="Введіть ТТН Нової Пошти..."
-              className="rounded-xl border border-warm-border bg-white px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[200px]"
+              className="rounded-xl border border-warm-border bg-surface px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[200px]"
             />
             <button
               onClick={handleBulkUpdateTtn}
@@ -127,7 +127,7 @@ export function PartsTable({
             </button>
             <button
               onClick={() => setSelectedIds([])}
-              className="rounded-xl border border-warm-border bg-white hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
+              className="rounded-xl border border-warm-border bg-surface hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
             >
               Скасувати
             </button>
@@ -163,8 +163,8 @@ export function PartsTable({
                 <div
                   key={p.id}
                   onClick={() => { setSelectedPart(p); setIsEditingProfile(false); }}
-                  className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors ${
-                    isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-slate-300"
+                  className={`rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors ${
+                    isSelected ? "border-violet bg-violet/[0.02]" : "hover:border-border-strong"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -191,7 +191,7 @@ export function PartsTable({
                               💸 Борг: {p.debt_amount.toLocaleString()} ₴
                             </span>
                             {p.payment_due_date && (
-                              <span className="text-[10px] text-text-secondary bg-slate-100 px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] text-text-secondary bg-hover px-1.5 py-0.5 rounded">
                                 До {new Date(p.payment_due_date).toLocaleDateString('uk-UA')}
                               </span>
                             )}
@@ -204,7 +204,7 @@ export function PartsTable({
                     </span>
                   </div>
 
-                  <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                  <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                     <span>Сумісність:</span>
                     <span className="text-text-primary font-medium">{p.compatible_with || "—"}</span>
                   </div>
@@ -221,7 +221,7 @@ export function PartsTable({
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
                     {p.status === "transit" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber">
                         🚚 В дорозі
@@ -238,7 +238,7 @@ export function PartsTable({
                     <span className="font-bold text-text-primary">{p.cost_price.toLocaleString()} грн</span>
                   </div>
 
-                  <div className="flex justify-end gap-2 border-t border-slate-100/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2 border-t border-border pt-2.5" onClick={(e) => e.stopPropagation()}>
                     {p.status === "transit" && (
                       <button
                         onClick={() => { 
@@ -351,7 +351,7 @@ export function PartsTable({
                               💸 Борг: {p.debt_amount.toLocaleString()} ₴
                             </span>
                             {p.payment_due_date && (
-                              <span className="text-[10px] text-text-secondary bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
+                              <span className="text-[10px] text-text-secondary bg-hover px-1.5 py-0.5 rounded whitespace-nowrap">
                                 До {new Date(p.payment_due_date).toLocaleDateString('uk-UA')}
                               </span>
                             )}
@@ -445,8 +445,8 @@ export function PartsTable({
 
       {/* Receive from transit modal */}
       {receivePart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
-          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 animate-entry">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl">
             <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">✅ Прийняти на склад</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">{receivePart.name}</p>
  
@@ -471,7 +471,7 @@ export function PartsTable({
                     className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                       receivePaymentStatus === "paid"
                         ? "border-violet bg-violet/5 text-violet"
-                        : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                        : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
                     }`}
                   >
                     <span>💳</span>
@@ -483,7 +483,7 @@ export function PartsTable({
                     className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                       receivePaymentStatus === "deferred"
                         ? "border-rose bg-rose/5 text-rose"
-                        : "border-warm-border bg-warm-surface text-text-secondary hover:border-slate-300"
+                        : "border-warm-border bg-warm-surface text-text-secondary hover:border-border-strong"
                     }`}
                   >
                     <span>📅</span>
@@ -498,7 +498,7 @@ export function PartsTable({
                   <select
                     value={selectedSafeId}
                     onChange={(e) => setSelectedSafeId(e.target.value)}
-                    className="w-full rounded-xl border border-warm-border bg-white px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
+                    className="w-full rounded-xl border border-warm-border bg-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
                   >
                     <option value="">Не списувати (без оплати)</option>
                     {safes.map((s) => (
@@ -557,8 +557,8 @@ export function PartsTable({
 
       {/* Pay debt modal */}
       {payingPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
-          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 animate-entry">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">💳 Оплатити борг постачальнику</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">{payingPart.name}</p>
 
@@ -581,7 +581,7 @@ export function PartsTable({
                   <select
                     value={paySafeId}
                     onChange={(e) => setPaySafeId(e.target.value)}
-                    className="w-full rounded-xl border border-warm-border bg-white px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
+                    className="w-full rounded-xl border border-warm-border bg-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
                   >
                     {safes.map((s) => (
                       <option key={s.id} value={s.id}>

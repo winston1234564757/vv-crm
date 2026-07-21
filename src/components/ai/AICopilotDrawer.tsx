@@ -164,7 +164,7 @@ export default function AICopilotDrawer({
                 className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed shadow-sm ${
                   msg.role === "user"
                     ? "bg-violet text-white rounded-tr-none"
-                    : "bg-white border border-warm-border text-text-primary rounded-tl-none"
+                    : "bg-surface border border-warm-border text-text-primary rounded-tl-none"
                 }`}
               >
                 {/* Parse basic markdown (bold text) */}
@@ -181,7 +181,7 @@ export default function AICopilotDrawer({
 
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-white border border-warm-border text-text-secondary rounded-2xl rounded-tl-none p-4 flex items-center gap-2">
+              <div className="bg-surface border border-warm-border text-text-secondary rounded-2xl rounded-tl-none p-4 flex items-center gap-2">
                 <IconSpinner size={16} className="animate-spin text-violet" />
                 <span className="text-[10px] font-medium">ШІ обмірковує відповідь...</span>
               </div>

@@ -16,7 +16,7 @@ export default function SaleFormCategorySelector({
       <label
         className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${
           category === "accessory"
-            ? "bg-white text-text-primary shadow-sm"
+            ? "bg-surface text-text-primary shadow-sm"
             : "text-text-secondary hover:text-text-primary"
         }`}
       >
@@ -33,7 +33,7 @@ export default function SaleFormCategorySelector({
       <label
         className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${
           category === "device"
-            ? "bg-white text-text-primary shadow-sm"
+            ? "bg-surface text-text-primary shadow-sm"
             : "text-text-secondary hover:text-text-primary"
         }`}
       >
@@ -50,7 +50,7 @@ export default function SaleFormCategorySelector({
       <label
         className={`flex-1 text-center py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${
           category === "service"
-            ? "bg-white text-text-primary shadow-sm"
+            ? "bg-surface text-text-primary shadow-sm"
             : "text-text-secondary hover:text-text-primary"
         }`}
       >

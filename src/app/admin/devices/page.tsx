@@ -40,18 +40,18 @@ function StatCard({
 
   return (
     <div 
-      className={`rounded-[2rem] border border-slate-100 bg-slate-50/40 p-1.5 shadow-sm shadow-slate-100/30 flex flex-col transition-all duration-500 hover:shadow-md hover:border-slate-200/80 animate-entry-stagger delay-${delay}`}
+      className={`rounded-[2rem] border border-border bg-hover p-1.5 shadow-sm shadow-border-strong/30 flex flex-col transition-all duration-500 hover:shadow-md hover:border-border animate-entry-stagger delay-${delay}`}
     >
       <div 
-        className="rounded-[calc(2rem-0.375rem)] bg-white p-5 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,1)] relative overflow-hidden"
+        className="rounded-[calc(2rem-0.375rem)] bg-surface p-5 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,1)] relative overflow-hidden"
       >
         {/* Subtle background glow orb */}
         <div className={`absolute -right-4 -bottom-4 w-12 h-12 rounded-full blur-2xl opacity-20 ${c.bg}`} />
         
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-slate-400 mb-1 block">Склад</span>
-            <p className="text-xs font-semibold text-slate-600 leading-tight">{label}</p>
+            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-faint mb-1 block">Склад</span>
+            <p className="text-xs font-semibold text-muted leading-tight">{label}</p>
           </div>
           <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${c.bg} ${c.text} shrink-0 border shadow-sm`}>
             {icon}
@@ -59,11 +59,11 @@ function StatCard({
         </div>
         
         <div>
-          <p className="text-3xl font-extrabold tracking-tight text-slate-900 font-mono">
+          <p className="text-3xl font-extrabold tracking-tight text-ink font-mono">
             {value}
           </p>
           {sub && (
-            <p className="mt-1 text-[10px] text-slate-400 font-medium flex items-center gap-1 font-mono">
+            <p className="mt-1 text-[10px] text-faint font-medium flex items-center gap-1 font-mono">
               <span>●</span>
               <span>{sub}</span>
             </p>

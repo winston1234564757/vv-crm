@@ -48,7 +48,7 @@ export default function StoreLaunchMilestones({ milestones }: { milestones: Mile
         </div>
 
         {isAdding && (
-          <form onSubmit={handleCreate} className="mb-6 rounded-[1.25rem] border border-warm-border/60 bg-white dark:bg-slate-900/60 p-5 space-y-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] animate-fade-in-up">
+          <form onSubmit={handleCreate} className="mb-6 rounded-[1.25rem] border border-warm-border/60 bg-surface dark:bg-ink/60 p-5 space-y-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] animate-fade-in-up">
             <input
               name="title"
               required
@@ -101,7 +101,7 @@ export default function StoreLaunchMilestones({ milestones }: { milestones: Mile
                 className={`group/mile-item flex items-center gap-4 rounded-[1.25rem] border p-4 transition-all duration-500 hover:shadow-md ${
                   m.is_completed
                     ? "border-emerald/20 bg-emerald/5 dark:bg-emerald/10 hover:border-emerald/40"
-                    : "border-warm-border/50 bg-white dark:bg-black/20 hover:border-violet/30"
+                    : "border-warm-border/50 bg-surface dark:bg-black/20 hover:border-violet/30"
                 }`}
               >
                 <button

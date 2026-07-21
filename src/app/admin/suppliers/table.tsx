@@ -53,7 +53,7 @@ export function SuppliersTable({
                 <div
                   key={s.id}
                   onClick={() => { setSelectedSupplier(s); setIsEditingProfile(false); }}
-                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                  className="rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors hover:border-border-strong cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -65,7 +65,7 @@ export function SuppliersTable({
                   </div>
 
                   {(s.phone || s.email) && (
-                    <div className="text-xs text-text-secondary flex flex-col gap-1 border-t border-slate-100/60 pt-2.5">
+                    <div className="text-xs text-text-secondary flex flex-col gap-1 border-t border-border pt-2.5">
                       {s.phone && (
                         <div className="flex justify-between">
                           <span>Телефон:</span>
@@ -82,13 +82,13 @@ export function SuppliersTable({
                   )}
 
                   {s.notes && (
-                    <div className="text-xs text-text-secondary border-t border-slate-100/60 pt-2.5">
+                    <div className="text-xs text-text-secondary border-t border-border pt-2.5">
                       <p className="font-medium text-text-primary mb-0.5">Примітки:</p>
                       <p className="line-clamp-2 text-xxs font-mono leading-relaxed bg-warm-surface p-2 rounded-lg border border-warm-border/60">{s.notes}</p>
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2 border-t border-slate-100/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2 border-t border-border pt-2.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => { setSelectedSupplier(s); setIsEditingProfile(true); }}
                       className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"

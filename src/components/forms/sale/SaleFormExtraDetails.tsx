@@ -60,7 +60,7 @@ export default function SaleFormExtraDetails({
             value={promoCode}
             onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
             placeholder="VVC-XXXX"
-            className="flex-1 rounded-lg border border-iris/20 bg-white px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet"
+            className="flex-1 rounded-lg border border-iris/20 bg-surface px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet"
           />
           <button
             type="button"
@@ -80,7 +80,7 @@ export default function SaleFormExtraDetails({
       <div className="rounded-xl border border-iris/20 bg-iris/5 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-text-primary">Гарантія на товар</label>
-          <span className="text-[10px] text-text-secondary bg-white px-2 py-0.5 rounded border border-iris/10 font-medium">Автоматичний розрахунок</span>
+          <span className="text-[10px] text-text-secondary bg-surface px-2 py-0.5 rounded border border-iris/10 font-medium">Автоматичний розрахунок</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -95,7 +95,7 @@ export default function SaleFormExtraDetails({
               onChange={(e) => {
                 setWarrantyStart(e.target.value);
               }}
-              className="w-full rounded-lg border border-iris/20 bg-white px-3 py-2 text-xs text-text-primary outline-none focus:border-violet cursor-pointer"
+              className="w-full rounded-lg border border-iris/20 bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-violet cursor-pointer"
             />
           </div>
           <div>
@@ -108,7 +108,7 @@ export default function SaleFormExtraDetails({
               type="date"
               value={warrantyEnd}
               onChange={(e) => setWarrantyEnd(e.target.value)}
-              className="w-full rounded-lg border border-iris/20 bg-white px-3 py-2 text-xs text-text-primary outline-none focus:border-violet cursor-pointer"
+              className="w-full rounded-lg border border-iris/20 bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-violet cursor-pointer"
             />
           </div>
         </div>
@@ -136,7 +136,7 @@ export default function SaleFormExtraDetails({
                   }
                 }
               }}
-              className="px-2 py-1 rounded bg-white hover:bg-iris/10 border border-iris/10 text-[10px] font-medium text-text-primary transition-colors cursor-pointer"
+              className="px-2 py-1 rounded bg-surface hover:bg-iris/10 border border-iris/10 text-[10px] font-medium text-text-primary transition-colors cursor-pointer"
             >
               {preset.label}
             </button>

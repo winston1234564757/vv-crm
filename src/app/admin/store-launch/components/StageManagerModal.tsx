@@ -16,12 +16,12 @@ type Category = {
 };
 
 const COLORS = [
-  { id: "slate", label: "Сірий", bg: "bg-slate-500" },
+  { id: "slate", label: "Сірий", bg: "bg-muted" },
   { id: "violet", label: "Фіолетовий", bg: "bg-violet" },
   { id: "rose", label: "Рожевий", bg: "bg-rose" },
-  { id: "amber", label: "Помаранчевий", bg: "bg-amber-500" },
+  { id: "amber", label: "Помаранчевий", bg: "bg-warning" },
   { id: "emerald", label: "Зелений", bg: "bg-emerald" },
-  { id: "sky", label: "Блакитний", bg: "bg-sky-500" },
+  { id: "sky", label: "Блакитний", bg: "bg-info" },
 ];
 
 export default function StageManagerModal({ 
@@ -61,8 +61,8 @@ export default function StageManagerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end md:justify-center items-center bg-slate-900/40 animate-fade-in p-4">
-      <div className="w-full max-w-lg bg-white rounded-t-2xl md:rounded-2xl shadow-xl flex flex-col overflow-hidden max-h-[85vh] animate-slide-up">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end md:justify-center items-center bg-ink/40 animate-fade-in p-4">
+      <div className="w-full max-w-lg bg-surface rounded-t-2xl md:rounded-2xl shadow-xl flex flex-col overflow-hidden max-h-[85vh] animate-slide-up">
         <div className="flex items-center justify-between p-4 border-b border-warm-border">
           <h2 className="text-lg font-semibold text-text-primary text-balance tracking-tight">Налаштування етапів</h2>
           <button onClick={onClose} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-warm-hover">
@@ -104,7 +104,7 @@ export default function StageManagerModal({
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${COLORS.find(c => c.id === cat.color)?.bg || "bg-slate-500"}`} />
+                      <span className={`w-2.5 h-2.5 rounded-full ${COLORS.find(c => c.id === cat.color)?.bg || "bg-muted"}`} />
                       <span className="font-medium text-text-primary text-sm">{cat.name}</span>
                     </div>
                     <span className="text-xs text-text-secondary font-mono">Бюджет: {cat.budget_limit.toLocaleString()} ₴</span>
@@ -120,8 +120,8 @@ export default function StageManagerModal({
           {isCreating ? (
             <form onSubmit={handleCreate} className="border border-violet/30 rounded-xl p-3 bg-violet/5 space-y-3">
               <div className="flex flex-col md:flex-row gap-2">
-                <input name="name" required placeholder="Назва етапу" className="flex-1 rounded-lg border border-warm-border/60 px-3 py-2 text-sm outline-none bg-white" />
-                <input name="budget_limit" type="number" required placeholder="Бюджет (₴)" className="w-full md:w-28 rounded-lg border border-warm-border/60 px-3 py-2 text-sm outline-none bg-white" />
+                <input name="name" required placeholder="Назва етапу" className="flex-1 rounded-lg border border-warm-border/60 px-3 py-2 text-sm outline-none bg-surface" />
+                <input name="budget_limit" type="number" required placeholder="Бюджет (₴)" className="w-full md:w-28 rounded-lg border border-warm-border/60 px-3 py-2 text-sm outline-none bg-surface" />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-secondary">Колір:</span>

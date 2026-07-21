@@ -18,12 +18,12 @@ interface TagSelectProps {
 }
 
 const colorMap: Record<string, string> = {
-  slate: "bg-slate-100 text-slate-700 border-slate-200",
+  slate: "bg-hover text-ink border-border",
   violet: "bg-violet-100 text-violet-700 border-violet-200",
   rose: "bg-rose-100 text-rose-700 border-rose-200",
-  amber: "bg-amber-100 text-amber-700 border-amber-200",
-  emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  sky: "bg-sky-100 text-sky-700 border-sky-200",
+  amber: "bg-warning-subtle text-warning border-warning",
+  emerald: "bg-success-subtle text-success border-success",
+  sky: "bg-info-subtle text-info border-info",
 };
 
 export default function TagSelect({
@@ -78,7 +78,7 @@ export default function TagSelect({
       )}
 
       {isOpen && (
-        <div className="absolute left-0 right-0 z-50 mt-1.5 rounded-xl border border-warm-border bg-white p-2 shadow-lg max-h-60 overflow-y-auto animate-entry">
+        <div className="absolute left-0 right-0 z-50 mt-1.5 rounded-xl border border-warm-border bg-surface p-2 shadow-lg max-h-60 overflow-y-auto animate-entry">
           <div className="space-y-1">
             <div
               onClick={(e) => {

@@ -71,7 +71,7 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
                 <div
                   key={s.id}
                   onClick={() => { setSelectedService(s); setIsEditing(false); }}
-                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                  className="rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors hover:border-border-strong cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -85,12 +85,12 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
                     </span>
                   </div>
 
-                  <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                  <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                     <span>Ціна послуги:</span>
                     <span className="text-text-primary font-bold">{s.price.toLocaleString()} грн</span>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
                         <span className="text-text-secondary text-[10px]">Видима:</span>
@@ -112,7 +112,7 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 border-t border-slate-100/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2 border-t border-border pt-2.5" onClick={(e) => e.stopPropagation()}>
                     {deletingId === s.id ? (
                       <div className="flex items-center gap-1.5 animate-entry">
                         <span className="text-xs text-rose mr-1">Видалити?</span>

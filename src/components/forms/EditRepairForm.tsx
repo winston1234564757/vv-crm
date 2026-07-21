@@ -240,7 +240,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
         {repair.device_password && (
           <div className="flex items-center gap-2">
             <span className="text-text-secondary font-medium">Пароль:</span>
-            <span className="font-mono bg-white px-2 py-0.5 rounded border border-warm-border font-semibold">
+            <span className="font-mono bg-surface px-2 py-0.5 rounded border border-warm-border font-semibold">
               {showPassword ? repair.device_password : "••••••"}
             </span>
             <button
@@ -265,7 +265,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
             rows={2}
             value={issue}
             onChange={(e) => setIssue(e.target.value)}
-            className="w-full rounded-lg border border-warm-border bg-white px-3 py-2 text-text-primary focus:border-violet focus:outline-none focus:ring-1 focus:ring-violet transition-colors resize-y"
+            className="w-full rounded-lg border border-warm-border bg-surface px-3 py-2 text-text-primary focus:border-violet focus:outline-none focus:ring-1 focus:ring-violet transition-colors resize-y"
           />
         </div>
         
@@ -375,15 +375,15 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 p-4 rounded-xl bg-violet/5 border border-violet/10">
           <div>
             <label htmlFor="cost" className="mb-1.5 block text-xs font-medium text-text-secondary">Собівартість деталей (грн)</label>
-            <input id="cost" name="cost" type="number" min="0" value={cost} onChange={(e) => setCost(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+            <input id="cost" name="cost" type="number" min="0" value={cost} onChange={(e) => setCost(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
           </div>
           <div>
             <label htmlFor="external_sc_cost" className="mb-1.5 block text-xs font-medium text-text-secondary">Вартість їх роботи (СЦ) (грн)</label>
-            <input id="external_sc_cost" name="external_sc_cost" type="number" min="0" value={externalCost} onChange={(e) => setExternalCost(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+            <input id="external_sc_cost" name="external_sc_cost" type="number" min="0" value={externalCost} onChange={(e) => setExternalCost(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
           </div>
           <div>
             <label htmlFor="markup_amount" className="mb-1.5 block text-xs font-medium text-text-secondary">Наша націнка (грн)</label>
-            <input id="markup_amount" name="markup_amount" type="number" min="0" value={markup} onChange={(e) => setMarkup(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
+            <input id="markup_amount" name="markup_amount" type="number" min="0" value={markup} onChange={(e) => setMarkup(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
           </div>
         </div>
       ) : (
@@ -426,7 +426,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
             {allocatedParts.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-xl bg-white border border-warm-border/50 px-3.5 py-2.5 text-xs text-text-primary hover:border-violet/30 transition-all duration-200"
+                className="flex items-center justify-between rounded-xl bg-surface border border-warm-border/50 px-3.5 py-2.5 text-xs text-text-primary hover:border-violet/30 transition-all duration-200"
               >
                 <div className="flex flex-col gap-0.5">
                   <span className="font-semibold">{item.parts?.name || "Невідома запчастина"}</span>
@@ -468,7 +468,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
                   value={selectedPartId}
                   onChange={(e) => handlePartSelect(e.target.value)}
                   disabled={partsLoading || partActionPending}
-                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                  className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
                 >
                   <option value="">-- Виберіть зі складу --</option>
                   {availableParts.map((part) => (
@@ -488,7 +488,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
                   value={partQty}
                   onChange={(e) => setPartQty(parseInt(e.target.value) || 1)}
                   disabled={!selectedPartId || partActionPending}
-                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                  className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
                 />
               </div>
 
@@ -501,7 +501,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
                   value={partCost}
                   onChange={(e) => setPartCost(e.target.value)}
                   disabled={!selectedPartId || partActionPending}
-                  className="w-full rounded-xl border border-iris/20 bg-white px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                  className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
                 />
               </div>
             </div>

@@ -96,7 +96,7 @@ export function SaleForm(props: UseSaleFormProps) {
           <button
             type="button"
             onClick={form.resetForm}
-            className="btn-press w-full rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
+            className="btn-press w-full rounded-xl bg-surface border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
           >
             Новий продаж
           </button>

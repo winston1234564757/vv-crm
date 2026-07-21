@@ -197,10 +197,10 @@ export function FinanceTransactionsTable({
                   <div
                     key={t.id}
                     onClick={() => handleRowClick(t)}
-                    className={`rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors ${
+                    className={`rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors ${
                       hasRef
                         ? "cursor-pointer border-violet/20 hover:border-violet/40 bg-violet/[0.01]"
-                        : "hover:border-slate-300"
+                        : "hover:border-border-strong"
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -223,7 +223,7 @@ export function FinanceTransactionsTable({
                       </span>
                     </div>
 
-                    <div className="text-xs text-text-secondary flex flex-col gap-1 border-t border-slate-100/60 pt-2.5">
+                    <div className="text-xs text-text-secondary flex flex-col gap-1 border-t border-border pt-2.5">
                       <div className="flex justify-between">
                         <span>Від:</span>
                         <span className="text-text-primary font-medium">{t.from || "—"}</span>
@@ -240,7 +240,7 @@ export function FinanceTransactionsTable({
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs">
+                    <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
                       <span className="font-bold text-text-primary text-sm">{t.amount.toLocaleString()} грн</span>
                       <div onClick={(e) => e.stopPropagation()}>
                         {!isSystem ? (

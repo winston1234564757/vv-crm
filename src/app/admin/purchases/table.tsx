@@ -27,7 +27,7 @@ type PurchaseRow = {
 const statusLabels: Record<string, string> = { pending: "Очікується", received: "Отримано", paid: "Оплачено", cancelled: "Скасовано" };
 const statusColors: Record<string, string> = { pending: "text-amber bg-amber/10", received: "text-cyan bg-cyan/10", paid: "text-emerald bg-emerald/10", cancelled: "text-rose bg-rose/10" };
 const paymentTypeLabels: Record<string, string> = { transit: "🚚 В дорозі", on_receipt: "📦 При отриманні", prepaid: "💳 Передплата" };
-const paymentTypeColors: Record<string, string> = { transit: "text-blue-500 bg-blue-50", on_receipt: "text-amber bg-amber/10", prepaid: "text-emerald bg-emerald/10" };
+const paymentTypeColors: Record<string, string> = { transit: "text-info bg-info-subtle", on_receipt: "text-amber bg-amber/10", prepaid: "text-emerald bg-emerald/10" };
 
 export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseRow[]; safes?: Safe[] }) {
   const [query, setQuery] = useState("");
@@ -85,7 +85,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
                 <div
                   key={p.id}
                   onClick={() => setSelectedPurchase(p)}
-                  className="rounded-2xl border border-warm-border p-4 bg-white shadow-sm flex flex-col gap-2.5 transition-colors hover:border-slate-300 cursor-pointer"
+                  className="rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors hover:border-border-strong cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -97,7 +97,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
                     </span>
                   </div>
 
-                  <div className="text-xs text-text-secondary flex justify-between border-t border-slate-100/60 pt-2.5">
+                  <div className="text-xs text-text-secondary flex justify-between border-t border-border pt-2.5">
                     <span>Сума:</span>
                     <span className="text-text-primary font-bold">{p.total_amount.toLocaleString()} грн</span>
                   </div>
@@ -117,13 +117,13 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
                   )}
 
                   {p.notes && (
-                    <div className="text-xs text-text-secondary border-t border-slate-100/60 pt-2.5">
+                    <div className="text-xs text-text-secondary border-t border-border pt-2.5">
                       <p className="font-medium text-text-primary mb-0.5">Примітки:</p>
                       <p className="line-clamp-2 text-xxs font-mono leading-relaxed bg-warm-surface p-2 rounded-lg border border-warm-border/60">{p.notes}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between border-t border-slate-100/60 pt-2.5 text-xs" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1.5 flex-wrap">
                       {p.status === "pending" && (
                         <>

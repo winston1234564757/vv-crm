@@ -184,7 +184,7 @@ export function ReceiptSettingsTab({
                 type="button"
                 onClick={() => setActivePreviewTemplate("sale")}
                 className={`flex-1 sm:flex-none px-3 py-1.5 text-[10px] font-semibold rounded-md cursor-pointer transition-colors ${
-                  activePreviewTemplate === "sale" ? "bg-white text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  activePreviewTemplate === "sale" ? "bg-surface text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 Продаж
@@ -193,7 +193,7 @@ export function ReceiptSettingsTab({
                 type="button"
                 onClick={() => setActivePreviewTemplate("repair_acceptance")}
                 className={`flex-1 sm:flex-none px-3 py-1.5 text-[10px] font-semibold rounded-md cursor-pointer transition-colors ${
-                  activePreviewTemplate === "repair_acceptance" ? "bg-white text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  activePreviewTemplate === "repair_acceptance" ? "bg-surface text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 Акт прийому
@@ -202,7 +202,7 @@ export function ReceiptSettingsTab({
                 type="button"
                 onClick={() => setActivePreviewTemplate("repair_warranty")}
                 className={`flex-1 sm:flex-none px-3 py-1.5 text-[10px] font-semibold rounded-md cursor-pointer transition-colors ${
-                  activePreviewTemplate === "repair_warranty" ? "bg-white text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
+                  activePreviewTemplate === "repair_warranty" ? "bg-surface text-violet shadow-sm" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 Гарантія ремонту

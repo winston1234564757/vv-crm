@@ -32,7 +32,7 @@ export function POSCatalog({
   return (
     <div className={`${activeMobileTab === "catalog" ? "flex" : "hidden lg:flex"} w-full lg:w-[58%] flex-col gap-4 max-h-[85vh] overflow-y-auto pr-1`}>
       {/* Bento header and Navigation */}
-      <div className="flex items-center justify-between bg-white border border-warm-border/50 p-4 rounded-xl">
+      <div className="flex items-center justify-between bg-surface border border-warm-border/50 p-4 rounded-xl">
         <div>
           <span className="text-[10px] font-bold text-violet tracking-wider uppercase">Візуальна Вітрина POS</span>
           <h1 className="text-lg font-bold text-text-primary mt-0.5 text-balance tracking-tight">
@@ -81,7 +81,7 @@ export function POSCatalog({
             <div className="absolute right-4 bottom-2 opacity-15 transform translate-y-1 translate-x-1 group-hover:scale-110 transition-transform duration-300">
               <IconDevice size={130} />
             </div>
-            <span className="bg-white/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+            <span className="bg-surface/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
               {inStockDevicesCount} шт. в наявності
             </span>
             <div>
@@ -104,7 +104,7 @@ export function POSCatalog({
             <div className="absolute right-3 bottom-1 opacity-20 group-hover:scale-110 transition-transform duration-300">
               <IconAccessory size={95} />
             </div>
-            <span className="bg-white/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+            <span className="bg-surface/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
               Активні товари
             </span>
             <div>
@@ -127,7 +127,7 @@ export function POSCatalog({
             <div className="absolute right-3 bottom-1 opacity-20 group-hover:scale-110 transition-transform duration-300">
               <IconBox size={95} />
             </div>
-            <span className="bg-white/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+            <span className="bg-surface/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
               Склад деталей
             </span>
             <div>
@@ -150,7 +150,7 @@ export function POSCatalog({
             <div className="absolute right-4 bottom-2 opacity-20 group-hover:scale-110 transition-transform duration-300">
               <IconRepair size={115} />
             </div>
-            <span className="bg-white/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
+            <span className="bg-surface/25 text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full w-max">
               {activeServicesCount} послуг в каталозі
             </span>
             <div>
@@ -174,7 +174,7 @@ export function POSCatalog({
               placeholder="Пошук за назвою, брендом, моделлю чи кодом..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-warm-border bg-white pl-9 pr-4 py-3 text-sm text-text-primary outline-none focus:border-violet/40"
+              className="w-full rounded-xl border border-warm-border bg-surface pl-9 pr-4 py-3 text-sm text-text-primary outline-none focus:border-violet/40"
             />
           </div>
 
@@ -196,7 +196,7 @@ export function POSCatalog({
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                     activeAccessoryCategory === sub.id
                       ? "bg-violet text-white shadow-sm"
-                      : "bg-white border border-warm-border text-text-secondary hover:text-text-primary hover:border-violet/30"
+                      : "bg-surface border border-warm-border text-text-secondary hover:text-text-primary hover:border-violet/30"
                   }`}
                 >
                   {sub.label}
@@ -207,7 +207,7 @@ export function POSCatalog({
 
           {/* Grid display of filtered items */}
           {filteredCatalogItems.length === 0 ? (
-            <div className="card text-center py-16 text-xs text-text-secondary/50 italic bg-white border-warm-border/50">
+            <div className="card text-center py-16 text-xs text-text-secondary/50 italic bg-surface border-warm-border/50">
               Товарів у цій категорії не знайдено.
             </div>
           ) : (
@@ -250,7 +250,7 @@ export function POSCatalog({
                   <div
                     key={item.id}
                     onClick={() => addToCart(item, activeCategory)}
-                    className="cursor-pointer border border-warm-border/50 bg-white hover:border-violet/30 hover:shadow-md rounded-xl p-3 flex flex-col justify-between gap-3 transition-all duration-200 group relative overflow-hidden active:scale-[0.97]"
+                    className="cursor-pointer border border-warm-border/50 bg-surface hover:border-violet/30 hover:shadow-md rounded-xl p-3 flex flex-col justify-between gap-3 transition-all duration-200 group relative overflow-hidden active:scale-[0.97]"
                   >
                     {/* Product Visual element */}
                     <div className={`w-full h-32 rounded-xl flex items-center justify-center overflow-hidden border border-warm-border/20 relative ${

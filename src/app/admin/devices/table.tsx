@@ -345,7 +345,7 @@ export function DevicesTable({
               value={bulkTtn}
               onChange={(e) => setBulkTtn(e.target.value)}
               placeholder="ТТН закупівлі..."
-              className="rounded-xl border border-warm-border bg-white px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[150px]"
+              className="rounded-xl border border-warm-border bg-surface px-3.5 py-2 text-xs text-text-primary placeholder-iris/50 outline-none transition-colors focus:border-violet/40 min-w-[150px]"
             />
             <button
               onClick={handleBulkDevicesTtn}
@@ -356,7 +356,7 @@ export function DevicesTable({
             </button>
             <button
               onClick={() => { setSelectedDeviceIds([]); setBulkTtn(""); }}
-              className="rounded-xl border border-warm-border bg-white hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
+              className="rounded-xl border border-warm-border bg-surface hover:bg-warm-hover text-text-secondary px-3.5 py-2 text-xs font-semibold cursor-pointer transition-colors"
             >
               Скасувати
             </button>
@@ -376,7 +376,7 @@ export function DevicesTable({
             }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === "kanban"
-                ? "bg-white text-text-primary shadow-sm"
+                ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -395,7 +395,7 @@ export function DevicesTable({
             }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === "archive"
-                ? "bg-white text-text-primary shadow-sm"
+                ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -698,8 +698,8 @@ export function DevicesTable({
 
       {/* MODAL: ПРИЙНЯТТЯ ПРИСТРОЮ З ТРАНЗИТУ */}
       {receivingDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 animate-entry">
-          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 animate-entry">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl">
             <h3 className="text-base font-bold text-text-primary mb-1 tracking-tight">✅ Прийняти пристрій на склад</h3>
             <p className="text-sm text-text-secondary mb-4 leading-snug">
               {receivingDevice.brand} {receivingDevice.model}
@@ -712,7 +712,7 @@ export function DevicesTable({
                   <select
                     value={selectedSafeId}
                     onChange={(e) => setSelectedSafeId(e.target.value)}
-                    className="w-full rounded-xl border border-warm-border bg-white px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
+                    className="w-full rounded-xl border border-warm-border bg-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
                   >
                     <option value="">Не списувати (без оплати / вже оплачено)</option>
                     {safes.map((s) => (
