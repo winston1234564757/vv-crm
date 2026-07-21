@@ -11,9 +11,9 @@ const withSerwist = withSerwistInit({
 // (reading 'length')" during "Creating an optimized production build".
 // https://github.com/webpack/webpack/issues/14532
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Type errors fail the build. Previously this was `typescript.ignoreBuildErrors:
+  // true`, which silently shipped a broken AccessoryRow type to production for a
+  // long time. The project now type-checks clean, so keep the gate on.
   webpack(config, { dev }) {
     // "sha256" goes through Node's native crypto.createHash instead of webpack's
     // WASM hashers ("xxhash64" default, and "md4" — which is also WASM, not
