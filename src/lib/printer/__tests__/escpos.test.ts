@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   align,
   bold,
+  cancelKanjiMode,
   concat,
   cut,
   feed,
   init,
+  selectKanjiMode,
   line,
   qr,
   raster,
@@ -19,6 +21,7 @@ import {
 
 const ESC = 0x1b;
 const GS = 0x1d;
+const FS = 0x1c;
 
 /* Inside a `GS ( k` stream the model, module-size and ECC commands are 9 + 8 + 8
    bytes, so the store-data header always starts at 25 and its length pair sits
@@ -41,6 +44,8 @@ describe("ESC/POS commands", () => {
     expect(b(bold(false))).toEqual([ESC, 0x45, 0]);
     expect(b(feed(3))).toEqual([ESC, 0x64, 3]);
     expect(b(cut(10))).toEqual([GS, 0x56, 66, 10]);
+    expect(b(cancelKanjiMode())).toEqual([FS, 0x2e]);
+    expect(b(selectKanjiMode())).toEqual([FS, 0x26]);
   });
 
   describe("GS ! magnification", () => {
@@ -167,6 +172,7 @@ describe("ESC/POS commands", () => {
 
       expect(b(built)).toEqual([
         ...b(init()),
+        ...b(cancelKanjiMode()),
         ...b(selectCodepage(17)),
         ...b(bold(true)),
         0x41,
@@ -175,8 +181,16 @@ describe("ESC/POS commands", () => {
       ]);
     });
 
-    it("omits the code page command when no index is given", () => {
-      expect(b(new Receipt("cp1251").init().build())).toEqual([ESC, 0x40]);
+    it("cancels double-byte mode before selecting a page, never after", () => {
+      // Order is the whole point: `ESC t n` is ignored while the printer is in
+      // double-byte mode, so selecting a page first would silently do nothing.
+      const built = b(new Receipt("cp1251").init(17).build());
+      expect(built.indexOf(0x2e)).toBeGreaterThan(built.indexOf(0x40));
+      expect(built.indexOf(0x74)).toBeGreaterThan(built.indexOf(0x2e));
+    });
+
+    it("still leaves double-byte mode when no code page is given", () => {
+      expect(b(new Receipt("cp1251").init().build())).toEqual([ESC, 0x40, FS, 0x2e]);
     });
 
     it("turns a blank string into a blank line", () => {

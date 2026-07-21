@@ -12,6 +12,7 @@ import {
   Receipt,
   ascii,
   bold,
+  cancelKanjiMode,
   concat,
   feed,
   init,
@@ -269,6 +270,8 @@ function buildSweep(from: number, to: number): Bytes {
 
   const parts: Bytes[] = [
     init(),
+    // Without this every n prints identical CJK and the sweep is meaningless.
+    cancelKanjiMode(),
     selectCodepage(0),
     bold(true),
     ascii("== PROBA KODOVYH STORINOK ==\n"),
@@ -329,6 +332,7 @@ function buildSample(n: number, page: Codepage): Bytes {
 function buildFeatureCheck(): Bytes {
   return concat([
     init(),
+    cancelKanjiMode(),
     selectCodepage(0),
     bold(true),
     ascii("BOLD TEXT SAMPLE\n"),

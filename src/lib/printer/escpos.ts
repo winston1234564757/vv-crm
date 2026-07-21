@@ -16,6 +16,7 @@ import { encode, type Bytes, type Codepage } from "./codec";
 
 const ESC = 0x1b;
 const GS = 0x1d;
+const FS = 0x1c;
 
 /** 384 dots at 203 dpi = 48.0 mm exactly — the full printable width. */
 export const DOTS_PER_LINE = 384;
@@ -49,8 +50,33 @@ export function init(): Bytes {
 }
 
 /**
+ * Cancel Kanji / double-byte character mode (`FS .`).
+ *
+ * This one command decides whether any of the code page work matters. These
+ * printers ship for the Chinese market with double-byte mode on, and in that
+ * mode every byte >= 0x80 is read as the lead byte of a two-byte GBK sequence —
+ * the single-byte page table is never consulted, so `ESC t n` silently does
+ * nothing at all.
+ *
+ * The symptom is unmistakable once seen: six bytes of Cyrillic print as exactly
+ * three CJK glyphs, and every value of n produces identical output. Sending
+ * this is harmless on a printer that was not in the mode to begin with, so
+ * `init` always sends it.
+ */
+export function cancelKanjiMode(): Bytes {
+  return new Uint8Array([FS, 0x2e]);
+}
+
+/** Re-enter double-byte mode (`FS &`). Present for completeness. */
+export function selectKanjiMode(): Bytes {
+  return new Uint8Array([FS, 0x26]);
+}
+
+/**
  * Select a ROM code page (`ESC t n`). Which number holds which page is a
  * firmware property — see the probe page, not a spec.
+ *
+ * Has no effect while double-byte mode is active; see {@link cancelKanjiMode}.
  */
 export function selectCodepage(n: number): Bytes {
   return new Uint8Array([ESC, 0x74, clampByte(n)]);
@@ -219,8 +245,12 @@ export class Receipt {
     return this;
   }
 
+  /**
+   * Reset, leave double-byte mode, then optionally select a code page — in that
+   * order, because the page selection is ignored while double-byte mode is on.
+   */
   init(codepageIndex?: number): this {
-    this.parts.push(init());
+    this.parts.push(init(), cancelKanjiMode());
     if (codepageIndex !== undefined) this.parts.push(selectCodepage(codepageIndex));
     return this;
   }
