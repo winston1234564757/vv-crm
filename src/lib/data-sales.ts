@@ -85,8 +85,11 @@ interface DbSaleRow {
   payment_splits: DbPaymentSplit[] | null;
 }
 
-export async function getSales(limit?: number): Promise<SaleWithDetails[]> {
+export async function getSales(limit?: number, ids?: string[]): Promise<SaleWithDetails[]> {
   const supabase = await createClient();
+
+  // Called with an explicit (possibly empty) id list — nothing to fetch.
+  if (ids && ids.length === 0) return [];
 
   // 1. Fetch sales, customers, and seller profile
   let query = supabase
@@ -99,6 +102,10 @@ export async function getSales(limit?: number): Promise<SaleWithDetails[]> {
       payment_splits(*, cash_registers(name))
     `)
     .order("created_at", { ascending: false });
+
+  if (ids) {
+    query = query.in("id", ids);
+  }
 
   if (limit) {
     query = query.limit(limit);
@@ -237,4 +244,102 @@ export async function getSalesStats() {
     totalRevenue,
     averageCheck
   };
+}
+
+// ---------------------------------------------------------------------------
+// Server-side pagination & analytics
+//
+// Search, filtering and paging happen in Postgres (search_sales_ids), which
+// returns one page of ids plus the total match count. The rows themselves are
+// then loaded through getSales() so all the item-name / payment / seller
+// resolution above stays in one place.
+// ---------------------------------------------------------------------------
+
+/**
+ * The generated Supabase types in src/types/database.ts predate the
+ * search_sales_ids / sales_analytics functions, so `.rpc()` rejects their names.
+ * This narrow wrapper keeps the call sites typed; regenerate database.ts
+ * (supabase gen types) and this can be deleted in favour of a plain .rpc() call.
+ */
+async function callRpc<T>(name: "search_sales_ids" | "sales_analytics", args: Record<string, unknown>): Promise<T> {
+  const supabase = await createClient();
+  const rpc = supabase.rpc as unknown as (
+    fn: string,
+    params: Record<string, unknown>,
+  ) => Promise<{ data: T | null; error: { message: string } | null }>;
+
+  const { data, error } = await rpc(name, args);
+  if (error) throw new Error(error.message);
+  return data as T;
+}
+
+export interface SalesPageParams {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  category?: string;
+  payment?: string;
+}
+
+export async function getSalesPage(params: SalesPageParams = {}): Promise<{
+  rows: SaleWithDetails[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}> {
+  const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 100);
+  const requestedPage = Math.max(params.page ?? 1, 1);
+
+  const hits = (await callRpc<Array<{ sale_id: string; total_count: number }>>("search_sales_ids", {
+    p_query: params.query?.trim() || null,
+    p_category: params.category && params.category !== "all" ? params.category : null,
+    p_payment: params.payment && params.payment !== "all" ? params.payment : null,
+    p_limit: pageSize,
+    p_offset: (requestedPage - 1) * pageSize,
+  })) ?? [];
+  const total = hits.length > 0 ? Number(hits[0].total_count) : 0;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+
+  // Page drifted past the end (e.g. rows deleted) — fall back to the last page.
+  if (hits.length === 0 && total > 0 && requestedPage > pageCount) {
+    return getSalesPage({ ...params, page: pageCount, pageSize });
+  }
+
+  const rows = await getSales(undefined, hits.map((h) => h.sale_id));
+
+  return { rows, total, page: Math.min(requestedPage, pageCount), pageSize, pageCount };
+}
+
+export type SalesBucket = "hour" | "day" | "month";
+
+export interface SalesAnalyticsResult {
+  revenue: number;
+  count: number;
+  warrantyCount: number;
+  avgCheck: number;
+  itemsTotal: number;
+  byCategory: Array<{ key: string; value: number }>;
+  byPayment: Array<{ key: string; value: number }>;
+  bySeller: Array<{ key: string; value: number }>;
+  trend: Array<{ bucket: string; value: number }>;
+}
+
+export async function getSalesAnalytics(
+  from: Date | null,
+  to: Date | null,
+  bucket: SalesBucket = "day",
+): Promise<SalesAnalyticsResult> {
+  const data = await callRpc<Partial<SalesAnalyticsResult> | null>("sales_analytics", {
+    p_from: from ? from.toISOString() : null,
+    p_to: to ? to.toISOString() : null,
+    p_bucket: bucket,
+  });
+
+  const empty: SalesAnalyticsResult = {
+    revenue: 0, count: 0, warrantyCount: 0, avgCheck: 0, itemsTotal: 0,
+    byCategory: [], byPayment: [], bySeller: [], trend: [],
+  };
+
+  return { ...empty, ...(data ?? {}) };
 }
