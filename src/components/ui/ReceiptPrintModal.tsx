@@ -282,18 +282,21 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 </tr>
               </thead>
               <tbody>
+                {/* Names wrap rather than truncate: 48 mm is too narrow to
+                    truncate without losing the item, and a receipt has to stay
+                    readable as a record of what was actually sold. */}
                 {(!data.items || data.items.length === 0) ? (
                   <tr>
-                    <td className="py-1 truncate max-w-[150px]">Товар / послуга</td>
-                    <td className="py-1 text-center">1</td>
-                    <td className="py-1 text-right">{(data.total_amount || 0).toLocaleString()} ₴</td>
+                    <td className="py-1 pr-1 break-words">Товар / послуга</td>
+                    <td className="py-1 px-0.5 text-center align-top">1</td>
+                    <td className="py-1 text-right align-top whitespace-nowrap">{(data.total_amount || 0).toLocaleString()} ₴</td>
                   </tr>
                 ) : (
                   data.items.map((item, idx) => (
                     <tr key={idx} className="border-b border-black/10 last:border-0">
-                      <td className="py-1 truncate max-w-[150px]">{item.name}</td>
-                      <td className="py-1 text-center">{item.quantity}</td>
-                      <td className="py-1 text-right">{item.total_price.toLocaleString()} ₴</td>
+                      <td className="py-1 pr-1 break-words">{item.name}</td>
+                      <td className="py-1 px-0.5 text-center align-top">{item.quantity}</td>
+                      <td className="py-1 text-right align-top whitespace-nowrap">{item.total_price.toLocaleString()} ₴</td>
                     </tr>
                   ))
                 )}
@@ -355,9 +358,9 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                   <tbody>
                     {data.repairItems.map((item, idx) => (
                       <tr key={idx} className="border-b border-black/10 last:border-0">
-                        <td className="py-0.5 pr-1">{item.name}</td>
-                        <td className="py-0.5 text-center">{item.quantity}</td>
-                        <td className="py-0.5 text-right">{(item.unit_price * item.quantity).toLocaleString()} ₴</td>
+                        <td className="py-0.5 pr-1 break-words">{item.name}</td>
+                        <td className="py-0.5 px-0.5 text-center align-top">{item.quantity}</td>
+                        <td className="py-0.5 text-right align-top whitespace-nowrap">{(item.unit_price * item.quantity).toLocaleString()} ₴</td>
                       </tr>
                     ))}
                   </tbody>
@@ -396,14 +399,16 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       {(type === "repair_acceptance" || type === "repair_warranty") && (
         <>
           <div className="receipt-divider" />
-          <div className="pt-2 grid grid-cols-2 gap-4 text-center text-[8px] text-black">
+          {/* Stacked, not two columns: at 48 mm a two-up grid leaves ~20 mm per
+              cell, which is narrower than the label "Прийняв (підпис)" itself. */}
+          <div className="pt-1 space-y-2.5 text-[8px] text-black">
             <div>
               <p>{type === "repair_acceptance" ? "Здав (підпис)" : "Отримав (підпис)"}</p>
-              <p className="mt-4 font-bold">___________</p>
+              <p className="mt-3 font-bold">______________________</p>
             </div>
             <div>
               <p>{type === "repair_acceptance" ? "Прийняв (підпис)" : "Видав (підпис)"}</p>
-              <p className="mt-4 font-bold">___________</p>
+              <p className="mt-3 font-bold">______________________</p>
             </div>
           </div>
         </>
@@ -412,10 +417,12 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       {/* QR Code and Footer */}
       <div className="flex flex-col items-center justify-center text-center pt-2 space-y-1.5">
         {showQr && (
+          /* Requested at 240px but drawn at ~15 mm: a thermal head runs at
+             203 dpi, so an 80px source would print visibly soft. */
           <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrData)}`}
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(qrData)}`}
             alt="QR Code"
-            className="w-16 h-16 border p-0.5 bg-white"
+            className="w-[15mm] h-[15mm] bg-white"
           />
         )}
         <div className="text-[8px] text-gray-500 leading-tight whitespace-pre-wrap">
@@ -681,13 +688,19 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
 
               {/* Right Side: Virtual Receipt Preview */}
               <div className="w-full md:w-2/5 bg-warm-bg/70 p-6 flex flex-col items-center justify-center overflow-y-auto">
-                <p className="text-[9px] font-bold text-text-secondary uppercase tracking-wider mb-3">
-                  Емулятор 80мм стрічки
+                <p className="text-[9px] font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Емулятор 58 мм стрічки
                 </p>
-                <div id="receipt-preview-container" className="w-full max-w-[280px] bg-white rounded-xl border border-warm-border shadow-md p-5 font-mono text-[9px] text-black space-y-3.5 relative overflow-hidden select-none">
-                  {/* Visual Tear Lines effect */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-violet/15" />
-                  
+                <p className="text-[9px] text-text-secondary mb-3">
+                  Друкована ширина — 48 мм
+                </p>
+                {/* Same 48 mm box and 2 mm padding as the @media print rules in
+                    globals.css, so this preview is the actual printed width
+                    rather than an approximation. Change one, change the other. */}
+                <div
+                  id="receipt-preview-container"
+                  className="w-[48mm] shrink-0 bg-white rounded-lg border border-warm-border shadow-md p-[2mm] font-mono text-[9px] leading-[1.35] text-black relative overflow-hidden select-none [&>*+*]:mt-[5px]"
+                >
                   {renderReceiptContent()}
                 </div>
               </div>

@@ -193,51 +193,102 @@ body {
   }
 }
 
-/* Print Styles */
-@media print {
-  /* Hide all UI components */
-  aside, nav, header, button, .no-print, [role="dialog"], [role="presentation"], .drawer {
-    display: none !important;
-    visibility: hidden !important;
-  }
+/* ---------------------------------------------------------------------------
+   Thermal receipt printing — 58 mm roll
+   ---------------------------------------------------------------------------
+   58 mm paper carries a 48 mm printable band; the remaining ~5 mm per side is
+   the printer's hardware margin. So the page box is the full 58 mm with zero
+   CSS margin, and the slip itself is pinned to 48 mm and centred — nothing can
+   land under the cut edge. `auto` height makes it one continuous slip instead
+   of paginating against a fixed sheet length.
 
-  body {
-    background: white !important;
+   Keep these numbers in sync with the WYSIWYG preview in ReceiptPrintModal
+   ("Емулятор 58 мм стрічки"): the preview is deliberately the same 48 mm box
+   with the same 2 mm padding, so what is on screen is what the printer emits.
+   --------------------------------------------------------------------------- */
+@page {
+  size: 58mm auto;
+  margin: 0;
+}
+
+/* The dividers are part of the receipt on screen too, not just on paper —
+   without this the preview shows blank gaps where the print shows dashes. */
+.receipt-divider {
+  border-top: 1px dashed rgb(0 0 0 / 0.45);
+  height: 0;
+}
+
+@media print {
+  html, body {
+    width: 58mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
     color: #000 !important;
   }
 
-  body * {
-    visibility: hidden;
+  /* Collapse the app out of the document rather than merely hiding it. The
+     previous `body * { visibility: hidden }` left every element's box in the
+     layout, so the admin page still measured three sheets tall and the receipt
+     printed as page 1 of 3. `display: none` removes the boxes entirely. */
+  body > *:not(#reusable-print-container) {
+    display: none !important;
   }
 
-  /* Only show printable areas */
+  #reusable-print-container,
   .printable-receipt {
     display: block !important;
-    visibility: visible !important;
-    position: absolute !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 320px !important; /* Perfect for both 80mm thermal and scaled A4/A5 printing */
+  }
+
+  .printable-receipt {
+    width: 48mm;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+    border: 0 !important;
     box-shadow: none !important;
-    border: none !important;
-    background: white !important;
+    background: #fff !important;
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Vertical rhythm, mirroring the preview's own spacing. The print container
+     carries no `space-y-*` of its own, which is why paper used to come out
+     noticeably tighter than the preview. */
+  .printable-receipt > * + * {
+    margin-top: 5px;
+  }
+
+  /* A thermal head dithers grey into near-invisibility. Everything prints
+     black; the greys are a screen-only nicety. */
+  .printable-receipt * {
     color: #000 !important;
-    padding: 10px !important;
-    margin: 0 !important;
-    font-size: 11px !important;
-    line-height: 1.4 !important;
+    background: transparent !important;
   }
 
-  .printable-receipt, .printable-receipt * {
-    visibility: visible !important;
+  /* IMEIs, tokens and long model names must wrap, never widen the slip. */
+  .printable-receipt p,
+  .printable-receipt td,
+  .printable-receipt th {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
-  /* Dotted dividers for clean receipt aesthetic */
+  .printable-receipt table,
+  .printable-receipt tr,
+  .printable-receipt img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .printable-receipt img {
+    max-width: 100%;
+  }
+
   .receipt-divider {
     border-top: 1px dashed #000 !important;
-    margin: 8px 0 !important;
+    margin: 6px 0 !important;
     height: 0 !important;
   }
 }
