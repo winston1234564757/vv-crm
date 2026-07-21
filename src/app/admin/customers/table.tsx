@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { useRouter } from "next/navigation";
 import { IconSearch, IconEdit, IconDelete, IconSpinner } from "@/components/icons";
 import { deleteCustomer } from "@/lib/actions/customers";
@@ -134,6 +135,8 @@ export function CustomersTable({
     return c.name.toLowerCase().includes(lq) || c.phone.includes(lq);
   });
 
+  const pager = usePagination(filtered, { resetKey: `${q}` });
+
   const getClientSales = (customerId: string) => sales.filter(s => s.customer_id === customerId);
   const getClientRepairs = (customerId: string) => repairs.filter(r => r.customer_id === customerId);
 
@@ -161,7 +164,7 @@ export function CustomersTable({
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((c) => (
+            pager.pageItems.map((c) => (
               <div
                 key={c.id}
                 onClick={() => {
@@ -246,7 +249,7 @@ export function CustomersTable({
                   <td colSpan={7} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
                 </tr>
               ) : (
-                filtered.map((c) => (
+                pager.pageItems.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => {
@@ -311,6 +314,18 @@ export function CustomersTable({
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="клієнтів"
+        />
       </div>
 
       {/* Detail & Edit Drawer */}

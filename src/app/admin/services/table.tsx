@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { IconSearch, IconEdit, IconDelete } from "@/components/icons";
 import Drawer from "@/components/ui/Drawer";
 import { ServiceForm } from "@/components/forms/ServiceForm";
@@ -43,6 +44,8 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
     return s.name.toLowerCase().includes(q) || (s.description ?? "").toLowerCase().includes(q);
   });
 
+  const pager = usePagination(filtered, { resetKey: `${query}` });
+
   return (
     <>
       <InlineError message={error} onClose={() => setError("")} />
@@ -65,7 +68,7 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((s) => {
+            pager.pageItems.map((s) => {
               const isActive = s.status === "active";
               return (
                 <div
@@ -180,7 +183,7 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
                   <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
                 </tr>
               ) : (
-                filtered.map((s) => (
+                pager.pageItems.map((s) => (
                   <tr 
                     key={s.id} 
                     onClick={() => { setSelectedService(s); setIsEditing(false); }}
@@ -260,6 +263,18 @@ export function ServicesTable({ services, sales = [] }: { services: ServiceRow[]
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="послуг"
+        />
       </div>
 
       <Drawer 

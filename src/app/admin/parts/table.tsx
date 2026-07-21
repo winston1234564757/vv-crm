@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { IconSearch, IconEdit, IconDelete, IconWarning } from "@/components/icons";
 import { deletePart, bulkUpdatePartsTtn, receivePartFromTransit, payDeferredPartAction } from "@/lib/actions/parts";
 import Drawer from "@/components/ui/Drawer";
@@ -81,6 +82,8 @@ export function PartsTable({
     return p.name.toLowerCase().includes(q) || (p.part_number ?? "").toLowerCase().includes(q) || (p.compatible_with ?? "").toLowerCase().includes(q);
   });
 
+  const pager = usePagination(filtered, { resetKey: `${query}|${filter}` });
+
   const transitCount = parts.filter(p => p.status === "transit").length;
 
   async function handleBulkUpdateTtn() {
@@ -156,7 +159,7 @@ export function PartsTable({
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((p) => {
+            pager.pageItems.map((p) => {
               const isLow = p.stock <= p.min_stock;
               const isSelected = selectedIds.includes(p.id);
               return (
@@ -296,7 +299,7 @@ export function PartsTable({
                     checked={filtered.length > 0 && selectedIds.length === filtered.length}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedIds(filtered.map(p => p.id));
+                        setSelectedIds(pager.pageItems.map(p => p.id));
                       } else {
                         setSelectedIds([]);
                       }
@@ -320,7 +323,7 @@ export function PartsTable({
               {filtered.length === 0 ? (
                 <tr><td colSpan={11} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td></tr>
               ) : (
-                filtered.map(p => {
+                pager.pageItems.map(p => {
                   const isLow = p.stock <= p.min_stock;
                   const isSelected = selectedIds.includes(p.id);
                   return (
@@ -417,6 +420,18 @@ export function PartsTable({
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="запчастин"
+        />
       </div>
 
       <Drawer 

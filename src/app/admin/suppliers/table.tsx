@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { IconSearch, IconEdit, IconDelete } from "@/components/icons";
 import { deleteSupplier } from "@/lib/actions/suppliers";
 import Drawer from "@/components/ui/Drawer";
@@ -35,6 +36,8 @@ export function SuppliersTable({
     return s.name.toLowerCase().includes(q) || (s.contact_person ?? "").toLowerCase().includes(q) || (s.phone ?? "").includes(q);
   });
 
+  const pager = usePagination(filtered, { resetKey: `${query}` });
+
   return (
     <>
       <InlineError message={error} onClose={() => setError("")} />
@@ -48,7 +51,7 @@ export function SuppliersTable({
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((s) => {
+            pager.pageItems.map((s) => {
               return (
                 <div
                   key={s.id}
@@ -126,7 +129,7 @@ export function SuppliersTable({
               {filtered.length === 0 ? (
                 <tr><td colSpan={6} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td></tr>
               ) : (
-                filtered.map(s => (
+                pager.pageItems.map(s => (
                   <tr 
                     key={s.id} 
                     onClick={() => { setSelectedSupplier(s); setIsEditingProfile(false); }}
@@ -149,6 +152,18 @@ export function SuppliersTable({
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="постачальників"
+        />
       </div>
 
       <Drawer 

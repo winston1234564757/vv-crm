@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { IconSearch, IconDelete } from "@/components/icons";
 import { deletePurchase, updatePurchaseStatus } from "@/lib/actions/purchases";
 import Drawer from "@/components/ui/Drawer";
@@ -67,6 +68,8 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
     return (p.suppliers?.name ?? "").toLowerCase().includes(q) || (p.notes ?? "").toLowerCase().includes(q) || p.status.toLowerCase().includes(q);
   });
 
+  const pager = usePagination(filtered, { resetKey: `${query}` });
+
   return (
     <>
       <InlineError message={error} onClose={() => setError("")} />
@@ -80,7 +83,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</p>
           ) : (
-            filtered.map((p) => {
+            pager.pageItems.map((p) => {
               return (
                 <div
                   key={p.id}
@@ -189,7 +192,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td></tr>
               ) : (
-                filtered.map(p => (
+                pager.pageItems.map(p => (
                   <tr 
                     key={p.id} 
                     onClick={() => setSelectedPurchase(p)}
@@ -247,6 +250,18 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          start={pager.start}
+          shown={pager.pageItems.length}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+          itemLabel="закупівель"
+        />
       </div>
 
       {selectedPurchase && (
