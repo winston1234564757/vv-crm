@@ -232,8 +232,8 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       <div className="text-center pb-2">
         <h3 className="text-xs font-bold uppercase tracking-wide tracking-tight">{companyName || "НАЗВА КОМПАНІЇ"}</h3>
         <p className="text-[9px] text-gray-500">{companySubtitle || "Сфера діяльності"}</p>
-        <p className="text-[8px] text-gray-400 mt-0.5">{address || "Адреса"}</p>
-        <p className="text-[8px] text-gray-400">{phone || "Телефон"}</p>
+        <p className="text-[9px] text-gray-500 mt-0.5">{address || "Адреса"}</p>
+        <p className="text-[9px] text-gray-500">{phone || "Телефон"}</p>
       </div>
       
       <div className="receipt-divider" />
@@ -388,7 +388,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             <p className="text-[9px] text-gray-400 uppercase font-bold">
               {type === "repair_acceptance" ? "Умови ремонту" : "Гарантійні зобов'язання"}
             </p>
-            <p className="text-[8px] text-gray-600 leading-normal whitespace-pre-wrap">
+            <p className="text-[9px] text-gray-700 leading-normal whitespace-pre-wrap">
               {warrantyText}
             </p>
           </div>
@@ -401,7 +401,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           <div className="receipt-divider" />
           {/* Stacked, not two columns: at 48 mm a two-up grid leaves ~20 mm per
               cell, which is narrower than the label "Прийняв (підпис)" itself. */}
-          <div className="pt-1 space-y-2.5 text-[8px] text-black">
+          <div className="pt-1 space-y-2.5 text-[9px] text-black">
             <div>
               <p>{type === "repair_acceptance" ? "Здав (підпис)" : "Отримав (підпис)"}</p>
               <p className="mt-3 font-bold">______________________</p>
@@ -425,7 +425,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             className="w-[15mm] h-[15mm] bg-white"
           />
         )}
-        <div className="text-[8px] text-gray-500 leading-tight whitespace-pre-wrap">
+        <div className="text-[9px] text-gray-600 leading-tight whitespace-pre-wrap">
           {footerText}
         </div>
       </div>
@@ -692,7 +692,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                   Емулятор 58 мм стрічки
                 </p>
                 <p className="text-[9px] text-text-secondary mb-3">
-                  Друкована ширина — 54 мм
+                  Друкована ширина — 48 мм (XP-58, 384 крапки)
                 </p>
                 {/* Reads the same custom properties as the @media print rules in
                     globals.css (--receipt-print-width / --receipt-print-padding),
@@ -700,7 +700,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                     from the paper. Tune the width there, not here. */}
                 <div
                   id="receipt-preview-container"
-                  className="w-[var(--receipt-print-width)] shrink-0 bg-white rounded-lg border border-warm-border shadow-md p-[var(--receipt-print-padding)] font-mono text-[9px] leading-[1.35] text-black relative overflow-hidden select-none [&>*+*]:mt-[5px]"
+                  className="w-[var(--receipt-print-width)] shrink-0 bg-white rounded-lg border border-warm-border shadow-md p-[var(--receipt-print-padding)] font-[family-name:var(--font-mono-receipt)] text-[9px] leading-[1.35] text-black relative overflow-hidden select-none [&>*+*]:mt-[5px]"
                 >
                   {renderReceiptContent()}
                 </div>

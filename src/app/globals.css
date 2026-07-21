@@ -209,15 +209,26 @@ body {
    (The one thing it does not drive is the "Друкована ширина — NN мм" caption
    above that preview, which is plain text — update it here and there.)
 
-   Set to 54 mm on the owner's printer. Note this is wider than the 48 mm his
-   print driver advertises as the printable area of "58(48) x 297 mm" — if the
-   right edge clips, that driver figure is the truth and this must come back
-   down toward 48 mm.
+   48 mm is not a guess and should not be raised. The printer is an Xprinter
+   XP-58: 384 dots per line at 203 dpi, and 384 / 8 dots-per-mm = 48.0 mm
+   exactly. Dots beyond that do not exist in the hardware, so a wider slip does
+   not print smaller — it prints the overflow nowhere. This also matches the
+   "58(48) x 297 mm" the driver reports. A brief attempt at 54 mm was reverted.
    --------------------------------------------------------------------------- */
 :root {
   --receipt-paper-width: 58mm;
-  --receipt-print-width: 54mm;
+  --receipt-print-width: 48mm;
   --receipt-print-padding: 2mm;
+
+  /* Pinned explicitly rather than leaning on Tailwind's `font-mono`, which is
+     undefined in this project's @theme and so resolves to whatever the OS
+     picks — Consolas here, something else on another machine, with the column
+     alignment changing underneath the receipt. Consolas has the sturdiest
+     stems of the Cyrillic-capable monospaces shipped on Windows; DejaVu and
+     Liberation cover the non-Windows fallback. Monospace is not aesthetic
+     here: the price column is aligned by character cell. */
+  --font-mono-receipt: Consolas, "DejaVu Sans Mono", "Liberation Mono",
+    "Courier New", ui-monospace, monospace;
 }
 
 @page {
@@ -261,10 +272,28 @@ body {
     border: 0 !important;
     box-shadow: none !important;
     background: #fff !important;
+    font-family: var(--font-mono-receipt) !important;
     font-size: 9px !important;
     line-height: 1.35 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Kill antialiasing. A thermal head is 1-bit: a dot is burned or it is not,
+     so any grey edge pixel gets thresholded — sometimes on, sometimes off —
+     which is what makes small type look ragged. Rendering hard-edged gives the
+     driver a clean bitmap to threshold.
+
+     Honest caveat: when Windows sends vector text to the XP-58 driver this is
+     a no-op, because the driver rasterises the glyphs itself and never sees
+     this rule. It does take effect in the "Зберегти JPG" path, which goes
+     through html-to-image and rasterises in the browser. Costs nothing either
+     way. `font-smooth: never` is deliberately not included — it is not in any
+     spec and no engine implements it. */
+  .printable-receipt,
+  .printable-receipt * {
+    -webkit-font-smoothing: none;
+    text-rendering: geometricPrecision;
   }
 
   /* Vertical rhythm, mirroring the preview's own spacing. The print container
