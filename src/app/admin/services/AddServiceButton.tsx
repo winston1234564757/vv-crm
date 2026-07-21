@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import { ServiceForm } from "@/components/forms/ServiceForm";
 import { IconPlus } from "@/components/icons";
@@ -10,12 +11,9 @@ export function AddServiceButton() {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="btn-press flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover"
-      >
+      <Button variant="primary" onClick={() => setIsOpen(true)}>
         <IconPlus /> Додати послугу
-      </button>
+      </Button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Нова послуга">
         <ServiceForm onSuccess={() => setIsOpen(false)} />

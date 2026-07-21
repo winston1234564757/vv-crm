@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
+import { Tabs } from "@/components/ui/Tabs";
 import { 
   IconSearch, 
   IconEdit, 
@@ -366,46 +367,32 @@ export function DevicesTable({
 
       {/* Шапка з вкладками */}
       <div className="flex flex-col gap-4 border-b border-warm-border pb-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex gap-2 p-1 bg-warm-sidebar rounded-xl border border-warm-border max-w-fit">
-          <button
-            onClick={() => {
-              setActiveTab("kanban");
-              setSortBy("created_at_desc");
-              handleResetFilters();
-              setSelectedDeviceIds([]);
-            }}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "kanban"
-                ? "bg-surface text-text-primary shadow-sm"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            <IconGrid size={14} />
-            <span>Дошка (Активні)</span>
-            <span className="bg-violet/10 text-violet text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {devices.filter(d => d.status === "transit" || d.status === "in_stock" || d.status === "service").length}
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("archive");
-              setSortBy("updated_at_desc");
-              handleResetFilters();
-              setSelectedDeviceIds([]);
-            }}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "archive"
-                ? "bg-surface text-text-primary shadow-sm"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            <IconBox size={14} />
-            <span>Архів / Продані</span>
-            <span className="bg-text-secondary/10 text-text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {devices.filter(d => d.status === "sold" || d.status === "returned" || d.status === "archived").length}
-            </span>
-          </button>
-        </div>
+        <Tabs
+          tabs={[
+            {
+              value: "kanban",
+              label: "Дошка (Активні)",
+              icon: <IconGrid size={14} />,
+              count: devices.filter((d) => d.status === "transit" || d.status === "in_stock" || d.status === "service").length,
+            },
+            {
+              value: "archive",
+              label: "Архів / Продані",
+              icon: <IconBox size={14} />,
+              count: devices.filter((d) => d.status === "sold" || d.status === "returned" || d.status === "archived").length,
+            },
+          ]}
+          value={activeTab}
+          onValueChange={(v) => {
+            const tab = v as "kanban" | "archive";
+            setActiveTab(tab);
+            setSortBy(tab === "kanban" ? "created_at_desc" : "updated_at_desc");
+            handleResetFilters();
+            setSelectedDeviceIds([]);
+          }}
+          aria-label="Вигляд складу"
+          className="border-b-0"
+        />
 
         {/* Панель пошуку та швидких фільтрів */}
         <div className="flex flex-1 items-center gap-2 max-w-lg md:justify-end">

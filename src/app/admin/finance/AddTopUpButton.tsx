@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import { TopUpForm } from "@/components/forms/TopUpForm";
 
@@ -20,12 +21,9 @@ export function AddTopUpButton({
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="btn-press flex items-center gap-1.5 rounded-xl border border-iris/20 bg-warm-surface px-5 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-warm-surface-hover shadow-sm cursor-pointer"
-      >
+      <Button variant="secondary" onClick={() => setIsOpen(true)}>
         👛 Поповнити з гаманця
-      </button>
+      </Button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Поповнення сейфу з гаманця" size="default">
         <TopUpForm

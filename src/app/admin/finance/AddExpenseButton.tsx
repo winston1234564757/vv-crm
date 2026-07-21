@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 
@@ -29,12 +30,9 @@ export function AddExpenseButton({
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="btn-press flex items-center gap-1.5 rounded-xl bg-rose px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-rose-hover cursor-pointer"
-      >
+      <Button variant="danger" onClick={() => setIsOpen(true)}>
         📉 Додати витрату
-      </button>
+      </Button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Створення нової витрати" size="default">
         <ExpenseForm

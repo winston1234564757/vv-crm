@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { IconPlus } from "@/components/icons";
 import Drawer from "@/components/ui/Drawer";
 import { PartForm } from "@/components/forms/PartForm";
@@ -17,9 +18,9 @@ export function AddPartButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover cursor-pointer">
+      <Button variant="primary" onClick={() => setOpen(true)}>
         <IconPlus /> Деталь
-      </button>
+      </Button>
       <Drawer isOpen={open} onClose={() => setOpen(false)} title="Нова деталь">
         <PartForm onSuccess={() => setOpen(false)} suppliers={suppliers} safes={safes} />
       </Drawer>

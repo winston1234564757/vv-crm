@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import { TransferForm } from "@/components/forms/TransferForm";
 
@@ -29,12 +30,9 @@ export function AddTransferButton({
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="btn-press flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover"
-      >
+      <Button variant="primary" onClick={() => setIsOpen(true)}>
         💸 Здійснити переказ
-      </button>
+      </Button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Переказ між касами та сейфами" size="default">
         <TransferForm

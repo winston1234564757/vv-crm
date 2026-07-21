@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { updateSettingsAction, updateProfileRoleAction, updateReceiptSettingsAction } from "@/lib/actions/settings";
 import type { ParsedSettings, ProfileRow } from "@/lib/data-settings";
 import { InlineError } from "@/components/ui/InlineError";
+import { Tabs } from "@/components/ui/Tabs";
 import type { ActionState } from "@/lib/actions/types";
 
 import { GeneralSettingsTab } from "./settings/GeneralSettingsTab";
@@ -113,39 +114,16 @@ export default function SettingsClient({
         </div>
       )}
 
-      {/* Vercel-style Tab Selector */}
-      <div className="flex border-b border-warm-border gap-2 bg-warm-surface p-1 rounded-t-2xl">
-        <button
-          onClick={() => setActiveTab("general")}
-          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
-            activeTab === "general"
-              ? "border-violet text-violet font-extrabold"
-              : "border-transparent text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          Загальні налаштування
-        </button>
-        <button
-          onClick={() => setActiveTab("staff")}
-          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
-            activeTab === "staff"
-              ? "border-violet text-violet font-extrabold"
-              : "border-transparent text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          Співробітники
-        </button>
-        <button
-          onClick={() => setActiveTab("receipts")}
-          className={`px-5 py-3 text-xs uppercase tracking-wider font-bold transition-all border-b-2 cursor-pointer ${
-            activeTab === "receipts"
-              ? "border-violet text-violet font-extrabold"
-              : "border-transparent text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          Конструктор чеків
-        </button>
-      </div>
+      <Tabs
+        tabs={[
+          { value: "general", label: "Загальні налаштування" },
+          { value: "staff", label: "Співробітники" },
+          { value: "receipts", label: "Конструктор чеків" },
+        ]}
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "general" | "staff" | "receipts")}
+        aria-label="Розділи налаштувань"
+      />
 
       <div className="transition-all duration-300">
         {activeTab === "general" && (
