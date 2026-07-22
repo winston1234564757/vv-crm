@@ -80,7 +80,6 @@ interface DashboardClientProps {
 import {
   TodaySalesStatusLine,
   SLASupplyChainMonitor,
-  SalesTargetRing,
   OpexRunwayCard,
   RefurbishmentWidget,
   B2BPartnerShareWidget,
@@ -122,9 +121,8 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
         )}
       </header>
 
-      {isLeadership && stats.ownerStats && (
-        <TodaySalesStatusLine todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} />
-      )}
+      {/* Ціль по прибутку для власника/менеджера рендериться в Task 8 з
+          owner-set sales_targets; захардкоджену виторгову ціль прибрано. */}
       {userRole === "sales" && stats.salesStats && (
         <TodaySalesStatusLine todayTotal={stats.salesStats.todaySalesTotal} target={15000} />
       )}
@@ -135,7 +133,6 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-4">
               <div className="md:col-span-3 flex flex-col md:flex-row gap-4 md:gap-5">
                 <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
-                <SalesTargetRing todayTotal={stats.ownerStats.todaySalesTotal} target={stats.ownerStats.salesTarget} progress={stats.ownerStats.salesProgress} />
                 <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
               </div>
               <StatCard

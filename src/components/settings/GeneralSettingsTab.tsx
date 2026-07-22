@@ -16,6 +16,14 @@ export function GeneralSettingsTab({
 }: GeneralSettingsTabProps) {
   const [shopName, setShopName] = useState(initialSettings.shop_name);
 
+  // Sales targets — measured in profit, not revenue. Empty field = null = no target.
+  const [targetDaily, setTargetDaily] = useState(
+    initialSettings.sales_targets.daily !== null ? String(initialSettings.sales_targets.daily) : ""
+  );
+  const [targetMonthly, setTargetMonthly] = useState(
+    initialSettings.sales_targets.monthly !== null ? String(initialSettings.sales_targets.monthly) : ""
+  );
+
   // Tech state
   const [techOpex, setTechOpex] = useState(initialSettings.distribution_tech.opex);
   const [techGrowth, setTechGrowth] = useState(initialSettings.distribution_tech.growth);
@@ -93,6 +101,55 @@ export function GeneralSettingsTab({
         >
           {isPending ? "Збереження..." : "Зберегти всі налаштування"}
         </button>
+      </div>
+
+      {/* Sales targets card */}
+      <div className="card p-5 space-y-4 md:col-span-2 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
+        <div>
+          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Цілі по прибутку</h2>
+          <p className="text-xs text-text-secondary mt-1">
+            Ціль вимірюється чистим прибутком, а не виторгом — виторг легко нагнати, продаючи в нуль.
+            Порожнє поле — ціль не показується.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="target_daily" className="mb-1.5 block text-xs font-medium text-text-secondary">
+              Ціль прибутку за день, ₴
+            </label>
+            <input
+              id="target_daily"
+              name="target_daily"
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              placeholder="Порожнє — ціль не показується"
+              value={targetDaily}
+              onChange={(e) => setTargetDaily(e.target.value)}
+              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface/50 px-4 py-3 text-sm text-text-primary outline-none transition-all focus:border-violet/40 focus:ring-2 focus:ring-violet/5"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="target_monthly" className="mb-1.5 block text-xs font-medium text-text-secondary">
+              Ціль прибутку за місяць, ₴
+            </label>
+            <input
+              id="target_monthly"
+              name="target_monthly"
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              placeholder="Порожнє — ціль не показується"
+              value={targetMonthly}
+              onChange={(e) => setTargetMonthly(e.target.value)}
+              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface/50 px-4 py-3 text-sm text-text-primary outline-none transition-all focus:border-violet/40 focus:ring-2 focus:ring-violet/5"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Splits card */}

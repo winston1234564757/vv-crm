@@ -94,8 +94,6 @@ export interface DashboardData {
     cashRegisters: CashRegisterRow[];
     safes: SafeRow[];
     repairsQueue: RepairQueueItem[];
-    salesTarget: number;
-    salesProgress: number;
 
     refurbishmentCapital: number;
     refurbishmentMargin: number;
@@ -310,9 +308,6 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
         customer_telegram: isInternal ? null : cust?.telegram_id ?? null,
       };
     });
-
-    const salesTarget = 15000;
-    const salesProgress = Math.min(Math.round((todaySalesTotal / salesTarget) * 100), 100);
 
     // Calculate advanced BI analytics
     const soldDeviceIds = new Set(
@@ -538,8 +533,6 @@ export async function getRealtimeDashboardData(role: string, userId: string): Pr
       cashRegisters: registersRes.data ?? [],
       safes: safesRes.data ?? [],
       repairsQueue,
-      salesTarget,
-      salesProgress,
 
       refurbishmentCapital,
       refurbishmentMargin,

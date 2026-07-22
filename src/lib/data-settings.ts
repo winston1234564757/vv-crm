@@ -11,6 +11,13 @@ export interface SafeDistribution {
   net_profit: number;
 }
 
+export interface SalesTargets {
+  /** Ціль по чистому прибутку за день. null = не задано. */
+  daily: number | null;
+  /** Ціль по чистому прибутку за місяць. null = не задано. */
+  monthly: number | null;
+}
+
 export interface ReceiptTemplate {
   title: string;
   show_seller: boolean;
@@ -54,6 +61,7 @@ export interface ParsedSettings {
   distribution_accessories: SafeDistribution;
   distribution_repairs: SafeDistribution;
   receipt_settings: ReceiptSettings;
+  sales_targets: SalesTargets;
 }
 
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -69,6 +77,20 @@ function parseDistribution(value: unknown): SafeDistribution {
     };
   }
   return fallback;
+}
+
+/**
+ * Ціль вимірюється прибутком, а не виторгом: виторг легко нагнати, продавши в
+ * нуль. Дефолт — null, а не число: успадкована 15 000 ₴ була взята нізвідки, і
+ * ціль, якої не ставили, краще не показувати взагалі.
+ */
+function parseSalesTargets(value: unknown): SalesTargets {
+  const fallback: SalesTargets = { daily: null, monthly: null };
+  if (typeof value !== "object" || value === null) return fallback;
+  const obj = value as Record<string, unknown>;
+  const one = (raw: unknown) =>
+    typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.round(raw) : null;
+  return { daily: one(obj.daily), monthly: one(obj.monthly) };
 }
 
 function parseReceiptSettings(value: unknown, fallback: ReceiptSettings): ReceiptSettings {
@@ -148,6 +170,7 @@ export async function getSettings(): Promise<ParsedSettings> {
     distribution_tech: { opex: 40, growth: 30, net_profit: 30 },
     distribution_accessories: { opex: 40, growth: 30, net_profit: 30 },
     distribution_repairs: { opex: 40, growth: 30, net_profit: 30 },
+    sales_targets: { daily: null, monthly: null },
     receipt_settings: {
       company_name: "VV CRM",
       company_subtitle: "Магазин та сервісний центр",
@@ -194,6 +217,8 @@ export async function getSettings(): Promise<ParsedSettings> {
       resolved.distribution_accessories = parseDistribution(s.value);
     } else if (s.key === "distribution_repairs") {
       resolved.distribution_repairs = parseDistribution(s.value);
+    } else if (s.key === "sales_targets") {
+      resolved.sales_targets = parseSalesTargets(s.value);
     } else if (s.key === "receipt_settings") {
       resolved.receipt_settings = parseReceiptSettings(s.value, defaultSettings.receipt_settings);
     }

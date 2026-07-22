@@ -13,6 +13,19 @@ const distributionPartSchema = z.object({
   net_profit: z.coerce.number().min(0).max(100, "Частка має бути від 0 до 100%"),
 });
 
+/**
+ * Порожнє поле має ставати null, а не 0 — нуль означав би «ціль нуль», а не
+ * «ціль не задано». Це відрізняє ці поля від часток розподілу вище, які завжди
+ * мають числове значення.
+ */
+const optionalMoney = z
+  .union([z.string(), z.number(), z.null()])
+  .transform((v) => {
+    if (v === null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  });
+
 const settingsSchema = z.object({
   shop_name: z.string().min(2, "Назва магазину має містити хоча б 2 символи"),
   tech_opex: z.coerce.number(),
@@ -24,6 +37,8 @@ const settingsSchema = z.object({
   rep_opex: z.coerce.number(),
   rep_growth: z.coerce.number(),
   rep_profit: z.coerce.number(),
+  target_daily: optionalMoney,
+  target_monthly: optionalMoney,
 });
 
 export async function updateSettingsAction(
@@ -42,6 +57,8 @@ export async function updateSettingsAction(
       rep_opex: formData.get("rep_opex"),
       rep_growth: formData.get("rep_growth"),
       rep_profit: formData.get("rep_profit"),
+      target_daily: formData.get("target_daily"),
+      target_monthly: formData.get("target_monthly"),
     };
 
     const parsed = settingsSchema.parse(rawData);
@@ -98,6 +115,10 @@ export async function updateSettingsAction(
       adminSupabase.from("settings").upsert({ key: "distribution_tech", value: techSplit }, { onConflict: "key" }),
       adminSupabase.from("settings").upsert({ key: "distribution_accessories", value: accSplit }, { onConflict: "key" }),
       adminSupabase.from("settings").upsert({ key: "distribution_repairs", value: repSplit }, { onConflict: "key" }),
+      adminSupabase.from("settings").upsert(
+        { key: "sales_targets", value: { daily: parsed.target_daily, monthly: parsed.target_monthly } },
+        { onConflict: "key" }
+      ),
     ];
 
     const results = await Promise.all(updates);
