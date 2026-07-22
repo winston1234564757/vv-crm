@@ -75,6 +75,7 @@ interface DbSaleRow {
   delivery_tracking: string | null;
   warranty_start: string | null;
   warranty_end: string | null;
+  status: string;
   return_reason: string | null;
   monobank_payment_id: string | null;
   partner_id: string | null;
@@ -207,7 +208,7 @@ export async function getSales(limit?: number, ids?: string[]): Promise<SaleWith
       created_at: sale.created_at,
       sale_type: sale.sale_type,
       delivery_needed: sale.delivery_needed,
-      status: (sale as any).status || "completed",
+      status: sale.status || "completed",
       delivery_address: sale.delivery_address,
       delivery_tracking: sale.delivery_tracking,
       warranty_start: sale.warranty_start,
@@ -255,24 +256,6 @@ export async function getSalesStats() {
 // resolution above stays in one place.
 // ---------------------------------------------------------------------------
 
-/**
- * The generated Supabase types in src/types/database.ts predate the
- * search_sales_ids / sales_analytics functions, so `.rpc()` rejects their names.
- * This narrow wrapper keeps the call sites typed; regenerate database.ts
- * (supabase gen types) and this can be deleted in favour of a plain .rpc() call.
- */
-async function callRpc<T>(name: "search_sales_ids" | "sales_analytics", args: Record<string, unknown>): Promise<T> {
-  const supabase = await createClient();
-  const rpc = supabase.rpc as unknown as (
-    fn: string,
-    params: Record<string, unknown>,
-  ) => Promise<{ data: T | null; error: { message: string } | null }>;
-
-  const { data, error } = await rpc(name, args);
-  if (error) throw new Error(error.message);
-  return data as T;
-}
-
 export interface SalesPageParams {
   page?: number;
   pageSize?: number;
@@ -288,16 +271,19 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
   pageSize: number;
   pageCount: number;
 }> {
+  const supabase = await createClient();
   const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 100);
   const requestedPage = Math.max(params.page ?? 1, 1);
 
-  const hits = (await callRpc<Array<{ sale_id: string; total_count: number }>>("search_sales_ids", {
-    p_query: params.query?.trim() || null,
-    p_category: params.category && params.category !== "all" ? params.category : null,
-    p_payment: params.payment && params.payment !== "all" ? params.payment : null,
+  const { data, error } = await supabase.rpc("search_sales_ids", {
+    p_query: params.query?.trim() || undefined,
+    p_category: params.category && params.category !== "all" ? params.category : undefined,
+    p_payment: params.payment && params.payment !== "all" ? params.payment : undefined,
     p_limit: pageSize,
     p_offset: (requestedPage - 1) * pageSize,
-  })) ?? [];
+  });
+  if (error) throw new Error(error.message);
+  const hits = data ?? [];
   const total = hits.length > 0 ? Number(hits[0].total_count) : 0;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
@@ -330,16 +316,19 @@ export async function getSalesAnalytics(
   to: Date | null,
   bucket: SalesBucket = "day",
 ): Promise<SalesAnalyticsResult> {
-  const data = await callRpc<Partial<SalesAnalyticsResult> | null>("sales_analytics", {
-    p_from: from ? from.toISOString() : null,
-    p_to: to ? to.toISOString() : null,
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("sales_analytics", {
+    p_from: from?.toISOString(),
+    p_to: to?.toISOString(),
     p_bucket: bucket,
   });
+  if (error) throw new Error(error.message);
 
   const empty: SalesAnalyticsResult = {
     revenue: 0, count: 0, warrantyCount: 0, avgCheck: 0, itemsTotal: 0,
     byCategory: [], byPayment: [], bySeller: [], trend: [],
   };
 
-  return { ...empty, ...(data ?? {}) };
+  // sales_analytics returns jsonb, so its shape is opaque to the generated types.
+  return { ...empty, ...((data as Partial<SalesAnalyticsResult> | null) ?? {}) };
 }
