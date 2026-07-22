@@ -390,7 +390,10 @@ const editRepairSchema = z.object({
   notes: z.string().nullable().optional(),
   issue_nodes: z.array(z.string()).optional().default([]),
   issue_diagnostics: z.array(z.string()).optional().default([]),
-  payment_status: z.enum(["unpaid", "paid", "partial"]).optional().default("unpaid"),
+  // payment_status is deliberately absent: it is a cache of the payment
+  // ledger, maintained by pay_repair / refund_repair_payment. Letting the edit
+  // form write it directly is what allowed a repair to read "Оплачено" with no
+  // money behind it — the exact defect this slice removes.
   diagnosis_result: z.string().nullable().optional(),
   technician_notes_internal: z.string().nullable().optional(),
 });
@@ -411,7 +414,6 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       notes: formData.get("notes") || null,
       issue_nodes: JSON.parse((formData.get("issue_nodes") as string) || "[]"),
       issue_diagnostics: JSON.parse((formData.get("issue_diagnostics") as string) || "[]"),
-      payment_status: formData.get("payment_status") || "unpaid",
       diagnosis_result: formData.get("diagnosis_result") || null,
       technician_notes_internal: formData.get("technician_notes_internal") || null,
     };
@@ -440,7 +442,6 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       notes: parsed.notes,
       issue_nodes: parsed.issue_nodes,
       issue_diagnostics: parsed.issue_diagnostics,
-      payment_status: parsed.payment_status,
       diagnosis_result: parsed.diagnosis_result,
       technician_notes_internal: parsed.technician_notes_internal,
     };
@@ -455,6 +456,11 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       .eq("id", parsed.id);
 
     if (error) throw error;
+
+    // The price may have moved, which changes what "fully paid" means. The
+    // ledger is unchanged, so recompute the cached label from it rather than
+    // leaving a repair marked paid against a price it no longer has.
+    await recalcRepairPaymentStatus(supabase, parsed.id, parsed.price);
 
     // Sync warehouse device status if any
     if (oldRepair?.inventory_device_id) {
@@ -764,4 +770,96 @@ export async function searchCompletedRepairs(customerId?: string | null, searchQ
     return [];
   }
   return data;
+}
+
+/**
+ * Recomputes the cached `payment_status` from the payment ledger.
+ *
+ * `repairs.payment_status` is a label; the transactions carrying
+ * `reference_type = 'repair_payment'` are the truth. Anything that can change
+ * either side — a payment, a refund, or an edit to the price — has to call
+ * this, otherwise the label drifts, which is how a repair came to read
+ * "unpaid" after being handed over for 1800 UAH.
+ */
+async function recalcRepairPaymentStatus(
+  supabase: SupabaseClient<Database>,
+  repairId: string,
+  price: number,
+) {
+  const { data: payments, error } = await supabase
+    .from("transactions")
+    .select("amount")
+    .eq("reference_type", "repair_payment")
+    .eq("reference_id", repairId);
+
+  if (error) return;
+
+  const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
+  const status = paid <= 0 ? "unpaid" : paid >= price ? "paid" : "partial";
+
+  await supabase
+    .from("repairs")
+    .update({ payment_status: status })
+    .eq("id", repairId);
+}
+
+/**
+ * Takes a payment against a repair: money into the till, a row in the ledger,
+ * and the cached status recomputed — all inside one Postgres function so a
+ * failure cannot leave the money half-recorded.
+ *
+ * Any authenticated user may do this: whoever is behind the counter takes the
+ * cash. Reversing it is restricted — see `refundRepairPayment`.
+ */
+export async function payRepair(
+  repairId: string,
+  cashRegisterId: string,
+  amount: number,
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || ""));
+
+    const { error } = await supabase.rpc("pay_repair", {
+      p_repair_id: repairId,
+      p_cash_register_id: cashRegisterId,
+      p_amount: Math.round(amount),
+      p_user_id: user.id,
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin/repairs");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/**
+ * Reverses one repair payment: takes it back out of the till, removes the
+ * ledger row and recomputes the status.
+ *
+ * Restricted to owner/manager, matching `deleteTransactionAction` — taking
+ * money in is counter work, correcting someone's mistake is not.
+ */
+export async function refundRepairPayment(transactionId: string): Promise<ActionState> {
+  try {
+    await requireRole(["owner", "manager"]);
+    const supabase = await createClient();
+
+    const { error } = await supabase.rpc("refund_repair_payment", {
+      p_transaction_id: transactionId,
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin/repairs");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
 }

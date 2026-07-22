@@ -317,15 +317,16 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="payment_status" className="mb-1.5 block text-xs font-medium text-text-secondary">Статус оплати</label>
-            <select id="payment_status" name="payment_status" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet focus:ring-1 focus:ring-violet">
-              <option value="unpaid">Не оплачено</option>
-              <option value="paid">Оплачено</option>
-              <option value="partial">Частково</option>
-            </select>
-          </div>
         </div>
+
+        {/*
+          The payment status select used to live here. It wrote the label
+          directly, so a repair could read "Оплачено" with no money behind it —
+          which is how a handed-over repair for 1800 ₴ ended up invisible to the
+          finances. Payment is now an action ("Прийняти оплату") that moves
+          money into a till and writes a transaction; the status is derived
+          from that ledger.
+        */}
 
         <div>
           <label htmlFor="np_ttn" className="mb-1.5 block text-xs font-medium text-text-secondary flex items-center justify-between">

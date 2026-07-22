@@ -13,8 +13,15 @@ import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 import { addPartToRepairAction, removePartFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
 import { InlineError } from "@/components/ui/InlineError";
 import AICopilotDrawer from "@/components/ai/AICopilotDrawer";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { Button } from "@/components/ui/Button";
+import {
+  labelOf,
+  repairStatus as domainRepairStatus,
+  paymentStatus as domainPaymentStatus,
+} from "@/lib/domain-labels";
 
-interface AIDiagnosticData {
+export interface AIDiagnosticData {
   possible_causes: string[];
   required_parts: string[];
   estimated_difficulty: "easy" | "medium" | "hard";
@@ -60,6 +67,7 @@ type RepairDetailViewProps = {
     issue_diagnostics?: string[] | null;
     status: string;
     payment_status: string | null;
+    is_warranty?: boolean | null;
     price: number;
     cost: number;
     warranty_months: number;
@@ -76,20 +84,10 @@ type RepairDetailViewProps = {
   };
   onEdit: () => void;
   onClose: () => void;
+  /** Present only while the repair is still owed for. */
+  onPay?: () => void;
 };
 
-const statusLabels: Record<string, string> = {
-  received: "Прийнято", diagnostics: "Діагностика", in_progress: "В роботі",
-  awaiting_parts: "Чекає деталі", ready: "Готовий", completed: "Виконано", handed_over: "Видано", cancelled: "Скасовано",
-};
-
-const statusColors: Record<string, string> = {
-  received: "var(--color-iris)", diagnostics: "var(--color-amber)", in_progress: "var(--color-violet)",
-  awaiting_parts: "var(--color-rose)", ready: "var(--color-cyan)", completed: "var(--color-iris)", handed_over: "var(--color-iris)", cancelled: "var(--color-iris)",
-};
-
-const paymentLabels: Record<string, string> = { unpaid: "Не оплачено", paid: "Оплачено", partial: "Частково" };
-const paymentColors: Record<string, string> = { unpaid: "text-rose bg-rose/10", paid: "text-cyan bg-cyan/10", partial: "text-amber bg-amber/10" };
 
 interface RepairStatusLog {
   id: string;
@@ -104,7 +102,7 @@ interface RepairStatusLog {
   } | null;
 }
 
-export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewProps) {
+export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetailViewProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [logs, setLogs] = useState<RepairStatusLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -330,21 +328,20 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-bold text-violet bg-violet/10 px-2 py-0.5 rounded-md">№ {repair.tracking_token || repair.id.substring(0, 8)}</span>
-            <span className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold`}
-                  style={{ 
-                    background: `color-mix(in oklch, ${statusColors[repair.status] || 'var(--color-iris)'} 15%, transparent)`, 
-                    color: statusColors[repair.status] 
-                  }}>
-              {statusLabels[repair.status]}
-            </span>
-            <span className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${paymentColors[repair.payment_status ?? ''] || ''}`}>
-              {paymentLabels[repair.payment_status ?? 'unpaid']}
-            </span>
+            <StatusPill map={domainRepairStatus} value={repair.status} />
+            {!repair.is_warranty && (
+              <StatusPill map={domainPaymentStatus} value={repair.payment_status ?? "unpaid"} />
+            )}
           </div>
           <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{repair.device_name}</h2>
           <p className="mt-1 text-xs text-text-secondary">Прийнято: {formattedCreated}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {onPay && (
+            <Button size="sm" onClick={onPay}>
+              Прийняти оплату
+            </Button>
+          )}
           <button
             onClick={() => setIsCopilotOpen(true)}
             className="btn-press flex items-center gap-1.5 rounded-xl border border-violet/20 bg-violet/[0.03] hover:bg-violet/10 text-violet px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
@@ -779,16 +776,13 @@ export function RepairDetailView({ repair, onEdit, onClose }: RepairDetailViewPr
                 const timeStr = format(date, "dd.MM.yyyy HH:mm");
                 return (
                   <div key={log.id} className="relative">
-                    <span className="absolute -left-[22px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white"
-                          style={{ backgroundColor: statusColors[log.to_status] || "var(--color-iris)" }} />
+                    <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-border-strong" />
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-text-primary">
-                          Встановлено статус &ldquo;{statusLabels[log.to_status] || log.to_status}&rdquo;
-                        </span>
+                        <StatusPill map={domainRepairStatus} value={log.to_status} />
                         {log.from_status && (
                           <span className="text-[10px] text-text-muted">
-                            (із &ldquo;{statusLabels[log.from_status] || log.from_status}&rdquo;)
+                            із &ldquo;{labelOf(domainRepairStatus, log.from_status).label}&rdquo;
                           </span>
                         )}
                       </div>
