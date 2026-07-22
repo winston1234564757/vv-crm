@@ -1,0 +1,44 @@
+import { forwardRef, useId } from "react";
+import { cn } from "@/lib/utils/cn";
+import { fieldClass, fieldTone } from "@/components/ui/Input";
+
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  error?: string;
+  hint?: string;
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  { label, error, hint, className, id, rows = 3, ...props },
+  ref,
+) {
+  const autoId = useId();
+  const areaId = id ?? autoId;
+  const describedBy = error ? `${areaId}-error` : hint ? `${areaId}-hint` : undefined;
+
+  return (
+    <div className="w-full">
+      <label htmlFor={areaId} className="mb-1.5 block text-xs font-medium text-muted">
+        {label}
+      </label>
+      <textarea
+        ref={ref}
+        id={areaId}
+        rows={rows}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className={cn(fieldClass, fieldTone(!!error), "resize-y", className)}
+        {...props}
+      />
+      {error ? (
+        <p id={`${areaId}-error`} className="mt-1.5 text-xs text-danger">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={`${areaId}-hint`} className="mt-1.5 text-xs text-faint">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+});

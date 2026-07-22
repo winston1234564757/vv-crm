@@ -347,4 +347,12 @@ function IconChevron({ size = 16, className }: { size?: number; className?: stri
   );
 }
 
-export { IconDownload, IconCash, IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck, IconSupplier, IconSale, IconPurchase, IconPartner, IconParts, IconService, IconRocket, IconChevron };
+function IconChevronDown({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+export { IconDownload, IconCash, IconPlus, IconWarning, IconError, IconSearch, IconBox, IconGrid, IconDevice, IconAccessory, IconRepair, IconCustomer, IconReport, IconFinance, IconLogo, IconMenu, IconClose, IconLogout, IconSpinner, IconEdit, IconDelete, IconEye, IconEyeOff, IconSettings, IconFilter, IconList, IconCheck, IconTruck, IconSupplier, IconSale, IconPurchase, IconPartner, IconParts, IconService, IconRocket, IconChevron, IconChevronDown };

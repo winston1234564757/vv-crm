@@ -7,16 +7,8 @@ import { IconRepair, IconLogo } from "@/components/icons";
 import { trackTTN } from "@/lib/services/nova-poshta";
 import NovaPoshtaWidget from "@/components/ui/NovaPoshtaWidget";
 
-const statusLabels: Record<string, string> = {
-  pending: "Прийнято в ремонт", diagnosing: "Діагностика", waiting_parts: "Очікування запчастин",
-  repairing: "Ремонтується", ready: "Готовий до видачі", completed: "Виконано",
-  handed_over: "Видано клієнту", cancelled: "Скасовано",
-};
-const statusColors: Record<string, string> = {
-  pending: "text-amber bg-amber/10", diagnosing: "text-blue bg-blue/10", waiting_parts: "text-orange bg-orange/10",
-  repairing: "text-violet bg-violet/10", ready: "text-cyan bg-cyan/10", completed: "text-emerald bg-emerald/10",
-  handed_over: "text-text-secondary bg-iris/5", cancelled: "text-rose bg-rose/10",
-};
+import { StatusPill } from "@/components/ui/StatusPill";
+import { labelOf, repairStatusPublic } from "@/lib/domain-labels";
 
 export default async function TrackingPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -67,9 +59,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
                     <h3 className="font-semibold text-text-primary">{r.device_name}</h3>
                     <p className="text-xs text-text-secondary mt-1">Заявка #{r.tracking_token} · {new Date(r.created_at).toLocaleDateString("uk-UA")}</p>
                   </div>
-                  <span className={`rounded px-2.5 py-1 text-xs font-medium ${statusColors[r.status] || "bg-iris/5 text-text-secondary"}`}>
-                    {statusLabels[r.status] || r.status}
-                  </span>
+                  <StatusPill map={repairStatusPublic} value={r.status} />
                 </div>
               </Link>
             ))}
@@ -163,9 +153,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
             </div>
             <div>
               <p className="text-xs text-text-secondary">Статус</p>
-              <span className={`inline-block rounded px-2.5 py-1 text-xs font-medium ${statusColors[repair.status] || "bg-iris/5 text-text-secondary"}`}>
-                {statusLabels[repair.status] || repair.status}
-              </span>
+              <StatusPill map={repairStatusPublic} value={repair.status} />
             </div>
             {repair.price > 0 && <div>
               <p className="text-xs text-text-secondary">Вартість</p>
@@ -235,7 +223,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
                     <div className="relative z-10 mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-violet bg-white" />
                     <div>
                       <p className="text-xs text-text-secondary">{new Date(log.created_at).toLocaleString("uk-UA")}</p>
-                      <p className="text-sm font-medium text-text-primary">{statusLabels[log.to_status] || log.to_status}</p>
+                      <p className="text-sm font-medium text-text-primary">{labelOf(repairStatusPublic, log.to_status).label}</p>
                       {log.notes && <p className="text-xs text-text-secondary mt-0.5">{log.notes}</p>}
                     </div>
                   </div>

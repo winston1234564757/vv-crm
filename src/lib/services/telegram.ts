@@ -1,15 +1,6 @@
-const TELEGRAM_API_URL = "https://api.telegram.org";
+import { labelOf, repairStatusPublic } from "@/lib/domain-labels";
 
-const statusLabels: Record<string, string> = {
-  pending: "Прийнято в ремонт",
-  diagnosing: "Діагностика",
-  waiting_parts: "Очікування запчастин",
-  repairing: "Ремонтується",
-  ready: "Готовий до видачі",
-  completed: "Виконано",
-  handed_over: "Видано клієнту",
-  cancelled: "Скасовано",
-};
+const TELEGRAM_API_URL = "https://api.telegram.org";
 
 /**
  * Escapes HTML characters in user-supplied strings to prevent XSS/injection in Telegram HTML parse mode.
@@ -73,7 +64,7 @@ export async function notifyCustomerRepairUpdate(
   status: string,
   price: number
 ): Promise<boolean> {
-  const statusLabel = statusLabels[status] || status;
+  const statusLabel = labelOf(repairStatusPublic, status).label;
   // Без фолбеку на чужий домен: якщо NEXT_PUBLIC_APP_URL не задано —
   // не додаємо трекінг-посилання взагалі (краще без нього, ніж на чужий застосунок).
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
