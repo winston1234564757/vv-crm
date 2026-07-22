@@ -72,3 +72,10 @@ execute_schema.json
 schema.json
 image.png
 *.xlsx
+
+# TypeScript incremental build cache — machine-local, was tracked by mistake
+tsconfig.tsbuildinfo
+
+# Screenshots dropped in the repo root while reviewing the UI
+image*.png
+photo_*.jpg
