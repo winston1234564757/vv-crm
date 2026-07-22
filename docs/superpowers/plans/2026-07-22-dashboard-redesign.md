@@ -479,7 +479,7 @@ export function resolveRange(
 - [ ] **Step 4: Запустити тести**
 
 Run: `npx vitest run src/lib/__tests__/profit.test.ts`
-Expected: PASS, 18 тестів.
+Expected: PASS, 16 тестів.
 
 Якщо `margin` на Tecno 8P дає 22 замість 23 — перевір, що ділиться `450/2000`
 (= 22.5, `Math.round` → 23), а не щось інше.
