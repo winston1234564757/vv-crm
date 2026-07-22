@@ -12,12 +12,13 @@
  * без бази і його можна викликати і з сервера, і з клієнта.
  */
 
-export type ProfitCategory = "device" | "accessory" | "service" | "repair";
+export type ProfitCategory = "device" | "accessory" | "part" | "service" | "repair";
 
 /** Порядок фіксований: таблиця не має перестрибувати між діапазонами. */
 export const PROFIT_CATEGORIES: ProfitCategory[] = [
   "device",
   "accessory",
+  "part",
   "service",
   "repair",
 ];
@@ -25,6 +26,7 @@ export const PROFIT_CATEGORIES: ProfitCategory[] = [
 export const CATEGORY_LABELS: Record<ProfitCategory, string> = {
   device: "Техніка",
   accessory: "Аксесуари",
+  part: "Запчастини",
   service: "Послуги",
   repair: "Ремонти",
 };
@@ -111,7 +113,12 @@ export function itemCost(
 }
 
 function toCategory(itemType: string): ProfitCategory | null {
-  if (itemType === "device" || itemType === "accessory" || itemType === "service") {
+  if (
+    itemType === "device" ||
+    itemType === "accessory" ||
+    itemType === "part" ||
+    itemType === "service"
+  ) {
     return itemType;
   }
   return null;
@@ -122,13 +129,23 @@ function toCategory(itemType: string): ProfitCategory | null {
  * Повертає масив виторгу за позицію, паралельний до `items`, ціле число
  * гривень на кожен елемент, сума яких точно дорівнює `lineTotal - discount`.
  *
- * Округлення позиційне (`Math.round`), а залишок від округлення віддається
- * найбільшій за сумою позиції чека — так відхилення в 1 ₴ не спливе як
- * розбіжність між `revenue` і сумою `byCategory` пізніше при звірці.
+ * Метод найбільших залишків (Гамільтона): кожній позиції спершу дістається
+ * ціла частина її точної частки знижки, а те, що лишилось нерозподіленим
+ * (завжди менше за кількість позицій), розкидається по одній гривні тим
+ * позиціям, у яких дробова частина частки найбільша. Це гарантує, що частка
+ * кожної позиції лежить між підлогою і стелею її точного розрахунку — на
+ * відміну від округлення кожної позиції окремо з відкиданням усієї похибки
+ * на найбільшу: при багатьох дрібних позиціях, які округлюються вгору,
+ * похибка накопичується і може загнати найбільшу позицію в мінус.
+ *
+ * Дробові частини порівнюються цілими чисельниками (`numerator - floorShare
+ * * lineTotal`), тому порівняння точне і без похибок double.
  */
 function allocateSaleRevenue(items: ProfitSaleItem[], discount: number | null): number[] {
   const lineTotal = items.reduce((s, it) => s + num(it.total_price), 0);
-  const rawDiscount = num(discount);
+  // У БД немає CHECK (discount >= 0) — від'ємне значення обрізаємо до нуля,
+  // інакше воно роздує виторг замість того, щоб його зменшити.
+  const rawDiscount = Math.max(0, num(discount));
 
   if (!rawDiscount || lineTotal === 0) {
     return items.map((it) => num(it.total_price));
@@ -139,29 +156,27 @@ function allocateSaleRevenue(items: ProfitSaleItem[], discount: number | null): 
   // знижку до суми позицій, найгірший випадок — нульовий виторг з чека.
   const clampedDiscount = Math.min(rawDiscount, lineTotal);
 
-  const revenues = items.map((it) => {
-    const price = num(it.total_price);
-    return Math.round(price - clampedDiscount * (price / lineTotal));
+  const numerators = items.map((it) => clampedDiscount * num(it.total_price));
+  const floorShares = numerators.map((n) => Math.floor(n / lineTotal));
+  const remainders = numerators.map((n, i) => n - floorShares[i] * lineTotal);
+
+  let leftover = clampedDiscount - floorShares.reduce((s, v) => s + v, 0);
+
+  const order = items.map((_, i) => i).sort((a, b) => {
+    if (remainders[b] !== remainders[a]) return remainders[b] - remainders[a];
+    const priceA = num(items[a].total_price);
+    const priceB = num(items[b].total_price);
+    if (priceB !== priceA) return priceB - priceA;
+    return a - b;
   });
 
-  const target = lineTotal - clampedDiscount;
-  const allocated = revenues.reduce((s, v) => s + v, 0);
-  const remainder = target - allocated;
-
-  if (remainder !== 0) {
-    let largestIdx = 0;
-    let largestPrice = -Infinity;
-    items.forEach((it, i) => {
-      const price = num(it.total_price);
-      if (price > largestPrice) {
-        largestPrice = price;
-        largestIdx = i;
-      }
-    });
-    revenues[largestIdx] += remainder;
+  const discountPerItem = [...floorShares];
+  for (let k = 0; k < order.length && leftover > 0; k++) {
+    discountPerItem[order[k]] += 1;
+    leftover -= 1;
   }
 
-  return revenues;
+  return items.map((it, i) => num(it.total_price) - discountPerItem[i]);
 }
 
 /**

@@ -123,14 +123,42 @@ describe("computeProfit", () => {
     expect(res.profit).toBe(0);
   });
 
-  it("always lists all four categories so the table keeps its shape", () => {
+  it("always lists all five categories so the table keeps its shape", () => {
     const res = computeProfit([], DEV, []);
     expect(res.byCategory.map((c) => c.category)).toEqual([
       "device",
       "accessory",
+      "part",
       "service",
       "repair",
     ]);
+  });
+
+  it("counts a sold spare part's revenue and cost instead of dropping it", () => {
+    // Регресія: toCategory() повертав null для "part", і computeProfit
+    // пропускав позицію повністю — виторг і собівартість зникали.
+    const res = computeProfit(
+      [sale([item({ item_type: "part", item_id: "screen-a52", total_price: 500, unit_cost: 180 })])],
+      DEV,
+      [],
+    );
+    const part = res.byCategory.find((c) => c.category === "part")!;
+    expect(part.revenue).toBe(500);
+    expect(part.cost).toBe(180);
+    expect(part.profit).toBe(320);
+    expect(res.revenue).toBe(500);
+    expect(res.cost).toBe(180);
+  });
+
+  it("skips an item with an unrecognised item_type instead of crediting it anywhere", () => {
+    const res = computeProfit(
+      [sale([item({ item_type: "bogus", total_price: 500, unit_cost: 180 })])],
+      DEV,
+      [],
+    );
+    expect(res.revenue).toBe(0);
+    expect(res.cost).toBe(0);
+    expect(res.byCategory.every((c) => c.revenue === 0 && c.cost === 0)).toBe(true);
   });
 
   it("does not hide a loss behind a floor of zero", () => {
@@ -251,6 +279,40 @@ describe("computeProfit", () => {
       expect(withDiscount.profit).toBe(400);
       expect(withDiscount.margin).toBe(50);
       expect(noDiscount.margin).toBe(60);
+    });
+
+    it("never pushes a category revenue negative when many small lines round up", () => {
+      // Регресія: округлення кожної позиції окремо з відкиданням остачі на
+      // найбільшу давало device.revenue = -3 тут. Метод найбільших залишків
+      // тримає кожну позицію між підлогою і стелею її точної частки.
+      const accessories = Array.from({ length: 8 }, () =>
+        item({ item_type: "accessory", total_price: 1, unit_cost: 0 }),
+      );
+      const res = computeProfit(
+        [
+          sale(
+            [...accessories, item({ item_type: "device", item_id: "redmi-a5", total_price: 2, unit_cost: 0 })],
+            5,
+          ),
+        ],
+        DEV,
+        [],
+      );
+      expect(res.byCategory.every((c) => c.revenue >= 0)).toBe(true);
+      const byCategorySum = res.byCategory.reduce((s, c) => s + c.revenue, 0);
+      expect(byCategorySum).toBe(res.revenue);
+      expect(res.revenue).toBe(5);
+    });
+
+    it("clamps a negative discount to zero instead of inflating revenue", () => {
+      // У БД немає CHECK (discount >= 0) — від'ємне значення досяжне.
+      const res = computeProfit(
+        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], -50)],
+        DEV,
+        [],
+      );
+      expect(res.revenue).toBe(300);
+      expect(res.profit).toBe(200);
     });
 
     it("clamps a discount bigger than the line total instead of going negative", () => {
