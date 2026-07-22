@@ -11,6 +11,12 @@ import { createClient } from "@/lib/supabase/client";
 import { toJpeg } from "html-to-image";
 import type { ReceiptSettings } from "@/lib/data-settings";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { PrinterError, printReceipt, type ResolvedReceipt } from "@/lib/printer";
+import {
+  composeWarrantyText,
+  getConditionLabel,
+  getFallbackTitle,
+} from "@/lib/printer/receipt-content";
 
 interface ReceiptPrintModalProps {
   isOpen: boolean;
@@ -43,10 +49,22 @@ interface ReceiptPrintModalProps {
   };
 }
 
+/** A repair QR points at the public tracker; a sale QR is just an identifier. */
+function buildQrData(type: ReceiptPrintModalProps["type"], data: ReceiptPrintModalProps["data"]) {
+  if (type === "sale") return `VV-CRM-SALE-${data.id}`;
+  if (typeof window !== "undefined" && data.public_token) {
+    return `${window.location.origin}/track/${data.public_token}`;
+  }
+  return `VV-CRM-REPAIR-${data.id}`;
+}
+
 export default function ReceiptPrintModal({ isOpen, onClose, type, data }: ReceiptPrintModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSendingToPrinter, setIsSendingToPrinter] = useState(false);
+  const [printerNote, setPrinterNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   // Editable receipt fields
   const [companyName, setCompanyName] = useState("");
@@ -79,12 +97,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
     setMounted(true);
   }, []);
 
-  function getFallbackTitle(t: string) {
-    if (t === "sale") return "ТОВАРНИЙ ЧЕК";
-    if (t === "repair_acceptance") return "КВИТАНЦІЯ ПРИЙМАННЯ";
-    return "ГАРАНТІЙНИЙ ТАЛОН РЕМОНТУ";
-  }
-
   // Fetch settings & populate initial states
   useEffect(() => {
     if (!isOpen) return;
@@ -98,16 +110,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       setDeviceName(data.device_name || "");
       setDeviceImei(data.device_imei || "");
       setDeviceAccessories(data.device_accessories_included || "Тільки пристрій");
-      
-      const conditionMap: Record<string, string> = {
-        perfect: "Grade A (Ідеальний)",
-        good: "Grade B (Хороший)",
-        fair: "Grade C (Середній)",
-        poor: "Поганий",
-        damaged: "Пошкоджений"
-      };
-      const condVal = data.device_condition || "";
-      setDeviceCondition(conditionMap[condVal] || condVal || "Не вказано");
+      setDeviceCondition(getConditionLabel(data.device_condition));
       setIssue(data.issue || "");
     }
 
@@ -136,18 +139,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             setShowSeller(template.show_seller ?? true);
             setShowBuyer(template.show_buyer ?? true);
             setShowQr(template.show_qr ?? true);
-            
-            // If the item has its own specific warranty fields, default to it, otherwise use database template text
-            if (type === "sale" && data.warranty_end) {
-              const formattedDate = format(new Date(data.warranty_end), "dd.MM.yyyy");
-              setWarrantyText(template.warranty_text 
-                ? `Гарантія дійсна до: ${formattedDate}\n\n${template.warranty_text}`
-                : `Гарантія дійсна до: ${formattedDate}\n\nПри виявленні несправностей протягом гарантійного терміну товар приймається на діагностику за наявності цього чеку.`);
-            } else if (type === "repair_warranty" && data.warranty_months) {
-              setWarrantyText(`Термін гарантії: ${data.warranty_months} міс.\n\n` + (template.warranty_text || "Гарантія поширюється виключно на замінені деталі та виконані роботи."));
-            } else {
-              setWarrantyText(template.warranty_text || "");
-            }
+            setWarrantyText(warrantyTextFor(template.warranty_text, false));
           } else {
             loadFallbacks();
           }
@@ -160,6 +152,21 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       }
     }
 
+    /* Shared by both paths so the warranty block cannot say one thing when a
+       template exists and another when it does not. The wording itself lives in
+       receipt-content.ts, which the ESC/POS builder reads too. */
+    function warrantyTextFor(templateText: string | undefined, usingFallbackTemplate: boolean) {
+      return composeWarrantyText({
+        type,
+        templateText,
+        warrantyEndFormatted: data.warranty_end
+          ? format(new Date(data.warranty_end), "dd.MM.yyyy")
+          : null,
+        warrantyMonths: data.warranty_months,
+        usingFallbackTemplate,
+      });
+    }
+
     function loadFallbacks() {
       setCompanyName("VV CRM");
       setCompanySubtitle(type.startsWith("repair") ? "Сервісний центр" : "Магазин та сервісний центр");
@@ -170,20 +177,43 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       setShowSeller(true);
       setShowBuyer(true);
       setShowQr(true);
-
-      if (type === "sale" && data.warranty_end) {
-        setWarrantyText(`Гарантія дійсна до: ${format(new Date(data.warranty_end), "dd.MM.yyyy")}\n\nПри виявленні несправностей протягом гарантійного терміну товар приймається на діагностику за наявності цього чеку.`);
-      } else if (type === "repair_acceptance") {
-        setWarrantyText("1. Безкоштовне зберігання готового пристрою - до 14 днів.\n2. СЦ не несе відповідальності за збереження даних.\n3. Пристрій приймається без гарантії на інші несправності.");
-      } else if (type === "repair_warranty") {
-        setWarrantyText(`Термін гарантії: ${data.warranty_months || 0} міс.\n\nГарантія поширюється виключно на замінені деталі та виконані роботи.`);
-      } else {
-        setWarrantyText("");
-      }
+      setWarrantyText(warrantyTextFor(undefined, true));
     }
 
     loadReceiptSettings();
   }, [isOpen, type, data]);
+
+  /* Both are read by the print handlers below as well as by the markup, so they
+     sit above everything that closes over them rather than next to the JSX. */
+  const qrData = buildQrData(type, data);
+  const formattedDate = data.created_at
+    ? format(new Date(data.created_at), "dd MMMM yyyy 'о' HH:mm", { locale: uk })
+    : format(new Date(), "dd MMMM yyyy 'о' HH:mm", { locale: uk });
+
+  /* Generated locally rather than fetched from api.qrserver.com. The old
+     `<img>` raced `window.print()`, which fired on a 150 ms timer regardless of
+     whether the image had arrived — an uncached load printed a blank square.
+     A data URL is ready before the markup that uses it exists. */
+  useEffect(() => {
+    if (!isOpen || !showQr || !qrData) {
+      setQrDataUrl("");
+      return;
+    }
+
+    let cancelled = false;
+    import("qrcode")
+      .then((QRCode) =>
+        QRCode.toDataURL(qrData, { margin: 0, width: 240, errorCorrectionLevel: "M" }),
+      )
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch((err) => console.error("Failed to render QR:", err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, showQr, qrData]);
 
   const handlePrint = () => {
     setIsPrinting(true);
@@ -192,6 +222,70 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       window.print();
       setIsPrinting(false);
     }, 150);
+  };
+
+  /* Direct ESC/POS over USB — the printer sets the text in its own ROM font
+     instead of receiving a grey antialiased bitmap from the Windows driver.
+     Reads the edited state, not the props, so what the preview shows prints. */
+  const handlePrintToPrinter = async () => {
+    setIsSendingToPrinter(true);
+    setPrinterNote(null);
+    try {
+      const receipt: ResolvedReceipt = {
+        type,
+        id: data.id,
+        date: formattedDate,
+        company: {
+          name: companyName,
+          subtitle: companySubtitle,
+          address,
+          phone,
+        },
+        title,
+        footerText,
+        showSeller,
+        showBuyer,
+        showQr,
+        qrData,
+        customerName,
+        customerPhone,
+        employeeName,
+        registerName: data.register_name,
+        warrantyText,
+        items: data.items?.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+        })),
+        totalAmount: data.total_amount,
+        discount: data.discount,
+        device: type.startsWith("repair")
+          ? {
+              name: deviceName,
+              imei: deviceImei,
+              accessories: deviceAccessories,
+              condition: deviceCondition,
+            }
+          : undefined,
+        issue: type.startsWith("repair") ? issue : undefined,
+        repairItems: data.repairItems?.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.unit_price * item.quantity,
+        })),
+        price: data.price,
+      };
+
+      const deviceLabel = await printReceipt(receipt);
+      setPrinterNote({ ok: true, text: `Надіслано на ${deviceLabel}` });
+    } catch (err) {
+      const message = err instanceof PrinterError ? err.message : String(err);
+      setPrinterNote({ ok: false, text: message });
+    } finally {
+      setIsSendingToPrinter(false);
+    }
   };
 
   const handleDownloadImage = async () => {
@@ -215,16 +309,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
   };
 
   if (!mounted || !isOpen) return null;
-
-  const formattedDate = data.created_at
-    ? format(new Date(data.created_at), "dd MMMM yyyy 'о' HH:mm", { locale: uk })
-    : format(new Date(), "dd MMMM yyyy 'о' HH:mm", { locale: uk });
-
-  const qrData = type === "sale"
-    ? `VV-CRM-SALE-${data.id}`
-    : typeof window !== "undefined" && data.public_token
-      ? `${window.location.origin}/track/${data.public_token}`
-      : `VV-CRM-REPAIR-${data.id}`;
 
   const renderReceiptContent = () => (
     <>
@@ -416,13 +500,16 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
 
       {/* QR Code and Footer */}
       <div className="flex flex-col items-center justify-center text-center pt-2 space-y-1.5">
-        {showQr && (
-          /* Requested at 240px but drawn at ~15 mm: a thermal head runs at
-             203 dpi, so an 80px source would print visibly soft. */
+        {showQr && qrDataUrl && (
+          /* Drawn at ~15 mm on a 203 dpi head, so the 240 px source is
+             deliberately oversized; `pixelated` keeps the modules square
+             instead of letting the browser blur them on the way down.
+             Only the browser-print and JPG paths use this — printing over USB
+             has the printer draw the symbol itself, with no image at all. */
           <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(qrData)}`}
-            alt="QR Code"
-            className="w-[15mm] h-[15mm] bg-white"
+            src={qrDataUrl}
+            alt="QR"
+            className="w-[15mm] h-[15mm] bg-white [image-rendering:pixelated]"
           />
         )}
         <div className="text-[9px] text-gray-600 leading-tight whitespace-pre-wrap">
@@ -654,35 +741,69 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 </div>
 
                 {/* Lower Action Buttons */}
-                <div className="flex gap-3 pt-5 border-t border-warm-border/40 mt-5">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-3 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
-                  >
-                    Скасувати
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadImage}
-                    disabled={isDownloading}
-                    className="flex-1 btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet/10 py-3 text-xs font-semibold text-violet transition-colors hover:bg-violet/20 cursor-pointer disabled:opacity-50"
-                  >
-                    {isDownloading ? <IconSpinner size={14} className="animate-spin" /> : <IconDownload size={14} />}
-                    <span>Зберегти JPG</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="flex-1 btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet py-3 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 6 2 18 2 18 9" />
-                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                      <rect x="6" y="14" width="12" height="8" />
-                    </svg>
-                    <span>Друкувати</span>
-                  </button>
+                <div className="pt-5 border-t border-warm-border/40 mt-5 space-y-2.5">
+                  {printerNote && (
+                    <p
+                      className={
+                        "rounded-lg px-3 py-2 text-[11px] leading-snug " +
+                        (printerNote.ok
+                          ? "bg-emerald-50 text-emerald-800"
+                          : "bg-red-50 text-red-800")
+                      }
+                    >
+                      {printerNote.text}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handlePrintToPrinter}
+                      disabled={isSendingToPrinter}
+                      className="flex-[2] btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet py-3 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer disabled:opacity-50"
+                    >
+                      {isSendingToPrinter ? (
+                        <IconSpinner size={14} className="animate-spin" />
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 6 2 18 2 18 9" />
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                          <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                      )}
+                      <span>Друкувати на чековий принтер</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadImage}
+                      disabled={isDownloading}
+                      className="flex-1 btn-press flex items-center justify-center gap-1.5 rounded-xl bg-violet/10 py-3 text-xs font-semibold text-violet transition-colors hover:bg-violet/20 cursor-pointer disabled:opacity-50"
+                    >
+                      {isDownloading ? <IconSpinner size={14} className="animate-spin" /> : <IconDownload size={14} />}
+                      <span>JPG</span>
+                    </button>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="flex-1 rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
+                    >
+                      Скасувати
+                    </button>
+                    {/* Kept as a secondary route, not removed: it is the only
+                        way out if the printer is unplugged or bound back to the
+                        Windows driver. Output is visibly worse — the driver
+                        dithers grey text — so it is not the default. */}
+                    <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="flex-1 rounded-xl bg-white border border-warm-border hover:bg-warm-hover py-2.5 text-xs font-semibold text-text-secondary transition-colors cursor-pointer"
+                    >
+                      Друк через браузер
+                    </button>
+                  </div>
                 </div>
               </div>
 
