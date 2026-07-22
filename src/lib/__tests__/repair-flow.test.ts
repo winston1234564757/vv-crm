@@ -107,8 +107,8 @@ describe("isUnpaid", () => {
     expect(isUnpaid({ price: 0, payment_status: "unpaid" })).toBe(false);
   });
 
-  it("treats a missing payment_status as unpaid", () => {
-    expect(isUnpaid({ price: 500, payment_status: null })).toBe(true);
+  it("is false for a null payment_status — an internal repair has no payer", () => {
+    expect(isUnpaid({ price: 500, payment_status: null })).toBe(false);
   });
 });
 

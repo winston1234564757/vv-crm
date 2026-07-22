@@ -787,6 +787,20 @@ async function recalcRepairPaymentStatus(
   repairId: string,
   price: number,
 ) {
+  // Складський ремонт нікому не виставляють: його `price` — це внутрішня
+  // вартість, а не дебіторка. Без цього винятку кожен такий ремонт назавжди
+  // лишався `unpaid` і додавав неіснуючий борг до підсумків.
+  const { data: repair } = await supabase
+    .from("repairs")
+    .select("inventory_device_id")
+    .eq("id", repairId)
+    .single();
+
+  if (repair?.inventory_device_id) {
+    await supabase.from("repairs").update({ payment_status: null }).eq("id", repairId);
+    return;
+  }
+
   const { data: payments, error } = await supabase
     .from("transactions")
     .select("amount")
@@ -798,10 +812,7 @@ async function recalcRepairPaymentStatus(
   const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
   const status = paid <= 0 ? "unpaid" : paid >= price ? "paid" : "partial";
 
-  await supabase
-    .from("repairs")
-    .update({ payment_status: status })
-    .eq("id", repairId);
+  await supabase.from("repairs").update({ payment_status: status }).eq("id", repairId);
 }
 
 /**

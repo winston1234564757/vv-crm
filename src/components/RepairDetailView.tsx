@@ -330,7 +330,9 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
             <span className="font-mono text-sm font-bold text-violet bg-violet/10 px-2 py-0.5 rounded-md">№ {repair.tracking_token || repair.id.substring(0, 8)}</span>
             <StatusPill map={domainRepairStatus} value={repair.status} />
             {!repair.is_warranty && (
-              <StatusPill map={domainPaymentStatus} value={repair.payment_status ?? "unpaid"} />
+              repair.payment_status
+                ? <StatusPill map={domainPaymentStatus} value={repair.payment_status} />
+                : <span className="text-muted">—</span>
             )}
           </div>
           <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{repair.device_name}</h2>

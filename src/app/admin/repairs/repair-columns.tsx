@@ -95,7 +95,7 @@ export function repairColumns(): Column<RepairWithPayments>[] {
       header: "Оплата",
       hideBelow: "md",
       cell: (r) =>
-        r.is_warranty ? (
+        r.is_warranty || !r.payment_status ? (
           <span className="text-xs text-muted">—</span>
         ) : (
           <StatusPill map={paymentStatus} value={r.payment_status} />
@@ -139,7 +139,11 @@ export function repairCard(r: RepairWithPayments): CardSpec {
         ? [
             {
               label: "Оплата",
-              value: <StatusPill map={paymentStatus} value={r.payment_status} />,
+              value: r.payment_status ? (
+                <StatusPill map={paymentStatus} value={r.payment_status} />
+              ) : (
+                <span className="text-muted">—</span>
+              ),
             },
           ]
         : []),
