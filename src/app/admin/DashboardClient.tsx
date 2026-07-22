@@ -81,13 +81,6 @@ import {
   TodaySalesStatusLine,
   SLASupplyChainMonitor,
   OpexRunwayCard,
-  RefurbishmentWidget,
-  B2BPartnerShareWidget,
-  CrossSellWidget,
-  SalesVelocityMatrix,
-  PhoneModelDemandWidget,
-  RevenueHeatmapWidget,
-  StockoutIntelligenceWidget,
   StockAlerts,
 } from "@/components/dashboard/Widgets";
 
@@ -130,17 +123,9 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
       {isLeadership && stats.ownerStats && (
         <>
           <Section title="Сьогодні">
-            <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-4">
-              <div className="md:col-span-3 flex flex-col md:flex-row gap-4 md:gap-5">
-                <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
-                <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
-              </div>
-              <StatCard
-                label="Утримання клієнтів"
-                tone="info"
-                value={`${stats.ownerStats.customerReturnRate}%`}
-                sub={<>Повторні візити (90д) · <span className="text-ink font-medium">{stats.ownerStats.newCustomers}</span> нових</>}
-              />
+            <div className="flex flex-col md:flex-row gap-4 md:gap-5">
+              <SLASupplyChainMonitor repairs={repairs} delayRate={stats.ownerStats.supplyChainDelayRate} missingParts={stats.ownerStats.expressPartsOrderList} />
+              <OpexRunwayCard runwayDays={stats.ownerStats.opexRunwayDays} dailyRate={stats.ownerStats.dailyOpexRunRate} balance={stats.ownerStats.dailyOpexRunRate * stats.ownerStats.opexRunwayDays} />
             </div>
           </Section>
 
@@ -164,26 +149,9 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             </div>
           </Section>
 
-          <Section title="Продажі та канали">
-            <div className="grid grid-cols-1 gap-4 md:gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <SalesVelocityMatrix velocity={stats.ownerStats.salesVelocity} peakHours={stats.ownerStats.peakHours} />
-              <RefurbishmentWidget capital={stats.ownerStats.refurbishmentCapital} margin={stats.ownerStats.refurbishmentMargin} onClick={() => router.push("/admin/devices")} />
-              <B2BPartnerShareWidget share={stats.ownerStats.partnerVolumeShare} revenue={stats.ownerStats.partnerRevenueTotal} />
-              <CrossSellWidget conversionRate={stats.ownerStats.crossSellConversionRate} revenue={stats.ownerStats.crossSellRevenue30Days} dealsCount={stats.ownerStats.crossSellDealsCount} />
-            </div>
-          </Section>
-
           <Section title="Склад — сигнали">
             <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-2">
               <StockAlerts alerts={stats.ownerStats.alerts} />
-              <StockoutIntelligenceWidget items={stats.ownerStats.stockoutForecast} />
-            </div>
-          </Section>
-
-          <Section title="Аналітика">
-            <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
-              <PhoneModelDemandWidget models={stats.ownerStats.modelAnalytics} />
-              <RevenueHeatmapWidget heatmap={stats.ownerStats.revenueHeatmap} />
             </div>
           </Section>
         </>

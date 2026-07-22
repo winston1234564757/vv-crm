@@ -94,6 +94,17 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Not prominent on purpose: the shop hasn't opened yet (24.07.2026), so
+    // there's nothing here worth surfacing for at least a month. Standalone
+    // + ownerOnly keeps it out of the main tab flow.
+    id: "analytics",
+    label: "Аналітика",
+    icon: IconReport,
+    standalone: true,
+    ownerOnly: true,
+    items: [{ href: "/admin/analytics", label: "Аналітика", icon: IconReport }],
+  },
+  {
     id: "settings",
     label: "Налаштування",
     icon: IconSettings,
