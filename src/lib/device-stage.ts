@@ -70,6 +70,13 @@ export type DiscrepancyCode =
 export interface Discrepancy {
   code: DiscrepancyCode;
   label: string;
+  /**
+   * Two or three words, for the table. A badge is a label, not a sentence —
+   * the full ones wrapped onto two lines inside the pill and doubled the row
+   * height. The long `label` and `detail` belong in the card and the drawer,
+   * where there is room to read them.
+   */
+  short: string;
   /** What the owner should understand from it, in one line. */
   detail: string;
 }
@@ -139,6 +146,7 @@ export function deviceStage(
     discrepancies.push({
       code: "sold_with_open_repair",
       label: "Продано з відкритим ремонтом",
+      short: "Ремонт відкритий",
       detail: "Апарат продано, але ремонт по ньому ще не закрито.",
     });
   }
@@ -147,6 +155,7 @@ export function deviceStage(
     discrepancies.push({
       code: "in_stock_with_open_repair",
       label: "У продажу з відкритим ремонтом",
+      short: "Ремонт відкритий",
       detail: "Апарат доступний до продажу, хоча ремонт по ньому відкритий.",
     });
   }
@@ -155,6 +164,7 @@ export function deviceStage(
     discrepancies.push({
       code: "repair_not_recorded",
       label: "Ремонт не оформлено",
+      short: "Не оформлено",
       detail: "Позначено як такий, що потребує ремонту, але заявки не створено.",
     });
   }
@@ -163,6 +173,7 @@ export function deviceStage(
     discrepancies.push({
       code: "models_disagree",
       label: "Статуси розходяться",
+      short: "Розходяться",
       detail: "У картці пристрою ремонт завершено, а заявка досі відкрита.",
     });
   }

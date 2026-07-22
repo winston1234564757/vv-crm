@@ -25,19 +25,22 @@ function StageBadge({ d }: { d: DeviceWithRepairs }) {
  * The discrepancies `deviceStage` had to paper over, shown rather than
  * resolved. Merging the two repair models is a data migration over money
  * records and is deliberately not part of this redesign.
+ *
+ * The table gets the short labels and only the first one, with a `+N` for the
+ * rest: full sentences in a pill wrapped onto two lines and doubled the height
+ * of every affected row. The card and the drawer carry the full text.
  */
-function Discrepancies({ d, compact = false }: { d: DeviceWithRepairs; compact?: boolean }) {
+function Discrepancies({ d }: { d: DeviceWithRepairs }) {
   const { discrepancies } = stageOf(d);
   if (discrepancies.length === 0) return null;
+  const [first, ...rest] = discrepancies;
+  const title = discrepancies.map((x) => `${x.label}: ${x.detail}`).join("\n");
   return (
-    <span className="inline-flex flex-wrap gap-1">
-      {discrepancies.map((x) => (
-        <Badge key={x.code} tone="warning" title={x.detail}>
-          <IconWarning size={11} />
-          {compact ? null : x.label}
-        </Badge>
-      ))}
-    </span>
+    <Badge tone="warning" title={title} className="whitespace-nowrap">
+      <IconWarning size={11} />
+      {first.short}
+      {rest.length > 0 && ` +${rest.length}`}
+    </Badge>
   );
 }
 
@@ -81,7 +84,7 @@ export function activeColumns(): Column<DeviceWithRepairs>[] {
       key: "stage",
       header: "Етап",
       cell: (d) => (
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           <StageBadge d={d} />
           <Discrepancies d={d} />
         </div>
@@ -92,23 +95,23 @@ export function activeColumns(): Column<DeviceWithRepairs>[] {
       header: "Вкладено",
       align: "right",
       hideBelow: "lg",
-      cell: (d) => <span className="tabular text-muted">{money(totalCostOf(d))}</span>,
+      cell: (d) => <span className="tabular whitespace-nowrap text-muted">{money(totalCostOf(d))}</span>,
     },
     {
       key: "price",
       header: "Ціна",
       align: "right",
-      cell: (d) => <span className="tabular font-medium">{money(d.price)}</span>,
+      cell: (d) => <span className="tabular whitespace-nowrap font-medium">{money(d.price)}</span>,
     },
     {
       key: "margin",
-      header: "Очік. маржа",
+      header: "Маржа",
       align: "right",
       hideBelow: "md",
       cell: (d) => {
         const p = profitOf(d);
         return (
-          <span className={`tabular font-medium ${p < 0 ? "text-danger" : "text-success"}`}>
+          <span className={`tabular whitespace-nowrap font-medium ${p < 0 ? "text-danger" : "text-success"}`}>
             {money(p)}
           </span>
         );
@@ -137,9 +140,9 @@ export function archiveColumns(): Column<DeviceWithRepairs>[] {
     },
     {
       key: "stage",
-      header: "Стан обліку",
+      header: "Етап",
       cell: (d) => (
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           <StageBadge d={d} />
           <Discrepancies d={d} />
         </div>
@@ -150,13 +153,13 @@ export function archiveColumns(): Column<DeviceWithRepairs>[] {
       header: "Вкладено",
       align: "right",
       hideBelow: "md",
-      cell: (d) => <span className="tabular text-muted">{money(totalCostOf(d))}</span>,
+      cell: (d) => <span className="tabular whitespace-nowrap text-muted">{money(totalCostOf(d))}</span>,
     },
     {
       key: "price",
-      header: "Продано за",
+      header: "Продаж",
       align: "right",
-      cell: (d) => <span className="tabular font-medium">{money(d.price)}</span>,
+      cell: (d) => <span className="tabular whitespace-nowrap font-medium">{money(d.price)}</span>,
     },
     {
       key: "profit",
@@ -167,7 +170,7 @@ export function archiveColumns(): Column<DeviceWithRepairs>[] {
         const ros = d.price > 0 ? Math.round((p / d.price) * 100) : 0;
         return (
           <div className="flex flex-col items-end">
-            <span className={`tabular font-medium ${p < 0 ? "text-danger" : "text-success"}`}>
+            <span className={`tabular whitespace-nowrap font-medium ${p < 0 ? "text-danger" : "text-success"}`}>
               {money(p)}
             </span>
             <span className="tabular text-xs text-muted">{ros}%</span>

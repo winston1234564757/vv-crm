@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/Badge";
 import Drawer from "@/components/ui/Drawer";
 import Modal from "@/components/ui/Modal";
 import { InlineError } from "@/components/ui/InlineError";
-import { IconDevice, IconTruck, IconEdit, IconDelete, IconCash } from "@/components/icons";
+import { IconDevice, IconTruck, IconEdit, IconDelete, IconCash, IconRepair } from "@/components/icons";
+import { cn } from "@/lib/utils/cn";
 
 import { DeviceForm } from "@/components/forms/device/DeviceForm";
 import { DeviceDetailView } from "@/components/DeviceDetailView";
@@ -38,6 +39,9 @@ import { activeColumns, archiveColumns, deviceCard, stageOf } from "./device-col
 import { type DeviceRow, type DeviceWithRepairs, profitOf } from "./device-types";
 
 type Segment = "all" | DeviceStage | "attention";
+
+const iconBtn =
+  "btn-press flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted transition-colors hover:bg-hover hover:text-ink";
 
 interface DevicesClientProps {
   devices: DeviceRow[];
@@ -233,25 +237,28 @@ export function DevicesClient({
               Продати
             </Button>
           )}
+          {/* Only the move that matters at this stage gets words. The rest are
+              icons, or the row would spend 350px on buttons. */}
           {!archived && stage !== "transit" && stage !== "in_repair" && (
-            <Button
-              size="sm"
-              variant="secondary"
+            <button
+              type="button"
+              title="Відправити в ремонт"
               onClick={() => {
                 setRepairing(d);
                 setRepairIssue("");
                 setRepairCost(String(d.repair_cost || 0));
               }}
+              className={iconBtn}
             >
-              В ремонт
-            </Button>
+              <IconRepair size={15} />
+            </button>
           )}
           {!archived && stage !== "transit" && (
             <button
               type="button"
               title="Повернути в дорогу"
               onClick={() => run(() => updateDeviceStatus(d.id, "transit"))}
-              className="btn-press flex h-8 w-8 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted transition-colors hover:bg-hover hover:text-ink"
+              className={iconBtn}
             >
               <IconTruck size={15} />
             </button>
@@ -263,7 +270,7 @@ export function DevicesClient({
               setSelectedDevice(d);
               setIsEditing(true);
             }}
-            className="btn-press flex h-8 w-8 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted transition-colors hover:bg-hover hover:text-ink"
+            className={iconBtn}
           >
             <IconEdit size={15} />
           </button>
@@ -271,7 +278,7 @@ export function DevicesClient({
             type="button"
             title="Видалити"
             onClick={() => setDeletingDevice(d)}
-            className="btn-press flex h-8 w-8 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted transition-colors hover:bg-danger-subtle hover:text-danger"
+            className={cn(iconBtn, "hover:bg-danger-subtle hover:text-danger")}
           >
             <IconDelete size={15} />
           </button>
@@ -373,7 +380,7 @@ export function DevicesClient({
             <Select
               value={query.filters.type}
               onChange={(e) => query.setFilter("type", e.target.value)}
-              className="h-9 w-auto py-0 text-xs"
+              inline
               aria-label="Категорія"
             >
               <option value="all">Усі категорії</option>
@@ -387,7 +394,7 @@ export function DevicesClient({
             <Select
               value={query.filters.brand}
               onChange={(e) => query.setFilter("brand", e.target.value)}
-              className="h-9 w-auto py-0 text-xs"
+              inline
               aria-label="Бренд"
             >
               <option value="all">Усі бренди</option>
@@ -401,7 +408,7 @@ export function DevicesClient({
             <Select
               value={query.filters.cond}
               onChange={(e) => query.setFilter("cond", e.target.value)}
-              className="h-9 w-auto py-0 text-xs"
+              inline
               aria-label="Стан"
             >
               <option value="all">Будь-який стан</option>
@@ -418,7 +425,7 @@ export function DevicesClient({
                 <Select
                   value={query.filters.margin}
                   onChange={(e) => query.setFilter("margin", e.target.value)}
-                  className="h-9 w-auto py-0 text-xs"
+                  inline
                   aria-label="Прибутковість"
                 >
                   <option value="all">Будь-який прибуток</option>
@@ -429,7 +436,7 @@ export function DevicesClient({
                 <Select
                   value={query.filters.period}
                   onChange={(e) => query.setFilter("period", e.target.value)}
-                  className="h-9 w-auto py-0 text-xs"
+                  inline
                   aria-label="Період"
                 >
                   <option value="all">За весь час</option>

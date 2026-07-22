@@ -47,8 +47,8 @@ function Money({ r }: { r: RepairWithPayments }) {
   const owed = outstanding(r, r.paid_amount);
   return (
     <div className="flex flex-col items-end">
-      <span className="tabular font-medium">{money(r.price)}</span>
-      {owed > 0 && <span className="tabular text-xs text-danger">борг {money(owed)}</span>}
+      <span className="tabular whitespace-nowrap font-medium">{money(r.price)}</span>
+      {owed > 0 && <span className="tabular whitespace-nowrap text-xs text-danger">борг {money(owed)}</span>}
     </div>
   );
 }
@@ -109,7 +109,7 @@ export function repairColumns(): Column<RepairWithPayments>[] {
     },
     {
       key: "source",
-      header: "Джерело",
+      header: "Звідки",
       hideBelow: "lg",
       cell: (r) => <StatusPill map={repairSource} value={r.source} />,
     },

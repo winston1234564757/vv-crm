@@ -16,6 +16,12 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   options?: SelectOption[];
   /** Leading option shown when nothing is chosen, e.g. "Всі статуси". */
   placeholder?: string;
+  /**
+   * Toolbar sizing: shrink-to-content and short, so several filters sit on one
+   * row instead of stacking into a column. A prop rather than a `className`
+   * override, because the sizing has to hold whatever else the caller passes.
+   */
+  inline?: boolean;
 }
 
 /**
@@ -24,7 +30,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
  * counter on a phone as often as on the desktop.
  */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, hint, options, placeholder, className, id, children, ...props },
+  { label, error, hint, options, placeholder, inline = false, className, id, children, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -37,7 +43,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       id={selectId}
       aria-invalid={error ? true : undefined}
       aria-describedby={describedBy}
-      className={cn(fieldClass, fieldTone(!!error), "cursor-pointer", className)}
+      className={cn(
+        fieldClass,
+        fieldTone(!!error),
+        "cursor-pointer",
+        inline && "w-auto max-w-[190px] py-1.5 pr-8 text-sm md:text-xs",
+        className,
+      )}
       {...props}
     >
       {placeholder !== undefined && <option value="">{placeholder}</option>}

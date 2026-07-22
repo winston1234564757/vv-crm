@@ -235,7 +235,7 @@ export function RepairsClient({
             <Select
               value={query.filters.status}
               onChange={(e) => query.setFilter("status", e.target.value)}
-              className="h-9 w-auto py-0 text-xs"
+              inline
               aria-label="Статус"
             >
               <option value="all">Усі статуси</option>
@@ -248,7 +248,7 @@ export function RepairsClient({
             <Select
               value={query.filters.source}
               onChange={(e) => query.setFilter("source", e.target.value)}
-              className="h-9 w-auto py-0 text-xs"
+              inline
               aria-label="Джерело"
             >
               <option value="all">Усі джерела</option>
