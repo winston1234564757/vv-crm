@@ -1,5 +1,6 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { computeProfit, type ProfitDeviceCost, type ProfitSaleItem } from "./profit";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -89,7 +90,12 @@ export async function getFinanceReport(daysBack = 30) {
     supabase.from("purchases").select("total_amount").gte("created_at", startStr),
     supabase.from("expenses").select("amount, category_id").gte("created_at", startStr),
     supabase.from("expense_categories").select("*"),
-    supabase.from("repairs").select("price, cost").is("inventory_device_id", null).in("status", ["completed", "handed_over"]).gte("created_at", startStr),
+    supabase
+      .from("repairs")
+      .select("price, cost, external_sc_cost")
+      .is("inventory_device_id", null)
+      .in("status", ["completed", "handed_over"])
+      .gte("completed_at", startStr),
   ]);
 
   const salesData = salesRes.data ?? [];
@@ -109,7 +115,7 @@ export async function getFinanceReport(daysBack = 30) {
   }
 
   // 2. Fetch costs and repair costs for these devices
-  const deviceCostsMap = new Map<string, { cost_price: number; repair_cost: number }>();
+  const deviceCostsMap = new Map<string, ProfitDeviceCost>();
   if (deviceIds.length > 0) {
     const { data: devicesCosts } = await supabase
       .from("devices")
@@ -122,32 +128,22 @@ export async function getFinanceReport(daysBack = 30) {
     }
   }
 
-  // 3. Calculate Cost of Goods Sold (COGS) from sale_items, adding device cost + repair cost
-  const salesCost = salesData.reduce((sum, sale) => {
-    const items = supabaseCast<{ item_type: string; item_id: string; quantity: number; unit_cost: number }[]>(sale.sale_items ?? []);
-    const itemsCost = items.reduce((itemSum, item) => {
-      const qty = Number(item.quantity) || 1;
-      if (item.item_type === "device" && item.item_id) {
-        const dev = deviceCostsMap.get(item.item_id);
-        if (dev) {
-          const uCost = (dev.cost_price ?? 0) + (dev.repair_cost ?? 0);
-          return itemSum + (uCost * qty);
-        }
-      }
-      const uCost = Number(item.unit_cost) || 0;
-      return itemSum + (uCost * qty);
-    }, 0);
-    return sum + itemsCost;
-  }, 0);
+  // 3. Собівартість (COGS) і маржа ремонтів — уся арифметика в lib/profit,
+  // щоб Фінанси й дашборд рахували її однаково.
+  const allItems: ProfitSaleItem[] = salesData.flatMap((sale) =>
+    supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
+  );
 
-  // Calculate repair margin
-  const repairsData = repairsRes.data ?? [];
-  const repairsRevenue = repairsData.reduce((s, r) => s + r.price, 0);
-  const repairsCost = repairsData.reduce((s, r) => s + r.cost, 0);
-  const repairsMargin = repairsRevenue - repairsCost;
+  const report = computeProfit(allItems, deviceCostsMap, repairsRes.data ?? []);
+
+  const salesCost = report.byCategory
+    .filter((c) => c.category !== "repair")
+    .reduce((s, c) => s + c.cost, 0);
+  const repairsRevenue = report.byCategory.find((c) => c.category === "repair")!.revenue;
+  const repairsCost = report.byCategory.find((c) => c.category === "repair")!.cost;
 
   // Accrual Net Profit = Sales Margin (Sales - COGS) + Repairs Margin - General Expenses
-  const profit = (totalSales - salesCost) + repairsMargin - totalExpenses;
+  const profit = report.profit - totalExpenses;
 
   const catMap = new Map((expCatRes.data ?? []).map((c) => [c.id, c.name]));
   const expenseByCat: Record<string, number> = {};
@@ -159,15 +155,16 @@ export async function getFinanceReport(daysBack = 30) {
     .map(([name, amount]) => ({ name, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  return { 
-    totalSales, 
-    totalPurchases, 
-    totalExpenses, 
+  return {
+    totalSales,
+    totalPurchases,
+    totalExpenses,
     salesCost,
     repairsRevenue,
     repairsCost,
-    profit, 
-    categoryBreakdown 
+    profit,
+    categoryBreakdown,
+    byCategory: report.byCategory,
   };
 }
 
