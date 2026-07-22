@@ -1,6 +1,6 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
-import { computeProfit, type ProfitDeviceCost, type ProfitSaleItem } from "./profit";
+import { computeProfit, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem } from "./profit";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -86,7 +86,7 @@ export async function getFinanceReport(daysBack = 30) {
   const startStr = startDate.toISOString();
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, sale_items(item_type, item_id, quantity, unit_cost)").gte("created_at", startStr),
+    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost)").gte("created_at", startStr),
     supabase.from("purchases").select("total_amount").gte("created_at", startStr),
     supabase.from("expenses").select("amount, category_id").gte("created_at", startStr),
     supabase.from("expense_categories").select("*"),
@@ -129,12 +129,15 @@ export async function getFinanceReport(daysBack = 30) {
   }
 
   // 3. Собівартість (COGS) і маржа ремонтів — уся арифметика в lib/profit,
-  // щоб Фінанси й дашборд рахували її однаково.
-  const allItems: ProfitSaleItem[] = salesData.flatMap((sale) =>
-    supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
-  );
+  // щоб Фінанси й дашборд рахували її однаково. Знижка живе на чеку, а не
+  // на позиції, тому передаємо чеки цілком — profit.ts сам розподілить її
+  // по позиціях цього самого чека.
+  const profitSales: ProfitSale[] = salesData.map((sale) => ({
+    discount: sale.discount,
+    items: supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
+  }));
 
-  const report = computeProfit(allItems, deviceCostsMap, repairsRes.data ?? []);
+  const report = computeProfit(profitSales, deviceCostsMap, repairsRes.data ?? []);
 
   const salesCost = report.byCategory
     .filter((c) => c.category !== "repair")

@@ -4,6 +4,7 @@ import {
   computeProfit,
   margin,
   resolveRange,
+  type ProfitSale,
   type ProfitSaleItem,
   type ProfitDeviceCost,
 } from "../profit";
@@ -23,6 +24,11 @@ function item(over: Partial<ProfitSaleItem> = {}): ProfitSaleItem {
     unit_cost: 30,
     ...over,
   };
+}
+
+/** Один чек з переданих позицій. За замовчуванням без знижки. */
+function sale(items: ProfitSaleItem[], discount: number | null = 0): ProfitSale {
+  return { discount, items };
 }
 
 describe("itemCost", () => {
@@ -75,7 +81,7 @@ describe("computeProfit", () => {
   it("reports the real margin on the Tecno 8P, not the inflated one", () => {
     // Купівля 600 + ремонт 950, продаж 2000. Зламаний unit_cost дав би 70%.
     const res = computeProfit(
-      [item({ item_type: "device", item_id: "tecno-8p", total_price: 2000, unit_cost: 600 })],
+      [sale([item({ item_type: "device", item_id: "tecno-8p", total_price: 2000, unit_cost: 600 })])],
       DEV,
       [],
     );
@@ -88,9 +94,11 @@ describe("computeProfit", () => {
   it("splits revenue and profit by category", () => {
     const res = computeProfit(
       [
-        item({ item_type: "device", item_id: "redmi-a5", total_price: 2000, unit_cost: 1000 }),
-        item({ item_type: "accessory", total_price: 700, unit_cost: 223 }),
-        item({ item_type: "service", total_price: 100, unit_cost: 0 }),
+        sale([
+          item({ item_type: "device", item_id: "redmi-a5", total_price: 2000, unit_cost: 1000 }),
+          item({ item_type: "accessory", total_price: 700, unit_cost: 223 }),
+          item({ item_type: "service", total_price: 100, unit_cost: 0 }),
+        ]),
       ],
       DEV,
       [],
@@ -127,12 +135,136 @@ describe("computeProfit", () => {
 
   it("does not hide a loss behind a floor of zero", () => {
     const res = computeProfit(
-      [item({ item_type: "device", item_id: "tecno-8p", total_price: 1000, unit_cost: 600 })],
+      [sale([item({ item_type: "device", item_id: "tecno-8p", total_price: 1000, unit_cost: 600 })])],
       DEV,
       [],
     );
     expect(res.profit).toBe(-550);
     expect(res.margin).toBe(-55);
+  });
+
+  describe("discount allocation", () => {
+    it("behaves exactly as before when the sale has no discount", () => {
+      // Регресія: сьогодні у всіх продажів discount = 0, звіт не має зрушитись.
+      const res = computeProfit(
+        [
+          sale([
+            item({ item_type: "device", item_id: "redmi-a5", total_price: 2000, unit_cost: 1000 }),
+            item({ item_type: "accessory", total_price: 700, unit_cost: 223 }),
+          ]),
+        ],
+        DEV,
+        [],
+      );
+      expect(res.revenue).toBe(2700);
+      expect(res.profit).toBe(1477);
+    });
+
+    it("also treats a null discount as no discount", () => {
+      const res = computeProfit(
+        [sale([item({ total_price: 100, unit_cost: 30 })], null)],
+        DEV,
+        [],
+      );
+      expect(res.revenue).toBe(100);
+    });
+
+    it("splits a discount across two categories in proportion to their line values", () => {
+      // Чек на 1000 (700 техніка + 300 аксесуар) зі знижкою 100.
+      const res = computeProfit(
+        [
+          sale(
+            [
+              item({ item_type: "device", item_id: "redmi-a5", total_price: 700, unit_cost: 1000 }),
+              item({ item_type: "accessory", total_price: 300, unit_cost: 100 }),
+            ],
+            100,
+          ),
+        ],
+        DEV,
+        [],
+      );
+      const by = Object.fromEntries(res.byCategory.map((c) => [c.category, c]));
+      expect(by.device.revenue).toBe(630);
+      expect(by.accessory.revenue).toBe(270);
+    });
+
+    it("sums byCategory revenue to the top-level revenue for an uneven split", () => {
+      const res = computeProfit(
+        [
+          sale(
+            [
+              item({ item_type: "device", item_id: "redmi-a5", total_price: 700, unit_cost: 0 }),
+              item({ item_type: "accessory", total_price: 300, unit_cost: 0 }),
+            ],
+            100,
+          ),
+        ],
+        DEV,
+        [],
+      );
+      const byCategorySum = res.byCategory.reduce((s, c) => s + c.revenue, 0);
+      expect(byCategorySum).toBe(res.revenue);
+      expect(res.revenue).toBe(900);
+    });
+
+    it("keeps the categories summing to the total when the split doesn't divide evenly", () => {
+      // 3 і 4 не діляться на знижку 1 без остачі — остача йде найбільшій позиції.
+      const res = computeProfit(
+        [
+          sale(
+            [
+              item({ item_type: "device", item_id: "redmi-a5", total_price: 2, unit_cost: 0 }),
+              item({ item_type: "accessory", total_price: 3, unit_cost: 0 }),
+              item({ item_type: "service", total_price: 4, unit_cost: 0 }),
+            ],
+            1,
+          ),
+        ],
+        DEV,
+        [],
+      );
+      const by = Object.fromEntries(res.byCategory.map((c) => [c.category, c]));
+      // Пропорційно й округлено: 2, 3, 4 (сума 9, а не 8).
+      // Остача -1 йде найбільшій позиції чека — device.
+      expect(by.device.revenue).toBe(2);
+      expect(by.accessory.revenue).toBe(3);
+      expect(by.service.revenue).toBe(3);
+      const byCategorySum = res.byCategory.reduce((s, c) => s + c.revenue, 0);
+      expect(byCategorySum).toBe(res.revenue);
+      expect(res.revenue).toBe(8);
+    });
+
+    it("does not change cost, only revenue and therefore margin", () => {
+      const noDiscount = computeProfit(
+        [sale([item({ item_type: "accessory", total_price: 1000, unit_cost: 400 })])],
+        DEV,
+        [],
+      );
+      const withDiscount = computeProfit(
+        [sale([item({ item_type: "accessory", total_price: 1000, unit_cost: 400 })], 200)],
+        DEV,
+        [],
+      );
+      expect(withDiscount.cost).toBe(noDiscount.cost);
+      expect(withDiscount.revenue).toBe(800);
+      expect(withDiscount.profit).toBe(400);
+      expect(withDiscount.margin).toBe(50);
+      expect(noDiscount.margin).toBe(60);
+    });
+
+    it("clamps a discount bigger than the line total instead of going negative", () => {
+      // Знижка більша за суму чека — помилка каси чи побитий чек. Виторг
+      // ніколи не йде в мінус: урізаємо знижку до суми позицій, найгірший
+      // випадок — нульовий виторг з чека, а не від'ємний.
+      const res = computeProfit(
+        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], 500)],
+        DEV,
+        [],
+      );
+      expect(res.revenue).toBe(0);
+      expect(res.profit).toBe(-100);
+    });
   });
 });
 

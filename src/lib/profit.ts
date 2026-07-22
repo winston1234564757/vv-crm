@@ -38,6 +38,16 @@ export interface ProfitSaleItem {
   unit_cost: number;
 }
 
+/**
+ * Чек цілком. Знижка лежить на рівні продажу — `sale_items` не має свого
+ * поля знижки, тому реальний виторг за позицію відомий лише після того, як
+ * знижку розподілили по позиціях того самого чека.
+ */
+export interface ProfitSale {
+  discount: number | null;
+  items: ProfitSaleItem[];
+}
+
 export interface ProfitDeviceCost {
   cost_price: number;
   repair_cost: number | null;
@@ -108,12 +118,59 @@ function toCategory(itemType: string): ProfitCategory | null {
 }
 
 /**
- * @param items позиції чеків за період
+ * Розподіляє знижку чека по його позиціях пропорційно до `total_price`.
+ * Повертає масив виторгу за позицію, паралельний до `items`, ціле число
+ * гривень на кожен елемент, сума яких точно дорівнює `lineTotal - discount`.
+ *
+ * Округлення позиційне (`Math.round`), а залишок від округлення віддається
+ * найбільшій за сумою позиції чека — так відхилення в 1 ₴ не спливе як
+ * розбіжність між `revenue` і сумою `byCategory` пізніше при звірці.
+ */
+function allocateSaleRevenue(items: ProfitSaleItem[], discount: number | null): number[] {
+  const lineTotal = items.reduce((s, it) => s + num(it.total_price), 0);
+  const rawDiscount = num(discount);
+
+  if (!rawDiscount || lineTotal === 0) {
+    return items.map((it) => num(it.total_price));
+  }
+
+  // Знижка більша за суму позицій чека — це або помилка каси, або
+  // акційний чек, продубльований на нуль. Виторг у мінус не йде: урізаємо
+  // знижку до суми позицій, найгірший випадок — нульовий виторг з чека.
+  const clampedDiscount = Math.min(rawDiscount, lineTotal);
+
+  const revenues = items.map((it) => {
+    const price = num(it.total_price);
+    return Math.round(price - clampedDiscount * (price / lineTotal));
+  });
+
+  const target = lineTotal - clampedDiscount;
+  const allocated = revenues.reduce((s, v) => s + v, 0);
+  const remainder = target - allocated;
+
+  if (remainder !== 0) {
+    let largestIdx = 0;
+    let largestPrice = -Infinity;
+    items.forEach((it, i) => {
+      const price = num(it.total_price);
+      if (price > largestPrice) {
+        largestPrice = price;
+        largestIdx = i;
+      }
+    });
+    revenues[largestIdx] += remainder;
+  }
+
+  return revenues;
+}
+
+/**
+ * @param sales чеки за період, кожен зі своїми позиціями та знижкою
  * @param devices собівартості проданих пристроїв, ключ — `devices.id`
  * @param repairs ЛИШЕ зовнішні завершені ремонти (`inventory_device_id is null`)
  */
 export function computeProfit(
-  items: ProfitSaleItem[],
+  sales: ProfitSale[],
   devices: Map<string, ProfitDeviceCost>,
   repairs: ProfitRepair[],
 ): ProfitResult {
@@ -121,12 +178,15 @@ export function computeProfit(
     PROFIT_CATEGORIES.map((c) => [c, { revenue: 0, cost: 0 }]),
   );
 
-  for (const item of items) {
-    const cat = toCategory(item.item_type);
-    if (!cat) continue;
-    const bucket = acc.get(cat)!;
-    bucket.revenue += num(item.total_price);
-    bucket.cost += itemCost(item, devices);
+  for (const sale of sales) {
+    const revenues = allocateSaleRevenue(sale.items, sale.discount);
+    sale.items.forEach((item, i) => {
+      const cat = toCategory(item.item_type);
+      if (!cat) return;
+      const bucket = acc.get(cat)!;
+      bucket.revenue += revenues[i];
+      bucket.cost += itemCost(item, devices);
+    });
   }
 
   const repairBucket = acc.get("repair")!;
