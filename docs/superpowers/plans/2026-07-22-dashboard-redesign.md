@@ -763,7 +763,7 @@ git commit -m "fix(devices): clear repair flags left on sold devices"
 **Interfaces:**
 - Consumes: нічого.
 - Produces:
-  - `type AttentionCode = "repair_stalled" | "repair_awaiting_parts" | "repair_unpaid" | "device_stuck_in_service" | "stock_low"`
+  - `type AttentionCode = "repair_stalled" | "repair_awaiting_parts" | "repair_unpaid" | "stock_low"`
   - `interface AttentionRepair { id: string; device_name: string; status: string; created_at: string; inventory_device_id: string | null; payment_status: string | null; last_log_at: string | null }`
   - `interface AttentionStockItem { id: string; name: string; stock: number; min_stock: number; kind: "accessory" | "part" }`
   - `interface AttentionRow { id: string; title: string; note: string; urgency: number }`
@@ -947,7 +947,6 @@ export type AttentionCode =
   | "repair_stalled"
   | "repair_awaiting_parts"
   | "repair_unpaid"
-  | "device_stuck_in_service"
   | "stock_low";
 
 /** Скільки днів без руху вважати застоєм. */
@@ -1004,7 +1003,6 @@ const GROUP_LABELS: Record<AttentionCode, string> = {
   repair_stalled: `Ремонти без руху понад ${STALL_DAYS} днів`,
   repair_awaiting_parts: "Ремонти чекають деталей задовго",
   repair_unpaid: "Видані ремонти без оплати",
-  device_stuck_in_service: "Пристрої застрягли в сервісі",
   stock_low: "Час замовляти",
 };
 
@@ -1411,6 +1409,18 @@ RangePreset)`. Він:
 Усе інше з `getRealtimeDashboardData` (26 запитів) видалити: аналітика вже в
 `data-analytics.ts` (Task 7), гілки ролей не потрібні.
 
+**Три місця зламаються від цього видалення — полагодити в цій же задачі,
+інакше `npm run build` впаде:**
+
+| Файл | Що робить | Дія |
+|---|---|---|
+| `src/lib/data.ts:7` | `export { getRealtimeDashboardData } from "./data-dashboard"` | замінити на `getDashboardMoney` |
+| `src/components/dashboard/widget-types.ts:1,16` | `import type { DashboardData }`, поле `stats: DashboardData` | перевести на `AnalyticsData` з Task 7 |
+| `src/app/admin/DashboardClient.tsx:19,71` | те саме | зникає при переписуванні |
+
+Перевірити повноту: `grep -rn "getRealtimeDashboardData\|DashboardData" src/`
+має не давати нічого поза `data-analytics.ts`.
+
 - [ ] **Step 4: Блок уваги**
 
 `src/app/admin/AttentionSection.tsx` — клієнтський компонент. Рендерить
@@ -1470,21 +1480,41 @@ git commit -m "feat(dashboard): rebuild around attention and real margin"
 
 ---
 
-## Task 9: AI-промпт на реальних числах
+## Task 9: AI на числах, які не брешуть
+
+Передпольотна перевірка знайшла, що перша редакція цієї задачі була неправильна
+в трьох місцях. Виправлено:
+
+- **`ai-chat/route.ts:131` — це `timeoutMs`, не ціль.** Сигнатура —
+  `fetchGemini(contents, generationConfig?, retries=3, timeoutMs=15000,
+  systemInstruction?)` (`src/lib/utils/gemini.ts:92-98`). **Не чіпати.**
+- **`buildInsightsPrompt` викликається лише з `/api/ai-insights/route.ts`.**
+  Ендпоінт не видаляється — навпаки, оживає (рішення власника).
+- **Живий копайлот фабрикованих метрик не бачить.** `ai-chat` →
+  `buildFinanceCopilotSystem` бере каси, сейфи, витрати, дохід, прибуток.
+  Але його `profit` рахується без собівартості взагалі — див. Step 4.
 
 **Files:**
 - Modify: `src/lib/ai-prompts/index.ts:113-141`
-- Modify: `src/lib/ai-prompts/ai-prompts.test.ts`
-- Modify: `src/app/api/ai-chat/route.ts:131`
-- Delete: `src/app/api/ai-insights/route.ts`
+- Modify: `src/lib/ai-prompts/ai-prompts.test.ts:227-266`
+- Modify: `src/app/api/ai-insights/route.ts`
+- Modify: `src/app/api/ai-chat/route.ts:90-118`
+
+**Interfaces:**
+- Consumes: `getDashboardMoney` (Task 8), `getAttentionData` (Task 8),
+  `findAttention` (Task 5), `getSettings().sales_targets` (Task 6),
+  `RANGE_LABELS`, `CATEGORY_LABELS`, `isRangePreset` (Task 1).
+- Produces: `POST /api/ai-insights` приймає `{ range?: RangePreset }` і повертає
+  `{ insights: Array<{ type: string; title: string; description: string;
+  action: string; impact: string }> }`.
 
 - [ ] **Step 1: Оновити тест під новий вхід**
 
-У `src/lib/ai-prompts/ai-prompts.test.ts` знайти тест на `buildInsightsPrompt`
-(близько рядка 230, де `salesTarget: 10000`) і переписати вхід:
+У `src/lib/ai-prompts/ai-prompts.test.ts` замінити `basePayload` і тіло
+`describe("buildInsightsPrompt")` (рядки ~227-266):
 
 ```ts
-const prompt = buildInsightsPrompt({
+const basePayload = {
   rangeLabel: "Сьогодні",
   revenue: 3800,
   profit: 1227,
@@ -1497,9 +1527,33 @@ const prompt = buildInsightsPrompt({
   opexRunwayDays: 22,
   dailyOpexRunRate: 168,
   attentionText: "Ремонти без руху понад 14 днів: 3; Час замовляти: 32",
+};
+
+describe("buildInsightsPrompt", () => {
+  it("carries the profit and margin into the prompt", () => {
+    const result = buildInsightsPrompt(basePayload);
+    expect(result).toContain("1227");
+    expect(result).toContain("32%");
+  });
+
+  it("states the net result for the month rather than making the model derive it", () => {
+    expect(buildInsightsPrompt(basePayload)).toContain("-1075");
+  });
+
+  it("says targets are unset instead of printing null", () => {
+    const result = buildInsightsPrompt({
+      ...basePayload,
+      dailyTarget: null,
+      monthlyTarget: null,
+    });
+    expect(result).toContain("не задані");
+    expect(result).not.toContain("null");
+  });
+
+  it("warns the model off trend claims, since the shop just opened", () => {
+    expect(buildInsightsPrompt(basePayload)).toContain("24.07.2026");
+  });
 });
-expect(prompt).toContain("1227");
-expect(prompt).toContain("22%");
 ```
 
 - [ ] **Step 2: Запустити — має впасти**
@@ -1526,14 +1580,17 @@ export function buildInsightsPrompt(data: {
   dailyOpexRunRate: number;
   attentionText: string;
 }): string {
-  const targets = [
-    data.dailyTarget ? `день ${data.dailyTarget} ₴` : null,
-    data.monthlyTarget ? `місяць ${data.monthlyTarget} ₴` : null,
-  ].filter(Boolean).join(", ") || "не задані";
+  const targets =
+    [
+      data.dailyTarget ? `день ${data.dailyTarget} ₴` : null,
+      data.monthlyTarget ? `місяць ${data.monthlyTarget} ₴` : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "не задані";
 
   return `Бізнес-аналітик VV CRM. Дай 3-4 actionable інсайти. Тільки цифри і дії, без води.
 
-Магазин відкрито 24.07.2026 — історії мало, не роби висновків про тренди.
+Магазин відкрито 24.07.2026 — історії мало, не роби висновків про тренди й сезонність.
 
 ${data.rangeLabel}: виторг ${data.revenue} ₴, прибуток ${data.profit} ₴, маржа ${data.marginPercent}%.
 По категоріях: ${data.byCategoryText}.
@@ -1547,25 +1604,145 @@ OPEX: ${data.opexRunwayDays} днів резерву (${data.dailyOpexRunRate} �
 }
 ```
 
-- [ ] **Step 4: Оновити виклик**
+- [ ] **Step 4: Полагодити прибуток у живому копайлоті**
 
-У `src/app/api/ai-chat/route.ts` рядок 131 (`15000`) і сусідні — зібрати
-аргументи з `getDashboardMoney("today")` і `getAttentionData()`. Захардкоджену
-ціль прибрати, брати з `getSettings().sales_targets`.
+`src/app/api/ai-chat/route.ts`, гілка `entityType === "finance"` (рядки ~90-118).
+Зараз:
 
-- [ ] **Step 5: Видалити мертвий ендпоінт**
-
-```bash
-grep -rn "ai-insights" src/ || echo "нуль викликів — можна видаляти"
-rm src/app/api/ai-insights/route.ts
+```ts
+profit: totalSalesRevenue + totalRepairsRevenue - totalExpenses
 ```
+
+Собівартість не віднімається взагалі — копайлот вважає всі 17 350 ₴ продажів
+техніки прибутком. Плюс `totalRepairsRevenue` рахує внутрішні складські ремонти
+як дохід (немає фільтра `inventory_device_id`).
+
+Замінити обидва розрахунки на `getFinanceReport(30)` із Task 2, який уже все це
+робить правильно:
+
+```ts
+import { getFinanceReport } from "@/lib/data-finance";
+
+const report = await getFinanceReport(30);
+
+systemPrompt = buildFinanceCopilotSystem({
+  totalCash: registers.reduce((s, r) => s + r.balance, 0),
+  totalSafes: safes.reduce((s, r) => s + r.balance, 0),
+  totalExpenses: report.totalExpenses,
+  totalRevenue: report.totalSales + report.repairsRevenue,
+  profit: report.profit,
+  registers,
+  safes,
+});
+```
+
+Запити `expensesRes`, `salesRes`, `repairsRes` із `Promise.all` прибрати —
+`getFinanceReport` тягне те саме. `registersRes` і `safesRes` лишити.
+
+**`fetchGemini(..., 3, 15000, systemPrompt)` не чіпати** — це `retries` і
+`timeoutMs`, а не бізнес-числа.
+
+- [ ] **Step 5: Оживити ендпоінт інсайтів**
+
+Переписати `src/app/api/ai-insights/route.ts`: приймає `{ range?: RangePreset }`
+(дефолт `"today"`), збирає аргументи й викликає промпт:
+
+```ts
+const preset: RangePreset = isRangePreset(body.range) ? body.range : "today";
+const [money, attention, settings] = await Promise.all([
+  getDashboardMoney(preset),
+  getAttentionData(),
+  getSettings(),
+]);
+
+const groups = findAttention(attention, new Date());
+
+const prompt = buildInsightsPrompt({
+  rangeLabel: RANGE_LABELS[preset],
+  revenue: money.profit.revenue,
+  profit: money.profit.profit,
+  marginPercent: money.profit.margin,
+  byCategoryText: money.profit.byCategory
+    .filter((c) => c.revenue > 0)
+    .map((c) => `${CATEGORY_LABELS[c.category]} ${c.revenue} ₴ / ${c.profit} ₴ / ${c.margin}%`)
+    .join("; "),
+  dailyTarget: settings.sales_targets.daily,
+  monthlyTarget: settings.sales_targets.monthly,
+  monthProfit: money.monthProfit,
+  monthExpenses: money.expenses,
+  opexRunwayDays: money.runwayDays,
+  dailyOpexRunRate: money.dailyOpex,
+  attentionText: groups.map((g) => `${g.label}: ${g.total}`).join("; "),
+});
+```
+
+Відповідь Gemini розібрати як JSON-масив. При помилці парсингу повернути
+`{ insights: [] }` зі статусом 200, а не 500 — інсайти є доповненням, і збій
+моделі не має валити блок грошей поруч.
 
 - [ ] **Step 6: Тести, білд, коміт**
 
 ```bash
 npm test && npx tsc --noEmit && npm run build
-git add -A src/lib/ai-prompts src/app/api
-git commit -m "fix(ai): feed the copilot numbers that are actually true"
+git add src/lib/ai-prompts src/app/api/ai-insights src/app/api/ai-chat
+git commit -m "fix(ai): feed both prompts a profit that subtracts cost"
+```
+
+---
+
+## Task 10: Блок інсайтів на дашборді
+
+**Files:**
+- Create: `src/app/admin/InsightsSection.tsx`
+- Modify: `src/app/admin/DashboardClient.tsx`
+
+**Interfaces:**
+- Consumes: `POST /api/ai-insights` із Task 9, `RangePreset` із Task 1.
+- Produces: нічого.
+
+- [ ] **Step 1: Компонент**
+
+Створити `src/app/admin/InsightsSection.tsx` — клієнтський компонент, приймає
+`{ preset: RangePreset }`.
+
+Завантаження **ліниве й на вимогу**: кнопка «Показати аналіз» під блоком
+грошей, а не автозапит при відкритті сторінки. Причина — виклик Gemini коштує
+секунди на кожне відкриття головної, а дашборд має відкриватись миттєво.
+
+Стани:
+- не запитано → кнопка «Показати аналіз»
+- завантаження → скелетон із трьох карток
+- готово → список карток
+- помилка або порожній масив → «Поки нема що сказати» + кнопка «Спробувати ще»
+
+Картка: заголовок (`title`, у ньому вже емодзі від моделі), `description`,
+`action` дрібним, лівий бордер за `impact` — `high` → `border-danger`,
+`medium` → `border-warning`, `low` → `border-border`. Токени брати з
+дизайн-системи, кольори не хардкодити.
+
+При зміні `preset` скидати вже завантажені інсайти в стан «не запитано»: вони
+стосувались іншого періоду, і показувати їх під новими числами — брехня.
+
+- [ ] **Step 2: Підключити**
+
+Вставити `<InsightsSection preset={preset} />` у `DashboardClient` під
+`<MoneySection />`.
+
+- [ ] **Step 3: Перевірити**
+
+```bash
+npm test && npx tsc --noEmit && npm run build
+```
+
+Відкрити `/admin`, натиснути «Показати аналіз». Інсайти мають згадувати ту саму
+маржу, що показує блок грошей поруч. Розбіжність означає, що ендпоінт і сторінка
+рахують різними шляхами.
+
+- [ ] **Step 4: Коміт**
+
+```bash
+git add src/app/admin/InsightsSection.tsx src/app/admin/DashboardClient.tsx
+git commit -m "feat(dashboard): on-demand AI insights over the real numbers"
 ```
 
 ---
@@ -1591,7 +1768,7 @@ git commit -m "fix(ai): feed the copilot numbers that are actually true"
 | §5.1 дія через дравер | Task 8 Step 4 |
 | §5.3 переїзд восьми | Task 7 |
 | §6 `force-dynamic`, ліниві лукапи, роль | Task 8 Step 2, Step 6 |
-| §6.1 AI | Task 9 |
+| §6.1 AI | Task 9, Task 10 |
 
 **Відхилення від спеки, свідомі:**
 
@@ -1599,9 +1776,9 @@ git commit -m "fix(ai): feed the copilot numbers that are actually true"
    експортує тип `Discrepancy` з іншою формою (`code`/`label`/`short`/`detail`,
    на рівні пристрою). Другий модуль із тим самим словом і несумісною формою
    плутав би при читанні. Домен той самий, назва інша.
-2. **Перевірка `device_stuck_in_service` описана в типі, але не реалізована.**
-   `devices.status='service'` зараз нуль, а писати перевірку без жодного
-   прикладу — вгадувати поріг. Код у переліку лишений як явне місце для неї.
+2. **`device_stuck_in_service` прибрано з типу.** `devices.status='service'`
+   зараз нуль; член союзу, який ніде не створюється, — мертвий код. Додати
+   перевірку, коли з'явиться перший приклад і стане видно осмислений поріг.
 3. **Дата завершення ремонту — `completed_at`, а не `updated_at`.** Перша
    редакція плану пропонувала `updated_at`, тобто рівно ту колонку, яку §2.1
    спеки визнала непридатною. Колонка `completed_at` існує й заповнена на всіх
@@ -1613,6 +1790,19 @@ git commit -m "fix(ai): feed the copilot numbers that are actually true"
 `computeProfit`. Розбіжність тут не впаде на тестах — вона вилізе у звірці §8,
 і виглядатиме як помилка модуля, хоча буде помилкою запиту.
 
-**Порядок:** задачі 1-6 незалежні одна від одної після 1→2 і можуть іти
-паралельно. Task 7 і 8 залежать від усіх попередніх. Task 9 — останній, бо
-споживає `getDashboardMoney` із Task 8.
+4. **Task 9 переписаний після передпольотної перевірки.** Перша редакція
+   веліла прибрати «захардкоджену ціль 15000» з `ai-chat/route.ts:131` — там
+   `timeoutMs` виклику Gemini, і виконавець зламав би таймаут. Вона ж
+   переписувала `buildInsightsPrompt`, а наступним кроком видаляла його єдиного
+   споживача. Спека §6.1 при цьому перебільшила: живий копайлот фабрикованих
+   метрик не бачить. Справжній баг знайдено поруч — `ai-chat` рахує прибуток без
+   собівартості взагалі.
+5. **Task 10 доданий** — рішення власника оживити інсайти на дашборді.
+
+**Порядок:** 1 → 2 обов'язково послідовно. Задачі 3, 4, 5, 6 незалежні й від
+них, і одна від одної. Task 7 перед Task 8 (Task 8 видаляє те, що Task 7
+переносить). Task 9 після 8 (споживає `getDashboardMoney`). Task 10 останній.
+
+**Ризик, який тримати в голові весь час:** гілка `master`, деплой одразу в прод
+(рішення власника), магазин відкривається 24.07. Міграції Task 3 і 4 йдуть у
+живу базу і відкату через git не мають — тільки через зворотний SQL.
