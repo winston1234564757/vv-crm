@@ -97,14 +97,18 @@ export interface DebtInput {
  *
  * A warranty repair is free by definition, and a zero-price repair has nothing
  * to collect — neither is a debt, and treating them as one would put permanent
- * noise in the segment that is supposed to mean "chase this". A `null` status
- * means the same thing: it marks a складський (internal, no-customer) repair,
- * where there is nobody to collect from — not an unpaid one.
+ * noise in the segment that is supposed to mean "chase this".
+ *
+ * `payment_status` тут не буває null для звичайного складського ремонту —
+ * такі рядки відсіює `getAllRepairs()` ще до того, як вони сюди потраплять
+ * (у неї немає `inventory_device_id`, щоб самій відрізнити "внутрішній
+ * ремонт" від "зовнішній, але статус чомусь не проставили"). Тож null тут —
+ * аномалія, а не норма. Для грошей аномалію краще порахувати як борг:
+ * завищений борг помітять і виправлять, занижений — ні.
  */
 export function isUnpaid(r: DebtInput): boolean {
   if (r.is_warranty) return false;
   if (!r.price || r.price <= 0) return false;
-  if (r.payment_status == null) return false;
   return r.payment_status !== "paid";
 }
 

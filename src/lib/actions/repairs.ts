@@ -460,7 +460,7 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
     // The price may have moved, which changes what "fully paid" means. The
     // ledger is unchanged, so recompute the cached label from it rather than
     // leaving a repair marked paid against a price it no longer has.
-    await recalcRepairPaymentStatus(supabase, parsed.id, parsed.price);
+    await recalcRepairPaymentStatus(supabase, parsed.id, parsed.price, oldRepair?.inventory_device_id ?? null);
 
     // Sync warehouse device status if any
     if (oldRepair?.inventory_device_id) {
@@ -786,17 +786,16 @@ async function recalcRepairPaymentStatus(
   supabase: SupabaseClient<Database>,
   repairId: string,
   price: number,
+  inventoryDeviceId: string | null,
 ) {
   // Складський ремонт нікому не виставляють: його `price` — це внутрішня
   // вартість, а не дебіторка. Без цього винятку кожен такий ремонт назавжди
   // лишався `unpaid` і додавав неіснуючий борг до підсумків.
-  const { data: repair } = await supabase
-    .from("repairs")
-    .select("inventory_device_id")
-    .eq("id", repairId)
-    .single();
-
-  if (repair?.inventory_device_id) {
+  //
+  // `inventoryDeviceId` приходить від виклику, а не з повторного SELECT —
+  // єдиний викликач (`updateRepair`) уже має `oldRepair.inventory_device_id`
+  // під рукою, тож другий похід у базу за тим самим значенням був би зайвим.
+  if (inventoryDeviceId) {
     await supabase.from("repairs").update({ payment_status: null }).eq("id", repairId);
     return;
   }
