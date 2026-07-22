@@ -23,12 +23,15 @@ export interface BadgeProps {
   className?: string;
   /** Optional leading dot for status badges */
   dot?: boolean;
+  /** Native tooltip. Desktop affordance only — never put required text here. */
+  title?: string;
 }
 
 /** Compact status / category pill built on semantic tokens. */
-export function Badge({ tone = "neutral", children, className, dot = false }: BadgeProps) {
+export function Badge({ tone = "neutral", children, className, dot = false, title }: BadgeProps) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
         tones[tone],

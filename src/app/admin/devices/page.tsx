@@ -1,110 +1,93 @@
 export const dynamic = "force-dynamic";
 
-import { getDevices } from "@/lib/data-devices";
+import { getDevices, getDeviceRepairs } from "@/lib/data-devices";
 import { getCustomers } from "@/lib/data-customers";
 import { getCashRegisters, getSafes } from "@/lib/data-finance";
 import { getAccessories } from "@/lib/data-accessories";
 import { getServices } from "@/lib/data-services";
 import { getParts } from "@/lib/data-parts";
 
-import { DevicesTable } from "./table";
+import { DevicesClient } from "./DevicesClient";
 import { AddDeviceButton } from "./AddDeviceButton";
-import { pluralUk } from "@/lib/utils/plural";
-import StandardCard from "@/components/ui/StandardCard";
-import { supabaseCast } from "@/lib/utils/supabase";
-import { IconDevice, IconBox, IconFinance } from "@/components/icons";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import StandardCard from "@/components/ui/StandardCard";
+import { pluralUk } from "@/lib/utils/plural";
+import type { DeviceRow } from "./device-types";
 
 export default async function DevicesPage() {
-  const [devices, customers, cashRegisters, accessories, services, parts, safes] = await Promise.all([
-    getDevices(),
-    getCustomers(),
-    getCashRegisters(),
-    getAccessories(),
-    getServices(),
-    getParts(),
-    getSafes(),
-  ]);
+  const [devices, deviceRepairs, customers, cashRegisters, accessories, services, parts, safes] =
+    await Promise.all([
+      getDevices(),
+      getDeviceRepairs(),
+      getCustomers(),
+      getCashRegisters(),
+      getAccessories(),
+      getServices(),
+      getParts(),
+      getSafes(),
+    ]);
 
-  const inStockDevices = devices.filter((d) => d.status === "in_stock");
-  const inStock = inStockDevices.length;
-  
-  // Собівартість: ціна закупівлі + вартість ремонту (якщо потребує ремонту)
-  const totalCost = inStockDevices.reduce(
-    (s, d) => s + d.cost_price + (d.needs_repair ? d.repair_cost : 0), 
-    0
+  // Every figure below is about stock on hand only. The labels say so —
+  // previously they read as totals for the whole page while quietly counting
+  // just `in_stock`, which made "Очікуваний прибуток" look like realised profit.
+  const inStock = devices.filter((d) => d.status === "in_stock");
+  const totalCost = inStock.reduce(
+    (s, d) => s + d.cost_price + (d.needs_repair ? d.repair_cost : 0),
+    0,
   );
-  const totalValue = inStockDevices.reduce((s, d) => s + d.price, 0);
-  const expectedProfit = totalValue - totalCost;
+  const totalValue = inStock.reduce((s, d) => s + d.price, 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
-              <IconDevice size={18} />
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Техніка</h1>
-          </div>
-          <p className="text-sm text-text-secondary pl-[46px]">
-            {devices.length} {pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <AddDeviceButton size="half" parts={parts} safes={safes} />
-        </div>
-      </div>
+      <PageHeader
+        title="Техніка"
+        subtitle={`${devices.length} ${pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі · ${inStock.length} в наявності`}
+        actions={<AddDeviceButton size="half" parts={parts} safes={safes} />}
+      />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="В наявності"
-          value={`${inStock} шт`}
+          value={`${inStock.length} шт`}
           tone="info"
-          sub="усі пристрої"
-          icon={<IconDevice size={16} />}
+          sub="готові до продажу"
           className="animate-entry-stagger delay-0"
         />
         <StatCard
-          label="Сума запасів (виручка)"
-          value={`${totalValue.toLocaleString()} ₴`}
-          tone="default"
-          sub="ціна продажу"
-          icon={<IconFinance size={16} />}
+          label="Вкладено у запас"
+          value={`${totalCost.toLocaleString()} ₴`}
+          tone="warning"
+          sub="собівартість + ремонт"
           className="animate-entry-stagger delay-1"
         />
         <StatCard
-          label="Вкладено"
-          value={`${totalCost.toLocaleString()} ₴`}
-          tone="warning"
-          sub="собів. + ремонт"
-          icon={<IconBox size={16} />}
+          label="Запас за цінами продажу"
+          value={`${totalValue.toLocaleString()} ₴`}
+          sub="якщо продати все"
           className="animate-entry-stagger delay-2"
         />
         <StatCard
-          label="Очікуваний прибуток"
-          value={`${expectedProfit.toLocaleString()} ₴`}
+          label="Очікувана маржа"
+          value={`${(totalValue - totalCost).toLocaleString()} ₴`}
           tone="accent"
-          sub="очікувана маржа"
-          icon={<IconFinance size={16} />}
+          sub="ще не зароблено"
           className="animate-entry-stagger delay-3"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:gap-6">
-        <StandardCard>
-          <DevicesTable 
-            devices={devices as unknown as import('./table').DeviceRow[]} 
-            customers={customers} 
-            cashRegisters={cashRegisters} 
-            accessories={accessories} 
-            services={services}
-            parts={parts} 
-            safes={safes}
-          />
-        </StandardCard>
-      </div>
+      <StandardCard>
+        <DevicesClient
+          devices={devices as unknown as DeviceRow[]}
+          deviceRepairs={deviceRepairs}
+          customers={customers}
+          cashRegisters={cashRegisters}
+          accessories={accessories}
+          services={services}
+          parts={parts}
+          safes={safes}
+        />
+      </StandardCard>
     </div>
   );
 }
-
