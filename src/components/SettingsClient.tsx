@@ -3,6 +3,10 @@
 import { useActionState, useState } from "react";
 import { updateSettingsAction, updateProfileRoleAction, updateReceiptSettingsAction } from "@/lib/actions/settings";
 import type { ParsedSettings, ProfileRow } from "@/lib/data-settings";
+/* From the printer lib, not data-settings: that module imports the Supabase
+   server client, and pulling a runtime value from it into this client component
+   would drag server-only code into the browser bundle. */
+import { DEFAULT_PRINTER_SETTINGS, type StoredPrinterSettings } from "@/lib/printer";
 import { InlineError } from "@/components/ui/InlineError";
 import { Tabs } from "@/components/ui/Tabs";
 import type { ActionState } from "@/lib/actions/types";
@@ -54,6 +58,10 @@ export default function SettingsClient({
   const [repWarrShowBuyer, setRepWarrShowBuyer] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.show_buyer ?? true);
   const [repWarrWarrantyText, setRepWarrWarrantyText] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.warranty_text || "");
   const [repWarrShowQr, setRepWarrShowQr] = useState(initialSettings.receipt_settings?.templates?.repair_warranty?.show_qr ?? true);
+
+  const [printer, setPrinter] = useState<StoredPrinterSettings>(
+    initialSettings.receipt_settings?.printer ?? DEFAULT_PRINTER_SETTINGS,
+  );
 
   const [settingsState, settingsAction, isPending] = useActionState(
     async (prevState: ActionState, formData: FormData) => {
@@ -191,6 +199,8 @@ export default function SettingsClient({
               setRepWarrShowQr={setRepWarrShowQr}
               repWarrWarrantyText={repWarrWarrantyText}
               setRepWarrWarrantyText={setRepWarrWarrantyText}
+              printer={printer}
+              setPrinter={setPrinter}
               action={receiptSettingsAction}
               isReceiptPending={isReceiptPending}
             />

@@ -4,6 +4,7 @@ import {
   buildReceiptBytes,
   composeReceipt,
   renderBlocksAsText,
+  toPrinterConfig,
   type ResolvedReceipt,
 } from "../receipt-escpos";
 import { encode } from "../codec";
@@ -280,6 +281,50 @@ describe("receipt rendering", () => {
   it("encodes Cyrillic through CP1251, not as raw Unicode", () => {
     const out = Array.from(buildReceiptBytes(BASE));
     expect(indexOfSequence(out, Array.from(encode("МОБІМАРКЕТ", "cp1251")))).toBeGreaterThan(-1);
+  });
+});
+
+describe("stored settings → runtime config", () => {
+  it("maps every field across the snake_case boundary", () => {
+    expect(
+      toPrinterConfig({
+        codepage_index: 17,
+        codepage: "cp1125",
+        columns: 48,
+        qr_module_size: 3,
+        feed_lines: 6,
+        cut: true,
+      }),
+    ).toEqual({
+      codepageIndex: 17,
+      codepage: "cp1125",
+      columns: 48,
+      qrModuleSize: 3,
+      feedLines: 6,
+      cut: true,
+    });
+  });
+
+  it("falls back per field, so a row saved before printer settings existed still prints", () => {
+    expect(toPrinterConfig({ columns: 48 })).toEqual({
+      ...DEFAULT_PRINTER_CONFIG,
+      columns: 48,
+    });
+    expect(toPrinterConfig(undefined)).toEqual(DEFAULT_PRINTER_CONFIG);
+  });
+
+  it("keeps a stored zero rather than treating it as missing", () => {
+    // `feed_lines: 0` is a legitimate choice and must not be replaced by the
+    // default through a truthiness check.
+    expect(toPrinterConfig({ feed_lines: 0 }).feedLines).toBe(0);
+    expect(toPrinterConfig({ codepage_index: 0 }).codepageIndex).toBe(0);
+  });
+
+  it("carries the configured values through to the byte stream", () => {
+    const config = toPrinterConfig({ codepage_index: 17, codepage: "cp1125", feed_lines: 2 });
+    const out = Array.from(buildReceiptBytes(BASE, config));
+    expect(out.slice(4, 7)).toEqual([0x1b, 0x74, 17]);
+    expect(out.slice(-3)).toEqual([0x1b, 0x64, 2]);
   });
 });
 

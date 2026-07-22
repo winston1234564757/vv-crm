@@ -7,7 +7,14 @@
  * bridge service, only `transport-webusb` changes.
  */
 
-export { DEFAULT_PRINTER_CONFIG, buildReceiptBytes, composeReceipt, renderBlocksAsText } from "./receipt-escpos";
+export {
+  DEFAULT_PRINTER_CONFIG,
+  DEFAULT_PRINTER_SETTINGS,
+  buildReceiptBytes,
+  composeReceipt,
+  renderBlocksAsText,
+  toPrinterConfig,
+} from "./receipt-escpos";
 export type {
   Block,
   PrinterConfig,
@@ -15,6 +22,7 @@ export type {
   ReceiptDevice,
   ReceiptLineItem,
   ResolvedReceipt,
+  StoredPrinterSettings,
 } from "./receipt-escpos";
 export { PrinterError, isWebUsbSupported } from "./transport-webusb";
 export type { ReceiptType } from "./receipt-content";

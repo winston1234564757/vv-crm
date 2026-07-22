@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
 
 import { ReceiptPreview } from "./ReceiptPreview";
+import { PrinterSettingsCard } from "./PrinterSettingsCard";
+import type { StoredPrinterSettings } from "@/lib/printer";
 
 interface ReceiptSettingsTabProps {
   companyName: string;
@@ -50,6 +52,12 @@ interface ReceiptSettingsTabProps {
   repWarrWarrantyText: string;
   setRepWarrWarrantyText: (val: string) => void;
 
+  /* Passed as a block with a single setter, unlike the fields above: the
+     printer values are interdependent and adding twelve more prop pairs would
+     entrench a pattern this component is already straining under. */
+  printer: StoredPrinterSettings;
+  setPrinter: (val: StoredPrinterSettings) => void;
+
   action: (formData: FormData) => void;
   isReceiptPending: boolean;
 }
@@ -97,6 +105,8 @@ export function ReceiptSettingsTab({
   setRepWarrShowQr,
   repWarrWarrantyText,
   setRepWarrWarrantyText,
+  printer,
+  setPrinter,
   action,
   isReceiptPending,
 }: ReceiptSettingsTabProps) {
@@ -396,6 +406,8 @@ export function ReceiptSettingsTab({
             </div>
           </div>
         </div>
+
+        <PrinterSettingsCard printer={printer} setPrinter={setPrinter} />
 
         <button
           type="submit"

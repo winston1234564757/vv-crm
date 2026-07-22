@@ -1,5 +1,9 @@
 import { createClient } from "./supabase/server";
 import type { Database } from "@/types/database";
+import {
+  DEFAULT_PRINTER_SETTINGS,
+  type StoredPrinterSettings,
+} from "@/lib/printer/receipt-escpos";
 
 export interface SafeDistribution {
   opex: number;
@@ -15,6 +19,19 @@ export interface ReceiptTemplate {
   show_qr: boolean;
 }
 
+/**
+ * How to talk to the thermal printer: firmware facts, not tastes. The wrong
+ * `codepage_index` prints Cyrillic as line-drawing characters and the wrong
+ * `columns` silently wraps every line. They are stored per shop because they
+ * differ by printer model and can only be found by printing the probe page at
+ * /admin/settings/printer-probe.
+ *
+ * Defined in `lib/printer`, not here — this module imports the Supabase server
+ * client, and the settings UI is a client component that needs the default
+ * value at runtime.
+ */
+export type PrinterSettings = StoredPrinterSettings;
+
 export interface ReceiptSettings {
   company_name: string;
   company_subtitle: string;
@@ -26,7 +43,9 @@ export interface ReceiptSettings {
     repair_acceptance: ReceiptTemplate;
     repair_warranty: ReceiptTemplate;
   };
+  printer: PrinterSettings;
 }
+
 
 export interface ParsedSettings {
   shop_name: string;
@@ -81,10 +100,41 @@ function parseReceiptSettings(value: unknown, fallback: ReceiptSettings): Receip
         sale: parseTemplate(templates.sale, fallback.templates.sale),
         repair_acceptance: parseTemplate(templates.repair_acceptance, fallback.templates.repair_acceptance),
         repair_warranty: parseTemplate(templates.repair_warranty, fallback.templates.repair_warranty),
-      }
+      },
+      printer: parsePrinterSettings(obj.printer, fallback.printer),
     };
   }
   return fallback;
+}
+
+/**
+ * Every field falls back individually rather than the block falling back as a
+ * whole: rows saved before printer settings existed have no `printer` key at
+ * all, and a receipt that will not print is a worse failure than one that
+ * prints with a default margin.
+ */
+function parsePrinterSettings(value: unknown, fallback: PrinterSettings): PrinterSettings {
+  if (typeof value !== "object" || value === null) return fallback;
+  const obj = value as Record<string, unknown>;
+
+  const int = (raw: unknown, min: number, max: number, fb: number) => {
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return fb;
+    return Math.min(max, Math.max(min, Math.round(raw)));
+  };
+
+  const codepage =
+    obj.codepage === "cp1251" || obj.codepage === "cp866" || obj.codepage === "cp1125"
+      ? obj.codepage
+      : fallback.codepage;
+
+  return {
+    codepage_index: int(obj.codepage_index, 0, 255, fallback.codepage_index),
+    codepage,
+    columns: int(obj.columns, 16, 96, fallback.columns),
+    qr_module_size: int(obj.qr_module_size, 1, 16, fallback.qr_module_size),
+    feed_lines: int(obj.feed_lines, 0, 20, fallback.feed_lines),
+    cut: typeof obj.cut === "boolean" ? obj.cut : fallback.cut,
+  };
 }
 
 export async function getSettings(): Promise<ParsedSettings> {
@@ -126,7 +176,8 @@ export async function getSettings(): Promise<ParsedSettings> {
           warranty_text: "Гарантія поширюється виключно на замінені деталі та виконані роботи. При виявленні слідів вологи, механічних пошкоджень або стороннього втручання гарантія анулюється.",
           show_qr: true
         }
-      }
+      },
+      printer: DEFAULT_PRINTER_SETTINGS
     }
   };
 

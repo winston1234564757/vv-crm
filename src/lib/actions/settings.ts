@@ -186,6 +186,20 @@ const receiptTemplateSchema = z.object({
   show_qr: z.preprocess((val) => val === "true" || val === true, z.boolean()),
 });
 
+/**
+ * Printer parameters are hardware facts, so the bounds are the command set's,
+ * not a product preference: `ESC t n` takes one byte, `GS ( k` accepts a module
+ * size of 1..16. Coerced from strings because they arrive as form fields.
+ */
+const printerSettingsSchema = z.object({
+  codepage_index: z.coerce.number().int().min(0).max(255),
+  codepage: z.enum(["cp1251", "cp866", "cp1125"]),
+  columns: z.coerce.number().int().min(16, "Замало символів у рядку").max(96),
+  qr_module_size: z.coerce.number().int().min(1).max(16),
+  feed_lines: z.coerce.number().int().min(0).max(20),
+  cut: z.preprocess((val) => val === "true" || val === true, z.boolean()),
+});
+
 const receiptSettingsSchema = z.object({
   company_name: z.string().min(2, "Назва компанії має містити хоча б 2 символи").max(100, "Назва компанії занадто довга (макс. 100 символів)"),
   company_subtitle: z.string().min(2, "Підзаголовок має містити хоча б 2 символи").max(150, "Підзаголовок занадто довгий (макс. 150 символів)"),
@@ -197,6 +211,7 @@ const receiptSettingsSchema = z.object({
     repair_acceptance: receiptTemplateSchema,
     repair_warranty: receiptTemplateSchema,
   }),
+  printer: printerSettingsSchema,
 });
 
 export async function updateReceiptSettingsAction(
@@ -232,6 +247,14 @@ export async function updateReceiptSettingsAction(
           warranty_text: formData.get("repair_warranty_warranty_text"),
           show_qr: formData.get("repair_warranty_show_qr") === "true",
         },
+      },
+      printer: {
+        codepage_index: formData.get("printer_codepage_index"),
+        codepage: formData.get("printer_codepage"),
+        columns: formData.get("printer_columns"),
+        qr_module_size: formData.get("printer_qr_module_size"),
+        feed_lines: formData.get("printer_feed_lines"),
+        cut: formData.get("printer_cut") === "true",
       },
     };
 

@@ -11,7 +11,14 @@ import { createClient } from "@/lib/supabase/client";
 import { toJpeg } from "html-to-image";
 import type { ReceiptSettings } from "@/lib/data-settings";
 import { supabaseCast } from "@/lib/utils/supabase";
-import { PrinterError, printReceipt, type ResolvedReceipt } from "@/lib/printer";
+import {
+  DEFAULT_PRINTER_CONFIG,
+  PrinterError,
+  printReceipt,
+  toPrinterConfig,
+  type PrinterConfig,
+  type ResolvedReceipt,
+} from "@/lib/printer";
 import {
   composeWarrantyText,
   getConditionLabel,
@@ -65,6 +72,9 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
   const [isSendingToPrinter, setIsSendingToPrinter] = useState(false);
   const [printerNote, setPrinterNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  /* Falls back to the built-in config rather than blocking: if settings fail to
+     load, printing with the defaults still beats not printing. */
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>(DEFAULT_PRINTER_CONFIG);
 
   // Editable receipt fields
   const [companyName, setCompanyName] = useState("");
@@ -127,6 +137,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         
         if (dbData?.value) {
           const settings = supabaseCast<ReceiptSettings>(dbData.value);
+          setPrinterConfig(toPrinterConfig(settings.printer));
           setCompanyName(settings.company_name || "VV CRM");
           setCompanySubtitle(settings.company_subtitle || "Магазин та сервісний центр");
           setAddress(settings.address || "м. Київ, вул. Хрещатик 1");
@@ -278,7 +289,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         price: data.price,
       };
 
-      const deviceLabel = await printReceipt(receipt);
+      const deviceLabel = await printReceipt(receipt, printerConfig);
       setPrinterNote({ ok: true, text: `Надіслано на ${deviceLabel}` });
     } catch (err) {
       const message = err instanceof PrinterError ? err.message : String(err);

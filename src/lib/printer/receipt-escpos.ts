@@ -115,6 +115,49 @@ export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
   cut: false,
 };
 
+/**
+ * Stored settings use snake_case like their siblings in the settings row.
+ *
+ * This shape lives here rather than in `data-settings.ts` on purpose: that
+ * module imports the Supabase server client, so a client component reaching for
+ * the default value there would drag server-only code into the browser bundle
+ * and fail the build. Everything under `lib/printer` is pure and safe on both
+ * sides.
+ */
+export interface StoredPrinterSettings {
+  codepage_index: number;
+  codepage: Codepage;
+  columns: number;
+  qr_module_size: number;
+  feed_lines: number;
+  cut: boolean;
+}
+
+export const DEFAULT_PRINTER_SETTINGS: StoredPrinterSettings = {
+  codepage_index: 23,
+  codepage: "cp1251",
+  columns: 32,
+  qr_module_size: 5,
+  feed_lines: 4,
+  cut: false,
+};
+
+/**
+ * Bridge the stored shape to the runtime one. Kept here so callers never
+ * assemble a config by hand and quietly omit a field.
+ */
+export function toPrinterConfig(stored: Partial<StoredPrinterSettings> | undefined): PrinterConfig {
+  if (!stored) return DEFAULT_PRINTER_CONFIG;
+  return {
+    codepage: stored.codepage ?? DEFAULT_PRINTER_CONFIG.codepage,
+    codepageIndex: stored.codepage_index ?? DEFAULT_PRINTER_CONFIG.codepageIndex,
+    columns: stored.columns ?? DEFAULT_PRINTER_CONFIG.columns,
+    qrModuleSize: stored.qr_module_size ?? DEFAULT_PRINTER_CONFIG.qrModuleSize,
+    feedLines: stored.feed_lines ?? DEFAULT_PRINTER_CONFIG.feedLines,
+    cut: stored.cut ?? DEFAULT_PRINTER_CONFIG.cut,
+  };
+}
+
 /* ---------- composition ---------- */
 
 function text(
