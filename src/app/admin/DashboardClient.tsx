@@ -115,8 +115,8 @@ export function DashboardClient({ userRole, stats, repairs, customers, cashRegis
             <AddSaleButton customers={customers} cashRegisters={cashRegisters} devices={devices} accessories={accessories} services={services} className={cn(btnPrimary, "flex-1 md:flex-none")}>
               <IconPlus /> <span className="hidden sm:inline">Новий продаж</span><span className="sm:hidden">Продаж</span>
             </AddSaleButton>
-            <AddRepairButton customers={customers} devices={devices} className={cn(btnSecondary, "flex-1 md:flex-none")}>
-              <IconPlus /> <span className="hidden sm:inline">Прийняти в ремонт</span><span className="sm:hidden">Ремонт</span>
+            <AddRepairButton customers={customers} variant="secondary" className="flex-1 md:flex-none">
+              <span className="hidden sm:inline">Прийняти в ремонт</span><span className="sm:hidden">Ремонт</span>
             </AddRepairButton>
           </div>
         )}

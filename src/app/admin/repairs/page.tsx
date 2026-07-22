@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { getAllRepairs, getRepairPaidTotals } from "@/lib/data-repairs";
 import { getCustomers } from "@/lib/data-customers";
-import { getDevices } from "@/lib/data-devices";
 import { getCashRegisters } from "@/lib/data-finance";
 
 import { RepairsClient } from "./RepairsClient";
@@ -15,19 +14,16 @@ import { repairGroup, isUnpaid, outstanding } from "@/lib/repair-flow";
 import { isOverdue, type RepairRow } from "./repair-types";
 
 export default async function RepairsPage() {
-  const [allRepairs, paidTotals, customers, allDevices, cashRegisters] = await Promise.all([
+  // Devices are no longer loaded here: warehouse repairs are started from the
+  // device itself on Техніка, not from this page's intake form.
+  const [allRepairs, paidTotals, customers, cashRegisters] = await Promise.all([
     getAllRepairs(),
     getRepairPaidTotals(),
     getCustomers(),
-    getDevices(),
     getCashRegisters(),
   ]);
 
   const repairs = allRepairs as unknown as RepairRow[];
-
-  const inStockDevices = (allDevices ?? []).filter(
-    (d) => d.status === "in_stock" || d.status === "transit",
-  );
 
   const active = repairs.filter((r) => repairGroup(r.status) === "active").length;
   const ready = repairs.filter((r) => repairGroup(r.status) === "ready").length;
@@ -45,7 +41,7 @@ export default async function RepairsPage() {
       <PageHeader
         title="Ремонти"
         subtitle={`${repairs.length} ${pluralUk(repairs.length, "заявка", "заявки", "заявок")} · ${active} в роботі`}
-        actions={<AddRepairButton customers={customers} devices={inStockDevices} />}
+        actions={<AddRepairButton customers={customers} />}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -84,7 +80,6 @@ export default async function RepairsPage() {
           repairs={repairs}
           paidTotals={paidTotals}
           customers={customers}
-          inStockDevices={inStockDevices}
           cashRegisters={cashRegisters}
         />
       </StandardCard>

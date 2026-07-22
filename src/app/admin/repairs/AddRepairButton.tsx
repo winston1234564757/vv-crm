@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Drawer from "@/components/ui/Drawer";
 import { RepairForm } from "@/components/forms/RepairForm";
+import { Button } from "@/components/ui/Button";
 import { IconPlus } from "@/components/icons";
 
 interface Customer {
@@ -11,50 +12,45 @@ interface Customer {
   phone: string;
 }
 
-interface Device {
-  id: string;
-  brand: string | null;
-  model: string | null;
-  imei: string | null;
-  status: string;
-}
-
+/**
+ * `devices`, `initialDeviceId` and `initialIsInternal` are gone.
+ *
+ * They existed for the form's "Внутрішній (Склад)" toggle, which wrote
+ * `inventory_device_id` — and `getAllRepairs` filters exactly those rows out,
+ * so a warehouse repair created here vanished from the page it was created on.
+ * That is where all 13 orphaned repair rows came from. Warehouse repairs are
+ * now started from the device itself, on Техніка, where the result is visible.
+ *
+ * Nothing passed the two initial props anyway: all three call sites used the
+ * defaults.
+ */
 export function AddRepairButton({
   customers,
-  devices,
-  className = "flex items-center gap-1.5 rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover",
-  children = <><IconPlus /> Новий ремонт</>,
-  size = "default",
-  initialDeviceId = "",
-  initialIsInternal = false
+  className,
+  children,
+  variant = "primary",
 }: {
   customers: Customer[];
-  devices: Device[];
   className?: string;
   children?: React.ReactNode;
-  size?: "default" | "full";
-  initialDeviceId?: string;
-  initialIsInternal?: boolean;
+  variant?: "primary" | "secondary";
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      <button 
+      <Button
+        variant={variant}
+        className={className}
+        leadingIcon={<IconPlus />}
         onClick={() => setIsOpen(true)}
-        className={`btn-press ${className}`}
       >
-        {children}
-      </button>
+        {children ?? "Новий ремонт"}
+      </Button>
 
-      <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Новий ремонт" size={size}>
-        <RepairForm 
-          customers={customers} 
-          devices={devices} 
-          initialDeviceId={initialDeviceId}
-          initialIsInternal={initialIsInternal}
-          onSuccess={() => setIsOpen(false)} 
-        />
+      {/* Full width: fourteen fields do not fit comfortably in half a screen. */}
+      <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Прийом у ремонт" size="full">
+        <RepairForm customers={customers} onSuccess={() => setIsOpen(false)} />
       </Drawer>
     </>
   );

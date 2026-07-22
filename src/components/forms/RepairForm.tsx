@@ -6,7 +6,16 @@ import { createCustomer } from "@/lib/actions/customers";
 import { validatePromoCode } from "@/lib/actions/partners";
 import SearchSelect from "@/components/ui/SearchSelect";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
-import { IconEye, IconEyeOff } from "@/components/icons";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Button } from "@/components/ui/Button";
+import { InlineError } from "@/components/ui/InlineError";
+import { IconEye, IconEyeOff, IconChevronDown } from "@/components/icons";
+import { optionsOf, deviceCondition, repairSource } from "@/lib/domain-labels";
+import { downscaleImages } from "@/lib/utils/image";
+import { cn } from "@/lib/utils/cn";
 
 interface Customer {
   id: string;
@@ -15,12 +24,23 @@ interface Customer {
   notes?: string | null;
 }
 
-interface Device {
+/** What `createRepair` hands back on success. */
+interface CreatedRepair {
   id: string;
-  brand: string | null;
-  model: string | null;
-  imei: string | null;
-  status: string;
+  tracking_token: string;
+  public_token: string;
+  issue: string;
+  price: number;
+}
+
+/** A past repair offered as the one a warranty claim covers. */
+interface PastRepair {
+  id: string;
+  device_name: string | null;
+  device_imei: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+  customer?: { id: string } | null;
 }
 
 const ISSUE_NODES = [
@@ -47,37 +67,68 @@ const ISSUE_DIAGNOSTICS = [
   { value: "other_diag", label: "Інша проблема" },
 ];
 
-export function RepairForm({ 
-  customers, 
-  devices, 
-  onSuccess,
-  initialDeviceId = "",
-  initialIsInternal = false
-}: { 
-  customers: Customer[], 
-  devices: Device[], 
-  onSuccess: () => void,
-  initialDeviceId?: string,
-  initialIsInternal?: boolean
+/** Section heading. Space does the grouping; no nested cards. */
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-border pt-5 first:border-t-0 first:pt-0">
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
-  const initialState: { success: boolean; error: string; data?: any } = { success: false, error: "" };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "btn-press rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "border-accent bg-accent text-on-accent"
+          : "border-border text-muted hover:border-border-strong hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function RepairForm({
+  customers,
+  onSuccess,
+}: {
+  customers: Customer[];
+  onSuccess: () => void;
+}) {
+  const initialState: { success: boolean; error: string; data?: CreatedRepair } = {
+    success: false,
+    error: "",
+  };
   const [state, formAction, pending] = useActionState(action, initialState);
-
-
-
 
   const [custError, setCustError] = useState("");
   const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
 
-  const [isInternal, setIsInternal] = useState(initialIsInternal);
   const [isWarranty, setIsWarranty] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
-  const [pastRepairs, setPastRepairs] = useState<any[]>([]);
+  const [pastRepairs, setPastRepairs] = useState<PastRepair[]>([]);
   const [selectedPastRepairId, setSelectedPastRepairId] = useState("");
   const [pastRepairsLoading, setPastRepairsLoading] = useState(false);
   const [pastRepairsSearch, setPastRepairsSearch] = useState("");
-
-  const [selectedInventoryDeviceId, setSelectedInventoryDeviceId] = useState(initialDeviceId);
 
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState("");
@@ -86,69 +137,55 @@ export function RepairForm({
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const initialDev = initialDeviceId ? devices.find(d => d.id === initialDeviceId) : null;
-  const [deviceName, setDeviceName] = useState(initialDev ? `${initialDev.brand ?? ""} ${initialDev.model ?? ""}`.trim() : "");
-  const [deviceImei, setDeviceImei] = useState(initialDev ? (initialDev.imei ?? "") : "");
+  const [deviceName, setDeviceName] = useState("");
+  const [deviceImei, setDeviceImei] = useState("");
 
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [selectedDiagnostics, setSelectedDiagnostics] = useState<string[]>([]);
 
-  const [createdData, setCreatedData] = useState<{id: string, tracking_token: string, public_token: string, issue: string, price: number} | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Derived, not mirrored into state through an effect. The action result
+  // already holds it, and copying it across in a useEffect only adds a render
+  // and a chance for the two to disagree.
+  const createdData = state.success && state.data?.id ? state.data : null;
 
-  useEffect(() => {
-    if (isWarranty) {
-      const fetchPastRepairs = async () => {
-        setPastRepairsLoading(true);
-        const data = await searchCompletedRepairs(selectedCustomerId || null, pastRepairsSearch);
-        setPastRepairs(data);
-        setPastRepairsLoading(false);
-      };
-      
-      const timeoutId = setTimeout(() => {
-        fetchPastRepairs();
-      }, 500); // debounce
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isWarranty, selectedCustomerId, pastRepairsSearch]);
-
-  const handleSelectPastRepair = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const rId = e.target.value;
-    setSelectedPastRepairId(rId);
-    if (rId) {
-      const r = pastRepairs.find(x => x.id === rId);
-      if (r) {
-        setDeviceName(r.device_name || "");
-        setDeviceImei(r.device_imei || "");
-        if (!selectedCustomerId && r.customer?.id) {
-          setSelectedCustomerId(r.customer.id);
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (state.success && state.data?.id) {
-      setCreatedData(state.data as any);
-    }
-  }, [state.success, state.data]);
-
-  // Every hook must run before the early return below. These four used to sit
-  // after `if (createdData)`, so the moment a repair was created React rendered
-  // fewer hooks than the previous pass and threw error #300 — the repair was
-  // saved, but the form crashed and only a page reload recovered it.
-  const [source, setSource] = useState("store");
+  // Every hook must run before the early return below. Four of these used to
+  // sit after `if (createdData)`, so the moment a repair was created React
+  // rendered fewer hooks than the previous pass and threw error #300 — the
+  // repair saved, the form crashed.
+  //
+  // `source` starts at a value that actually exists in the list. It used to
+  // start at "store", which is not one of the options, so the select submitted
+  // an empty string and the action's `|| "walk_in"` fallback caught it — which
+  // is why all 15 repairs on record read walk_in whatever really happened.
+  const [source, setSource] = useState("walk_in");
   const [promoCode, setPromoCode] = useState("");
   const [partnerId, setPartnerId] = useState("");
-  const [promoMessage, setPromoMessage] = useState<{text: string, type: "success" | "error"} | null>(null);
+  const [promoMessage, setPromoMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  // Fully controlled. It used to carry `value` and `defaultValue` at once,
+  // both switched on `isWarranty`, so ticking the warranty box flipped the
+  // input between controlled and uncontrolled and could drop what was typed.
+  const [price, setPrice] = useState("0");
+
+  useEffect(() => {
+    if (!isWarranty) return;
+    const fetchPastRepairs = async () => {
+      setPastRepairsLoading(true);
+      const data = await searchCompletedRepairs(selectedCustomerId || null, pastRepairsSearch);
+      setPastRepairs(data);
+      setPastRepairsLoading(false);
+    };
+    const timeoutId = setTimeout(fetchPastRepairs, 500);
+    return () => clearTimeout(timeoutId);
+  }, [isWarranty, selectedCustomerId, pastRepairsSearch]);
 
   if (createdData) {
     const customer = localCustomers.find((c) => c.id === selectedCustomerId);
-    
+
     return (
-      <div className="flex flex-col items-center justify-center p-6 text-center space-y-6 animate-entry">
-        {/* Animated Checkmark Icon */}
+      <div className="animate-entry flex flex-col items-center justify-center gap-6 p-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success-subtle text-success">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
@@ -156,48 +193,36 @@ export function RepairForm({
         </div>
 
         <div>
-          <h2 className="text-xl font-bold text-text-primary text-balance tracking-tight">Ремонт успішно створено!</h2>
-          <p className="text-xs text-text-secondary mt-1">Пристрій прийнято в роботу</p>
+          <h2 className="font-display text-xl font-semibold tracking-tight text-ink text-balance">
+            Ремонт прийнято
+          </h2>
+          <p className="mt-1 text-xs text-muted">Пристрій узято в роботу</p>
         </div>
 
-        {/* Short Breakdown */}
-        <div className="w-full rounded-2xl bg-warm-bg border border-warm-border p-4 text-left space-y-2.5 text-xs">
+        <div className="w-full space-y-2.5 rounded-[var(--radius-lg)] border border-border bg-bg p-4 text-left text-xs">
           <div className="flex justify-between">
-            <span className="text-text-secondary">Клієнт:</span>
-            <span className="font-medium text-text-primary">{customer?.name || "Внутрішній ремонт"}</span>
+            <span className="text-muted">Клієнт:</span>
+            <span className="font-medium text-ink">{customer?.name || "—"}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary">Пристрій:</span>
-            <span className="font-medium text-text-primary truncate max-w-[200px] text-right">{deviceName || "Невідомий"}</span>
+            <span className="text-muted">Пристрій:</span>
+            <span className="max-w-[200px] truncate text-right font-medium text-ink">{deviceName}</span>
           </div>
-          <div className="flex justify-between border-t border-warm-border/50 pt-2 text-sm">
-            <span className="font-semibold text-text-primary">Код відстеження:</span>
-            <span className="font-mono font-bold text-violet tracking-widest">{createdData.tracking_token}</span>
+          <div className="flex justify-between border-t border-border pt-2 text-sm">
+            <span className="font-semibold text-ink">Код відстеження:</span>
+            <span className="tabular font-semibold tracking-widest text-accent-ink">
+              {createdData.tracking_token}
+            </span>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="w-full space-y-2.5 pt-2">
-          <button
-            type="button"
-            onClick={() => setIsPrintModalOpen(true)}
-            className="btn-press flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            <span>Роздрукувати квитанцію</span>
-          </button>
-          
-          <button
-            type="button"
-            onClick={onSuccess}
-            className="btn-press w-full rounded-xl bg-surface border border-warm-border hover:bg-warm-hover py-3 text-sm font-medium text-text-primary transition-colors cursor-pointer"
-          >
-            Закрити вікно
-          </button>
+          <Button fullWidth onClick={() => setIsPrintModalOpen(true)}>
+            Роздрукувати квитанцію
+          </Button>
+          <Button fullWidth variant="secondary" onClick={onSuccess}>
+            Закрити
+          </Button>
         </div>
 
         <ReceiptPrintModal
@@ -214,19 +239,15 @@ export function RepairForm({
             tracking_token: createdData.tracking_token,
             public_token: createdData.public_token,
             issue: createdData.issue || "Не вказано",
-            price: createdData.price || 0
+            price: createdData.price || 0,
           }}
         />
       </div>
     );
   }
 
-  function toggleNode(value: string) {
-    setSelectedNodes(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
-  }
-
-  function toggleDiagnostic(value: string) {
-    setSelectedDiagnostics(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+  function toggle(list: string[], set: (v: string[]) => void, value: string) {
+    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   }
 
   async function handleCheckPromo() {
@@ -235,7 +256,10 @@ export function RepairForm({
     const res = await validatePromoCode(promoCode.trim());
     if (res.success && res.partner) {
       setPartnerId(res.partner.id);
-      setPromoMessage({ text: `Знайдено партнера: ${res.partner.name}. Знижка ${res.partner.discount_percent}%!`, type: "success" });
+      setPromoMessage({
+        text: `Знайдено партнера: ${res.partner.name}. Знижка ${res.partner.discount_percent}%`,
+        type: "success",
+      });
     } else {
       setPartnerId("");
       setPromoMessage({ text: res.error || "Промокод не знайдено", type: "error" });
@@ -252,7 +276,7 @@ export function RepairForm({
     const res = await createCustomer({ success: false, error: "" }, formData);
     if (res.success && res.data) {
       const created = res.data as Customer;
-      setLocalCustomers(prev => [...prev, created]);
+      setLocalCustomers((prev) => [...prev, created]);
       setSelectedCustomerId(created.id);
       setShowNewCustomer(false);
       setNewCustName("");
@@ -273,406 +297,339 @@ export function RepairForm({
     setSelectedCustomerId(id);
   }
 
-  function handleDeviceSelect(id: string) {
-    setSelectedInventoryDeviceId(id);
-    const dev = devices.find(d => d.id === id);
-    if (dev) {
-      setDeviceName(`${dev.brand ?? ""} ${dev.model ?? ""}`.trim());
-      setDeviceImei(dev.imei ?? "");
-    } else {
-      setDeviceName("");
-      setDeviceImei("");
-    }
+  function handleSelectPastRepair(e: React.ChangeEvent<HTMLSelectElement>) {
+    const rId = e.target.value;
+    setSelectedPastRepairId(rId);
+    if (!rId) return;
+    const r = pastRepairs.find((x) => x.id === rId);
+    if (!r) return;
+    setDeviceName(r.device_name || "");
+    setDeviceImei(r.device_imei || "");
+    if (!selectedCustomerId && r.customer?.id) setSelectedCustomerId(r.customer.id);
   }
 
   async function action(prevState: typeof initialState, formData: FormData) {
     formData.set("issue_nodes", JSON.stringify(selectedNodes));
     formData.set("issue_diagnostics", JSON.stringify(selectedDiagnostics));
-    
-    // Передаємо назву та IMEI зі стейту (оскільки при disabled вони не надсилаються автоматично)
     formData.set("device_name", deviceName);
     formData.set("device_imei", deviceImei);
-
-    if (isInternal) {
-      formData.set("customer_id", "");
-      formData.set("inventory_device_id", selectedInventoryDeviceId);
-    } else {
-      formData.set("customer_id", selectedCustomerId);
-      formData.set("inventory_device_id", "");
-    }
+    formData.set("customer_id", selectedCustomerId);
+    formData.set("inventory_device_id", "");
 
     if (partnerId) {
       formData.set("partner_id", partnerId);
       formData.set("promo_code_used", promoCode.trim());
     }
+
+    // Shrink before upload. uploadMediaFiles throws on failure and runs before
+    // the insert, so a 5 MB frame over a shop connection could stop the intake
+    // from being saved at all.
+    const photos = formData
+      .getAll("device_condition_photos")
+      .filter((f) => f instanceof File && f.size > 0) as File[];
+    if (photos.length > 0) {
+      const smaller = await downscaleImages(photos);
+      formData.delete("device_condition_photos");
+      for (const f of smaller) formData.append("device_condition_photos", f);
+    }
+
     const res = await createRepair(null, formData);
     if (res.success) return { success: true, error: "", data: res.data };
     return { success: false, error: res.error || "Сталася помилка" };
   }
 
-  const selectOptions = [
-    ...localCustomers.map(c => ({ id: c.id, label: `${c.name} (${c.phone})` })),
-    { id: "__new__", label: "+ Новий клієнт" }
+  const customerOptions = [
+    ...localCustomers.map((c) => ({ id: c.id, label: c.name, subLabel: c.phone })),
+    { id: "__new__", label: "+ Новий клієнт" },
   ];
 
-  const deviceOptions = devices.map(d => ({
-    id: d.id,
-    label: `${d.brand ?? ""} ${d.model ?? ""} (IMEI: ${d.imei ?? "не вказано"})`
-  }));
-
   return (
-    <form action={formAction} className="flex flex-col gap-4 md:gap-6 p-5">
-      {(state.error || custError) && (
-        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
-          {state.error || custError}
-        </div>
-      )}
+    <form action={formAction} className="flex flex-col gap-6">
+      <InlineError message={state.error || custError} onClose={() => setCustError("")} />
 
-      {/* Перемикач типу ремонту */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-text-secondary">Тип ремонту</label>
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-iris/5 p-1 border border-iris/10">
-          <button
-            type="button"
-            onClick={() => {
-              setIsInternal(false);
-              setSelectedInventoryDeviceId("");
-              setDeviceName("");
-              setDeviceImei("");
-            }}
-            className={`rounded-lg py-2.5 text-xs font-semibold tracking-wide transition-all ${
-              !isInternal
-                ? "bg-violet text-white shadow-sm"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            👤 Клієнтський ремонт
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsInternal(true);
-              setSelectedCustomerId("");
-            }}
-            className={`rounded-lg py-2.5 text-xs font-semibold tracking-wide transition-all ${
-              isInternal
-                ? "bg-violet text-white shadow-sm"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            📦 Внутрішній (Склад)
-          </button>
-        </div>
-      </div>
-
-      {!isInternal ? (
-        <div>
-          <SearchSelect
-            label="Клієнт"
-            name="customer_id"
-            options={selectOptions}
-            value={selectedCustomerId}
-            onChange={handleCustomerSelect}
-            placeholder="Оберіть клієнта..."
-            required
-          />
-          {showNewCustomer && (
-            <div className="mt-3 rounded-xl border border-violet/20 bg-violet/5 p-4 space-y-3">
-              <p className="text-xs font-medium text-text-secondary">Новий клієнт</p>
-              <input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Ім&apos;я *" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-              <input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Телефон *" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-              <input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email (опціонально)" className="w-full rounded-xl border border-iris/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet" />
-              <button type="button" onClick={handleCreateCustomer} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover">
-                Створити клієнта
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div>
-          <SearchSelect
-            label="Складський пристрій на продаж"
-            name="inventory_device_id"
-            options={deviceOptions}
-            value={selectedInventoryDeviceId}
-            onChange={handleDeviceSelect}
-            placeholder="Оберіть пристрій зі складу..."
-            required
-          />
-        </div>
-      )}
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Вузол ремонту (оберіть що потребує ремонту)</label>
-        <div className="flex flex-wrap gap-2">
-          {ISSUE_NODES.map(node => (
-            <button
-              key={node.value}
-              type="button"
-              onClick={() => toggleNode(node.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                selectedNodes.includes(node.value)
-                  ? "bg-violet text-white border-violet"
-                  : "bg-transparent text-text-secondary border-iris/20 hover:border-violet/40"
-              }`}
-            >
-              {node.label}
-            </button>
-          ))}
-        </div>
-        <input type="hidden" name="issue_nodes" value={JSON.stringify(selectedNodes)} />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Діагностика (симптоми)</label>
-        <div className="flex flex-wrap gap-2">
-          {ISSUE_DIAGNOSTICS.map(diag => (
-            <button
-              key={diag.value}
-              type="button"
-              onClick={() => toggleDiagnostic(diag.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                selectedDiagnostics.includes(diag.value)
-                  ? "bg-amber/80 text-white border-amber"
-                  : "bg-transparent text-text-secondary border-iris/20 hover:border-amber/40"
-              }`}
-            >
-              {diag.label}
-            </button>
-          ))}
-        </div>
-        <input type="hidden" name="issue_diagnostics" value={JSON.stringify(selectedDiagnostics)} />
-      </div>
-
-      <div>
-        <label htmlFor="device_name" className="mb-1.5 block text-xs font-medium text-text-secondary">Пристрій (Модель)</label>
-        <input
-          id="device_name"
-          name="device_name"
+      <Section title="Клієнт">
+        <SearchSelect
+          label="Хто здає пристрій"
+          name="customer_id"
+          options={customerOptions}
+          value={selectedCustomerId}
+          onChange={handleCustomerSelect}
+          placeholder="Оберіть клієнта..."
           required
-          type="text"
-          autoComplete="off"
-          value={deviceName}
-          onChange={e => setDeviceName(e.target.value)}
-          disabled={isInternal}
-          placeholder={isInternal ? "Оберіть пристрій вище" : "Напр. iPhone 13 Pro Max"}
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40 disabled:opacity-60 disabled:bg-iris/5"
         />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="device_password" className="mb-1.5 block text-xs font-medium text-text-secondary">Пароль пристрою (якщо є)</label>
-          <div className="relative">
-            <input
-              id="device_password"
-              name="device_password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              placeholder="Код блокування..."
-              className="w-full rounded-xl border border-iris/20 bg-transparent pl-4 pr-10 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary focus:outline-none"
-            >
-              {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-            </button>
+        {showNewCustomer && (
+          <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border bg-bg p-4">
+            <p className="text-xs font-medium text-muted">Новий клієнт</p>
+            <Input label="Ім'я" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} />
+            <Input label="Телефон" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} />
+            <Input label="Email" hint="Необов'язково" value={newCustEmail} onChange={(e) => setNewCustEmail(e.target.value)} />
+            <Button type="button" onClick={handleCreateCustomer} disabled={!newCustName.trim() || !newCustPhone.trim()}>
+              Створити клієнта
+            </Button>
           </div>
-        </div>
-        <div>
-          <label htmlFor="device_accessories_included" className="mb-1.5 block text-xs font-medium text-text-secondary">Комплектація (що здано)</label>
-          <input id="device_accessories_included" name="device_accessories_included" type="text" placeholder="Зарядка, чохол, коробка..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
-        </div>
-      </div>
+        )}
+      </Section>
 
-      <div>
-        <label htmlFor="device_imei" className="mb-1.5 block text-xs font-medium text-text-secondary">IMEI / Серійний номер (опціонально)</label>
-        <input
-          id="device_imei"
-          name="device_imei"
-          type="text"
-          value={deviceImei}
-          onChange={e => setDeviceImei(e.target.value)}
-          disabled={isInternal}
-          placeholder="IMEI або S/N"
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40 disabled:opacity-60 disabled:bg-iris/5"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="source" className="mb-1.5 block text-xs font-medium text-text-secondary">Звідки звернувся</label>
-          <select id="source" name="source" value={source} onChange={(e) => setSource(e.target.value)} required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet">
-            <option value="walk_in">Прийшов у магазин</option>
-            <option value="phone">Зателефонував</option>
-            <option value="online">Онлайн (сайт/месенджер)</option>
-            {!isInternal && <option value="marketplace">Маркетплейс / Промокод</option>}
-          </select>
-          {!isInternal && source === "marketplace" && (
-            <div className="mt-3 p-3 rounded-xl bg-violet/5 border border-violet/20 space-y-2">
-              <label className="block text-xs font-medium text-violet">Введіть промокод партнера</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={promoCode} 
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                  placeholder="VVC-XXXX"
-                  className="flex-1 rounded-lg border border-iris/20 bg-surface px-3 py-2 text-sm uppercase font-mono outline-none focus:border-violet" 
-                />
-                <button type="button" onClick={handleCheckPromo} className="rounded-lg bg-violet px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-hover">
-                  Перевірити
-                </button>
-              </div>
-              {promoMessage && (
-                <p className={`text-xs font-medium ${promoMessage.type === "success" ? "text-emerald" : "text-rose"}`}>
-                  {promoMessage.text}
-                </p>
-              )}
-            </div>
-          )}
+      <Section title="Пристрій і проблема">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label="Модель"
+            name="device_name"
+            required
+            autoComplete="off"
+            value={deviceName}
+            onChange={(e) => setDeviceName(e.target.value)}
+            placeholder="Напр. iPhone 13 Pro"
+          />
+          <Input
+            label="IMEI / серійний номер"
+            name="device_imei"
+            value={deviceImei}
+            onChange={(e) => setDeviceImei(e.target.value)}
+            placeholder="Необов'язково"
+          />
         </div>
-        <div>
-          <label htmlFor="estimated_completion" className="mb-1.5 block text-xs font-medium text-text-secondary">Орієнтовна дата готовності</label>
-          <input id="estimated_completion" name="estimated_completion" type="date" className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet" />
-        </div>
-      </div>
 
-      <div>
-        <label htmlFor="issue" className="mb-1.5 block text-xs font-medium text-text-secondary">Опис проблеми / роботи</label>
-        <textarea
-          id="issue"
+        <Textarea
+          label="Що не так"
           name="issue"
           required
           rows={3}
-          placeholder="Детальний опис поломки та стану пристрою..."
-          className="w-full resize-none rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40"
+          placeholder="Опис зі слів клієнта та що видно при огляді..."
         />
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="price" className="mb-1.5 block text-xs font-medium text-text-secondary">Орієнтовна вартість (грн)</label>
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            aria-expanded={showDetails}
+            className="btn-press flex items-center gap-1.5 text-xs font-medium text-accent-ink transition-colors hover:text-accent"
+          >
+            <IconChevronDown
+              size={14}
+              className={cn("transition-transform", showDetails && "rotate-180")}
+            />
+            Деталізувати вузол і симптоми
+          </button>
+
+          {showDetails && (
+            <div className="animate-entry mt-4 flex flex-col gap-4">
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted">Вузол</p>
+                <div className="flex flex-wrap gap-2">
+                  {ISSUE_NODES.map((n) => (
+                    <Chip
+                      key={n.value}
+                      active={selectedNodes.includes(n.value)}
+                      onClick={() => toggle(selectedNodes, setSelectedNodes, n.value)}
+                    >
+                      {n.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted">Симптоми</p>
+                <div className="flex flex-wrap gap-2">
+                  {ISSUE_DIAGNOSTICS.map((d) => (
+                    <Chip
+                      key={d.value}
+                      active={selectedDiagnostics.includes(d.value)}
+                      onClick={() => toggle(selectedDiagnostics, setSelectedDiagnostics, d.value)}
+                    >
+                      {d.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Section>
+
+      <Section
+        title="Стан при здачі"
+        hint="Фіксує, яким апарат прийшов. Це те, чим ви доведете, що подряпина була до вас."
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select
+            label="Грейд стану"
+            name="device_condition"
+            required
+            placeholder="Оберіть стан..."
+            options={optionsOf(deviceCondition)}
+          />
+          <Input
+            label="Опис стану"
+            name="device_condition_description"
+            placeholder="Подряпини, сколи, сліди використання..."
+          />
+        </div>
+
+        <div>
+          <label htmlFor="device_condition_photos" className="mb-1.5 block text-xs font-medium text-muted">
+            Фото стану
+          </label>
           <input
-            id="price"
+            id="device_condition_photos"
+            type="file"
+            name="device_condition_photos"
+            multiple
+            accept="image/*"
+            required
+            className="w-full text-sm text-ink file:mr-3 file:rounded-[var(--radius-sm)] file:border-0 file:bg-accent file:px-3 file:py-2 file:text-xs file:font-medium file:text-on-accent"
+          />
+          <p className="mt-1.5 text-xs text-faint">
+            Знімки зменшуються в браузері перед відправкою, тож розмір кадру не має значення.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="device_password" className="mb-1.5 block text-xs font-medium text-muted">
+              Пароль пристрою
+            </label>
+            <div className="relative">
+              <input
+                id="device_password"
+                name="device_password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Якщо потрібен для робіт"
+                className="w-full rounded-[var(--radius-md)] border border-border bg-surface py-2.5 pl-3.5 pr-10 text-base text-ink outline-none transition-colors placeholder-faint hover:border-border-strong focus:border-accent md:text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Сховати пароль" : "Показати пароль"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-ink"
+              >
+                {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+              </button>
+            </div>
+          </div>
+          <Input
+            label="Комплектація"
+            name="device_accessories_included"
+            placeholder="Зарядка, чохол, коробка..."
+          />
+        </div>
+      </Section>
+
+      <Section title="Ціна й строк">
+        <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border border-border bg-bg p-4">
+          <Checkbox
+            name="is_warranty"
+            value="true"
+            checked={isWarranty}
+            onChange={(e) => {
+              setIsWarranty(e.target.checked);
+              if (e.target.checked) setPrice("0");
+            }}
+            className="mt-0.5"
+          />
+          <span className="flex flex-col">
+            <span className="text-sm font-medium text-ink">Гарантійний випадок</span>
+            <span className="text-xs text-muted">Вартість буде 0 ₴</span>
+          </span>
+        </label>
+
+        {isWarranty && (
+          <div className="animate-entry flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border bg-bg p-4">
+            <p className="text-xs font-medium text-muted">
+              {selectedCustomerId ? "Попередній ремонт цього клієнта" : "Знайдіть попередній ремонт"}
+            </p>
+            {!selectedCustomerId && (
+              <Input
+                label="Пошук"
+                value={pastRepairsSearch}
+                onChange={(e) => setPastRepairsSearch(e.target.value)}
+                placeholder="Модель, IMEI або проблема..."
+              />
+            )}
+            {pastRepairsLoading ? (
+              <p className="text-xs text-muted">Завантаження...</p>
+            ) : (
+              <Select
+                label="Ремонт, який покриває гарантія"
+                value={selectedPastRepairId}
+                onChange={handleSelectPastRepair}
+                placeholder="Оберіть ремонт..."
+              >
+                {pastRepairs.map((pr) => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.device_name} — {new Date(pr.completed_at || pr.created_at || "").toLocaleDateString("uk-UA")}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <input type="hidden" name="warranty_for_repair_id" value={selectedPastRepairId} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Input
+            label="Орієнтовна вартість, ₴"
             name="price"
             type="number"
-            min="0"
-            value={isWarranty ? 0 : undefined}
-            defaultValue={isWarranty ? undefined : "0"}
+            inputMode="numeric"
+            min={0}
+            value={isWarranty ? "0" : price}
+            onChange={(e) => setPrice(e.target.value)}
             disabled={isWarranty}
             required={!isWarranty}
-            className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet disabled:opacity-60 disabled:bg-iris/5"
           />
+          <Select label="Гарантія" name="warranty_months" defaultValue="3">
+            <option value="3">3 місяці</option>
+            <option value="6">6 місяців</option>
+            <option value="12">12 місяців</option>
+          </Select>
+          <Input label="Готовність до" name="estimated_completion" type="date" />
         </div>
-        <div>
-          <label htmlFor="warranty_months" className="mb-1.5 block text-xs font-medium text-text-secondary">Гарантія (міс)</label>
-          <input
-            id="warranty_months"
-            name="warranty_months"
-            type="number"
-            min="0"
-            defaultValue="3"
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select
+            label="Звідки звернувся"
+            name="source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
             required
-            className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet"
+            options={optionsOf(repairSource)}
           />
-        </div>
-      </div>
-
-      <label className="flex items-center gap-3 cursor-pointer bg-violet/5 hover:bg-violet/10 px-4 py-3 rounded-xl transition-colors border border-violet/10 group mt-2 mb-2">
-        <div className="relative flex items-center justify-center">
-          <input type="checkbox" name="is_warranty" value="true" checked={isWarranty} onChange={e => setIsWarranty(e.target.checked)} className="peer w-5 h-5 rounded border-violet/30 text-violet focus:ring-violet focus:ring-offset-0 bg-surface" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold text-violet">🛡️ Це гарантійний випадок</span>
-          <span className="text-[11px] text-text-secondary opacity-80">Вартість ремонту буде 0 грн</span>
-        </div>
-      </label>
-
-      {isWarranty && (
-        <div className="mb-4 bg-violet/5 border border-violet/20 rounded-xl p-4 animate-entry">
-          <label className="block text-xs font-semibold text-violet mb-2">
-            {selectedCustomerId ? "Оберіть попередній ремонт цього клієнта" : "Знайдіть попередній ремонт (Глобально)"}
-          </label>
-          
-          {!selectedCustomerId && (
-            <input 
-              type="text" 
-              placeholder="Пошук за моделлю, IMEI або проблемою..."
-              value={pastRepairsSearch}
-              onChange={(e) => setPastRepairsSearch(e.target.value)}
-              className="w-full mb-3 rounded-xl border border-violet/20 bg-surface px-4 py-2.5 text-sm outline-none focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/50"
-            />
+          {source === "marketplace" && (
+            <div className="flex flex-col gap-2">
+              <Input
+                label="Промокод партнера"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="VVC-XXXX"
+                className="uppercase"
+              />
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={handleCheckPromo}>
+                  Перевірити
+                </Button>
+                {promoMessage && (
+                  <p className={cn("text-xs", promoMessage.type === "success" ? "text-success" : "text-danger")}>
+                    {promoMessage.text}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
-
-          {pastRepairsLoading ? (
-             <div className="text-xs text-text-secondary flex items-center gap-2">Завантаження ремонтів...</div>
-          ) : (
-            <select 
-              value={selectedPastRepairId}
-              onChange={handleSelectPastRepair}
-              className="w-full rounded-xl border border-violet/20 bg-surface px-4 py-3 text-sm text-text-primary outline-none focus:border-violet focus:ring-1 focus:ring-violet"
-            >
-              <option value="">-- Оберіть ремонт для гарантії --</option>
-              {pastRepairs.map((pr: any) => (
-                <option key={pr.id} value={pr.id}>
-                  {pr.device_name} (Ремонт від {new Date(pr.completed_at || pr.created_at || "").toLocaleDateString()}) - {pr.issue.substring(0, 30)}
-                </option>
-              ))}
-            </select>
-          )}
-          
-          <input type="hidden" name="warranty_for_repair_id" value={selectedPastRepairId} />
         </div>
-      )}
 
-
-
-      <div className="border-t border-warm-border/50 pt-4">
-        <h3 className="text-xs font-semibold text-text-secondary mb-3 uppercase tracking-wider tracking-tight">Стан пристрою на момент здачі</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="device_condition" className="mb-1.5 block text-xs font-medium text-text-secondary">Грейд стану *</label>
-            <select id="device_condition" name="device_condition" required className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet">
-              <option value="">Оберіть стан...</option>
-              <option value="perfect">Grade A (Ідеальний / Новий)</option>
-              <option value="good">Grade B (Хороший)</option>
-              <option value="fair">Grade C (Середній)</option>
-              <option value="poor">Поганий</option>
-              <option value="damaged">Під ремонт / Пошкоджений</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="device_condition_description" className="mb-1.5 block text-xs font-medium text-text-secondary">Опис стану</label>
-            <input id="device_condition_description" name="device_condition_description" placeholder="Подряпини, сколи, сліди використання..." className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet" />
-          </div>
-        </div>
-        <div className="mt-4">
-          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фото стану пристрою *</label>
-          <p className="text-xs text-text-secondary mb-2">Додайте фото пристрою на момент приймання (обов&apos;язково)</p>
-          <input type="file" name="device_condition_photos" multiple accept="image/*" required className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white" />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="notes" className="mb-1.5 block text-xs font-medium text-text-secondary">Примітки (опціонально)</label>
-        <textarea
-          id="notes"
+        <Textarea
+          label="Примітки"
           name="notes"
           rows={2}
-          placeholder="Пароль від пристрою, стан, додаткові аксесуари..."
-          className="w-full resize-none rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet focus:ring-1 focus:ring-violet placeholder:text-text-secondary/40"
+          placeholder="Домовленості з клієнтом, деталі, на що звернути увагу..."
         />
-      </div>
+      </Section>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
-      >
-        {pending ? <span className="animate-pulse opacity-60">Зачекайте...</span> : "Створити ремонт"}
-      </button>
+      <Button type="submit" size="lg" fullWidth isLoading={pending}>
+        Прийняти в ремонт
+      </Button>
     </form>
   );
 }

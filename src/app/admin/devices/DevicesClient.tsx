@@ -27,6 +27,9 @@ import {
   bulkUpdateDevicesTtn,
   receiveDeviceFromTransit,
 } from "@/lib/actions/devices";
+import { createWarehouseRepair } from "@/lib/actions/repairs";
+import { Textarea } from "@/components/ui/Textarea";
+import { Input } from "@/components/ui/Input";
 
 import { optionsOf, deviceType, deviceCondition } from "@/lib/domain-labels";
 import { STAGE_ORDER, stageLabels, type DeviceStage } from "@/lib/device-stage";
@@ -80,6 +83,13 @@ export function DevicesClient({
   const [receivingDevice, setReceivingDevice] = useState<DeviceWithRepairs | null>(null);
   const [deletingDevice, setDeletingDevice] = useState<DeviceWithRepairs | null>(null);
   const [selectedSafeId, setSelectedSafeId] = useState("");
+
+  // Starting a repair on our own device. This replaces the intake form's
+  // "Внутрішній (Склад)" toggle, which created rows that /admin/repairs then
+  // filtered out — every orphaned repair row came from there.
+  const [repairing, setRepairing] = useState<DeviceWithRepairs | null>(null);
+  const [repairIssue, setRepairIssue] = useState("");
+  const [repairCost, setRepairCost] = useState("0");
 
   // Attach repair rows once; every stage decision downstream reads from here.
   const rows: DeviceWithRepairs[] = useMemo(
@@ -221,6 +231,19 @@ export function DevicesClient({
           {!archived && stage !== "transit" && (
             <Button size="sm" variant="secondary" leadingIcon={<IconCash size={13} />} onClick={() => setSellingDevice(d)}>
               Продати
+            </Button>
+          )}
+          {!archived && stage !== "transit" && stage !== "in_repair" && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setRepairing(d);
+                setRepairIssue("");
+                setRepairCost(String(d.repair_cost || 0));
+              }}
+            >
+              В ремонт
             </Button>
           )}
           {!archived && stage !== "transit" && (
@@ -537,6 +560,56 @@ export function DevicesClient({
             ))}
           </Select>
         )}
+      </Modal>
+
+      {/* Складський ремонт — два поля, бо клієнта, гарантії й квитанції тут немає */}
+      <Modal
+        isOpen={!!repairing}
+        onClose={() => setRepairing(null)}
+        title="Відправити в ремонт"
+        description={repairing ? `${repairing.brand} ${repairing.model}` : undefined}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRepairing(null)}>
+              Скасувати
+            </Button>
+            <Button
+              isLoading={isPending}
+              disabled={repairIssue.trim().length < 5}
+              onClick={() =>
+                repairing &&
+                run(
+                  () =>
+                    createWarehouseRepair(repairing.id, repairIssue, Number(repairCost) || 0),
+                  () => setRepairing(null),
+                )
+              }
+            >
+              Створити ремонт
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Textarea
+            label="Що ремонтуємо"
+            value={repairIssue}
+            onChange={(e) => setRepairIssue(e.target.value)}
+            rows={3}
+            placeholder="Напр. заміна акумулятора, не тримає заряд"
+            hint="Від 5 символів."
+          />
+          <Input
+            label="Кошторис, ₴"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={repairCost}
+            onChange={(e) => setRepairCost(e.target.value)}
+            hint="Собівартість робіт і деталей. Уточните пізніше."
+          />
+        </div>
       </Modal>
 
       {/* Видалення — раніше це був native confirm() */}

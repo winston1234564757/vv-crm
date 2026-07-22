@@ -43,19 +43,10 @@ interface Customer {
   phone: string;
 }
 
-interface Device {
-  id: string;
-  brand: string | null;
-  model: string | null;
-  imei: string | null;
-  status: string;
-}
-
 interface RepairsClientProps {
   repairs: RepairRow[];
   paidTotals: Record<string, number>;
   customers: Customer[];
-  inStockDevices: Device[];
   cashRegisters: Database["public"]["Tables"]["cash_registers"]["Row"][];
 }
 
@@ -63,7 +54,6 @@ export function RepairsClient({
   repairs,
   paidTotals,
   customers,
-  inStockDevices,
   cashRegisters,
 }: RepairsClientProps) {
   const router = useRouter();
@@ -284,7 +274,7 @@ export function RepairsClient({
           icon: <IconRepair size={20} />,
           action:
             segment === "all" ? (
-              <AddRepairButton customers={customers} devices={inStockDevices} />
+              <AddRepairButton customers={customers} />
             ) : undefined,
         }}
         noResults={{

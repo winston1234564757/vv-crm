@@ -749,9 +749,10 @@ export async function searchCompletedRepairs(customerId?: string | null, searchQ
       device_name,
       device_imei,
       issue,
+      created_at,
       completed_at,
       warranty_months,
-      customer:customers(id, full_name, phone_number)
+      customer:customers(id, name, phone)
     `)
     .in("status", ["completed", "handed_over", "ready"])
     .order("created_at", { ascending: false })
@@ -857,6 +858,68 @@ export async function refundRepairPayment(transactionId: string): Promise<Action
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/**
+ * Starts a repair on a device the shop owns.
+ *
+ * This replaces the "Внутрішній (Склад)" toggle on the intake form, which was
+ * the source of every orphaned repair row: it wrote `inventory_device_id`, and
+ * all three read paths in `data-repairs.ts` filter exactly those rows out, so
+ * the record vanished from the page it was created on. Started from the device
+ * instead, the result is visible immediately — `deviceStage` reads an open
+ * repair row as the `in_repair` stage.
+ *
+ * Deliberately narrow: a warehouse repair has no customer, no warranty, no
+ * receipt and no condition photos — the device is already photographed in its
+ * own card.
+ */
+export async function createWarehouseRepair(
+  deviceId: string,
+  issue: string,
+  estimatedCost: number,
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    const { data: device, error: devErr } = await supabase
+      .from("devices")
+      .select("id, brand, model, imei")
+      .eq("id", deviceId)
+      .single();
+    if (devErr || !device) throw new Error("Пристрій не знайдено");
+
+    const trimmed = issue.trim();
+    if (trimmed.length < 5) throw new Error("Опишіть, що саме ремонтуємо (від 5 символів)");
+
+    const deviceName = [device.brand, device.model].filter(Boolean).join(" ") || "Пристрій";
+
+    const { error } = await supabase.from("repairs").insert({
+      inventory_device_id: device.id,
+      customer_id: null,
+      device_name: deviceName,
+      device_imei: device.imei,
+      issue: trimmed,
+      status: "received",
+      price: 0,
+      cost: Math.max(0, Math.round(estimatedCost)),
+      warranty_months: 0,
+      source: "walk_in",
+    });
+    if (error) throw error;
+
+    // Keep the device card in step with the repair row it now has.
+    await supabase
+      .from("devices")
+      .update({ needs_repair: true, repair_status: "in_progress" })
+      .eq("id", device.id);
+
+    revalidatePath("/admin/devices");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
