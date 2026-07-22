@@ -74,7 +74,7 @@ function num(v: number | null | undefined): number {
 /** Маржа у відсотках. Нульовий виторг дає 0, а не NaN і не Infinity. */
 export function margin(revenue: number, profit: number): number {
   if (revenue === 0) return 0;
-  return Math.round((profit / revenue) * 100);
+  return Math.round((profit / revenue) * 100) || 0;
 }
 
 /**
@@ -82,14 +82,17 @@ export function margin(revenue: number, profit: number): number {
  *
  * Для пристрою береться з `devices`, бо збережений `unit_cost` не знає про
  * ремонт. Якщо пристрою в мапі немає (видалили), падаємо назад на `unit_cost`:
- * занижена собівартість краща за нульову, і принаймні не мовчазна — такий
- * продаж видно в звірці §8 спеки.
+ * ми вже не знаємо, у скільки обійшовся цей ремонт, тож беремо збережений
+ * знімок. Це мовчазне заниження собівартості — звірка його не ловить,
+ * дашборд і Finance викликають цю саму функцію й отримують той самий
+ * фолбек. Але нуль тут був би гірше: він завищив би прибуток, а саме з цією
+ * помилкою й боровся цей модуль.
  */
 export function itemCost(
   item: ProfitSaleItem,
   devices: Map<string, ProfitDeviceCost>,
 ): number {
-  const qty = num(item.quantity) || 1;
+  const qty = item.quantity == null ? 1 : num(item.quantity);
   if (item.item_type === "device" && item.item_id) {
     const dev = devices.get(item.item_id);
     if (dev) return (num(dev.cost_price) + num(dev.repair_cost)) * qty;

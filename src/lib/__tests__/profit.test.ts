@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemCost,
   computeProfit,
+  margin,
   resolveRange,
   type ProfitSaleItem,
   type ProfitDeviceCost,
@@ -49,6 +50,24 @@ describe("itemCost", () => {
   it("multiplies a device cost by quantity too", () => {
     const it_ = item({ item_type: "device", item_id: "tecno-8p", quantity: 2, unit_cost: 600 });
     expect(itemCost(it_, DEV)).toBe(3100);
+  });
+
+  it("treats a null quantity as one, not zero", () => {
+    const it_ = item({ quantity: null as unknown as number, unit_cost: 30 });
+    expect(itemCost(it_, DEV)).toBe(30);
+  });
+
+  it("keeps an explicit zero quantity at zero cost, not one", () => {
+    const it_ = item({ quantity: 0, unit_cost: 30 });
+    expect(itemCost(it_, DEV)).toBe(0);
+  });
+});
+
+describe("margin", () => {
+  it("normalizes a small loss that rounds to zero to +0, not -0", () => {
+    const m = margin(1000, -3);
+    expect(m).toBe(0);
+    expect(Object.is(m, -0)).toBe(false);
   });
 });
 
@@ -129,6 +148,11 @@ describe("resolveRange", () => {
   it("covers seven whole days including today", () => {
     const { start } = resolveRange("7d", now);
     expect(start.toISOString()).toBe(new Date("2026-07-16T00:00:00").toISOString());
+  });
+
+  it("covers thirty whole days including today", () => {
+    const { start } = resolveRange("30d", now);
+    expect(start.toISOString()).toBe(new Date("2026-06-23T00:00:00").toISOString());
   });
 
   it("runs the current month from the first", () => {
