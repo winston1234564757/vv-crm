@@ -7,7 +7,7 @@ import {
   type AttentionStockItem,
 } from "../attention";
 
-const NOW = new Date("2026-07-22T12:00:00");
+const NOW = new Date("2026-07-22T12:00:00Z");
 
 function repair(over: Partial<AttentionRepair> = {}): AttentionRepair {
   return {
