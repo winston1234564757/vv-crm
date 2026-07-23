@@ -7,6 +7,7 @@ import { AddSaleButton } from "./AddSaleButton";
 import { AddRepairButton } from "./repairs/AddRepairButton";
 import { AttentionSection } from "./AttentionSection";
 import { MoneySection } from "./MoneySection";
+import { InsightsSection } from "./InsightsSection";
 import { findAttention, type AttentionRepair, type AttentionStockItem } from "@/lib/attention";
 import type { DashboardMoney } from "@/lib/data-dashboard";
 import type { SalesTargets } from "@/lib/data-settings";
@@ -63,6 +64,7 @@ export function DashboardClient({ preset, attention, money, targets }: Dashboard
 
       <AttentionSection groups={groups} />
       <MoneySection preset={preset} money={money} targets={targets} />
+      <InsightsSection preset={preset} />
     </div>
   );
 }
