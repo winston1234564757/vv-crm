@@ -86,7 +86,7 @@ export async function getFinanceReport(daysBack = 30) {
   const startStr = startDate.toISOString();
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost)").gte("created_at", startStr),
+    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").gte("created_at", startStr),
     supabase.from("purchases").select("total_amount").gte("created_at", startStr),
     supabase.from("expenses").select("amount, category_id").gte("created_at", startStr),
     supabase.from("expense_categories").select("*"),

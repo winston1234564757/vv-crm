@@ -22,15 +22,13 @@ function isRepairGroup(code: AttentionCode) {
 }
 
 /**
- * `AttentionRow` carries no `kind` field — it's `id`/`title`/`note`/`urgency`
- * only (Task 5's fixed interface). The one place a stock row's kind survives
- * is the note text: `findAttention` appends "· запчастина" for parts and
- * nothing for accessories. Fragile-looking, but it's the only signal there is
- * without reaching back into attention.ts to add a field this is the only
- * consumer of.
+ * Routes a stock row by its `kind` (set in `findAttention` from
+ * `AttentionStockItem.kind`), not by parsing the display `note`. The note
+ * text ("· запчастина") is presentation only — it can change independently
+ * of routing.
  */
-function stockHref(note: string) {
-  return note.includes("запчастина") ? "/admin/parts" : "/admin/accessories";
+function stockHref(kind: "accessory" | "part" | undefined) {
+  return kind === "part" ? "/admin/parts" : "/admin/accessories";
 }
 
 /**
@@ -104,7 +102,7 @@ export function AttentionSection({ groups }: { groups: AttentionGroup[] }) {
                 ) : (
                   <Link
                     key={row.id}
-                    href={stockHref(row.note)}
+                    href={stockHref(row.kind)}
                     className="-mx-2 flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-2.5 transition-colors hover:bg-hover"
                   >
                     <span className="truncate text-sm text-ink">{row.title}</span>

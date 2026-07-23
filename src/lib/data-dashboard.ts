@@ -24,6 +24,8 @@ export interface DashboardMoney {
   monthProfit: number;
   /** Прибуток за сьогодні — незалежно від обраного пресету. */
   todayProfit: number;
+  /** Витрати за поточний місяць — незалежно від обраного пресету. Для футера. */
+  monthExpenses: number;
 }
 
 /**
@@ -44,7 +46,7 @@ async function profitForRange(
   const [salesRes, repairsRes] = await Promise.all([
     supabase
       .from("sales")
-      .select("discount, sale_items(item_type, item_id, quantity, unit_cost)")
+      .select("discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)")
       .gte("created_at", startStr)
       .lt("created_at", endStr),
     supabase
@@ -101,6 +103,7 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
     todayProfitResult,
     monthProfitResult,
     expensesRes,
+    monthExpensesRes,
     cashRegistersRes,
     safesRes,
     opexExpensesRes,
@@ -113,6 +116,13 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
       .select("amount")
       .gte("created_at", range.start.toISOString())
       .lt("created_at", range.end.toISOString()),
+    preset === "month"
+      ? Promise.resolve(null)
+      : supabase
+          .from("expenses")
+          .select("amount")
+          .gte("created_at", monthRange.start.toISOString())
+          .lt("created_at", monthRange.end.toISOString()),
     supabase.from("cash_registers").select("balance"),
     supabase.from("safes").select("balance, type"),
     supabase.from("expenses").select("amount").gte("created_at", thirtyDaysAgo.toISOString()),
@@ -122,6 +132,10 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
   const monthProfit = preset === "month" ? profit.profit : monthProfitResult!.profit;
 
   const expenses = (expensesRes.data ?? []).reduce((s, e) => s + e.amount, 0);
+  // Пресет "Місяць" — той самий діапазон, що й обраний, тому окремого
+  // запиту не робимо й перевикористовуємо `expenses`.
+  const monthExpenses =
+    preset === "month" ? expenses : (monthExpensesRes?.data ?? []).reduce((s, e) => s + e.amount, 0);
   const cashTotal =
     (cashRegistersRes.data ?? []).reduce((s, c) => s + c.balance, 0) +
     (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
@@ -136,5 +150,5 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
   const opexSafeBalance = (safesRes.data ?? []).find((s) => s.type === "opex")?.balance ?? 0;
   const runwayDays = Math.round(opexSafeBalance / dailyOpex);
 
-  return { profit, expenses, cashTotal, runwayDays, dailyOpex, monthProfit, todayProfit };
+  return { profit, expenses, cashTotal, runwayDays, dailyOpex, monthProfit, todayProfit, monthExpenses };
 }

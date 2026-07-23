@@ -58,6 +58,8 @@ export interface AttentionRow {
   note: string;
   /** Більше — терміновіше. Лише для сортування. */
   urgency: number;
+  /** Тільки для рядків складу — куди веде посилання. Ремонти лишають undefined. */
+  kind?: "accessory" | "part";
 }
 
 export interface AttentionGroup {
@@ -148,6 +150,7 @@ export function findAttention(
       note: s.kind === "part" ? `${s.stock} шт · запчастина` : `${s.stock} шт`,
       // Нульові — вгору; далі за глибиною браку.
       urgency: s.stock === 0 ? 1000 : 100 - s.stock,
+      kind: s.kind,
     }));
 
   return [

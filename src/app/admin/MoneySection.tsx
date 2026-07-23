@@ -71,7 +71,10 @@ export function MoneySection({
     });
   }
 
-  const net = money.profit.profit - money.expenses;
+  // Футер завжди показує поточний місяць, незалежно від обраного пресету —
+  // так само як `monthProfit`. Інакше перемикання вкладок міняє значення
+  // "Чистими" без зміни підпису.
+  const monthNet = money.monthProfit - money.monthExpenses;
   const hasTargets = targets.daily !== null || targets.monthly !== null;
 
   return (
@@ -113,7 +116,7 @@ export function MoneySection({
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium text-muted">Прибуток</p>
+            <p className="text-xs font-medium text-muted">Валовий прибуток</p>
             <p
               className={cn(
                 "mt-1 font-display text-2xl font-semibold tabular tracking-tight",
@@ -184,11 +187,13 @@ export function MoneySection({
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4 text-xs">
           <span className="text-muted">
-            Витрати за період: <span className="font-medium text-ink">{fmt(money.expenses)}</span>
+            Місяць, витрати: <span className="font-medium text-ink">{fmt(money.monthExpenses)}</span>
           </span>
           <span className="text-muted">
             Чистими:{" "}
-            <span className={cn("font-medium", net >= 0 ? "text-success" : "text-danger")}>{fmt(net)}</span>
+            <span className={cn("font-medium", monthNet >= 0 ? "text-success" : "text-danger")}>
+              {fmt(monthNet)}
+            </span>
           </span>
           <span className="text-muted">
             Каса: <span className="font-medium text-ink">{fmt(money.cashTotal)}</span>

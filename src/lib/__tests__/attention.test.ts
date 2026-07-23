@@ -101,6 +101,24 @@ describe("findAttention", () => {
     expect(groups.find((g) => g.code === "repair_unpaid")!.total).toBe(1);
   });
 
+  it("carries the accessory/part distinction as data, not just in the note text", () => {
+    const groups = findAttention(
+      {
+        repairs: [],
+        stock: [
+          stock({ id: "a", name: "Кабель", kind: "accessory" }),
+          stock({ id: "p", name: "Шлейф", kind: "part" }),
+        ],
+      },
+      NOW,
+    );
+    const low = groups.find((g) => g.code === "stock_low")!;
+    const accessoryRow = low.rows.find((r) => r.id === "a")!;
+    const partRow = low.rows.find((r) => r.id === "p")!;
+    expect(accessoryRow.kind).toBe("accessory");
+    expect(partRow.kind).toBe("part");
+  });
+
   it("puts a zero stock above a merely low one", () => {
     const groups = findAttention(
       {
