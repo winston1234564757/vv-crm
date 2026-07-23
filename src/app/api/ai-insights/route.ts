@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     dailyTarget: settings.sales_targets.daily,
     monthlyTarget: settings.sales_targets.monthly,
     monthProfit: money.monthProfit,
-    monthExpenses: money.expenses,
+    monthExpenses: money.monthExpenses,
     opexRunwayDays: money.runwayDays,
     dailyOpexRunRate: money.dailyOpex,
     attentionText: groups.map((g) => `${g.label}: ${g.total}`).join("; "),
