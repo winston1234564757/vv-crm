@@ -1,27 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import type { RangePreset } from "@/lib/profit";
-
-interface Insight {
-  type: string;
-  title: string;
-  description: string;
-  action: string;
-  impact: string;
-}
+import type { SmartInsight } from "@/app/api/ai-insights/route";
 
 type Status = "idle" | "loading" | "ready" | "empty";
 
-const IMPACT_BORDER: Record<string, string> = {
+const IMPACT_BORDER: Record<SmartInsight["impact"], string> = {
   high: "border-l-danger",
   medium: "border-l-warning",
   low: "border-l-border",
 };
 
-function borderClass(impact: string): string {
+// `impact` is typed as a closed union, but it originates from a model
+// response that can say anything at runtime — the fallback below is load
+// bearing, not defensive dead code.
+function borderClass(impact: SmartInsight["impact"]): string {
   return IMPACT_BORDER[impact] ?? IMPACT_BORDER.low;
 }
 
@@ -43,14 +39,30 @@ function borderClass(impact: string): string {
  */
 export function InsightsSection({ preset }: { preset: RangePreset }) {
   const [status, setStatus] = useState<Status>("idle");
-  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insights, setInsights] = useState<SmartInsight[]>([]);
+
+  // Single guard for both races (Finding 1: stale response after a preset
+  // switch, Finding 2: response after unmount). Every setState after an
+  // await is gated on this ref still matching the generation captured
+  // before the await — bumped here on every load() call, on every preset
+  // change (even ones with no in-flight load), and on unmount.
+  const generationRef = useRef(0);
 
   useEffect(() => {
+    generationRef.current += 1;
     setStatus("idle");
     setInsights([]);
   }, [preset]);
 
+  useEffect(() => {
+    return () => {
+      generationRef.current += 1;
+    };
+  }, []);
+
   async function load() {
+    generationRef.current += 1;
+    const generation = generationRef.current;
     setStatus("loading");
     try {
       const res = await fetch("/api/ai-insights", {
@@ -59,10 +71,12 @@ export function InsightsSection({ preset }: { preset: RangePreset }) {
         body: JSON.stringify({ range: preset }),
       });
       const data = await res.json().catch(() => ({ insights: [] }));
-      const list: Insight[] = Array.isArray(data?.insights) ? data.insights : [];
+      const list: SmartInsight[] = Array.isArray(data?.insights) ? data.insights : [];
+      if (generationRef.current !== generation) return;
       setInsights(list);
       setStatus(list.length > 0 ? "ready" : "empty");
     } catch {
+      if (generationRef.current !== generation) return;
       setInsights([]);
       setStatus("empty");
     }
