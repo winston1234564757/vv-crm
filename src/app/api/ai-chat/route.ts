@@ -7,6 +7,7 @@ import {
   buildRepairCopilotSystem,
   buildFinanceCopilotSystem,
 } from "@/lib/ai-prompts";
+import { getFinanceReport } from "@/lib/data-finance";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -89,30 +90,21 @@ export async function POST(request: NextRequest) {
       }
 
     } else if (entityType === "finance") {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
-
-      const [registersRes, safesRes, expensesRes, salesRes, repairsRes] = await Promise.all([
+      const [registersRes, safesRes] = await Promise.all([
         adminClient.from("cash_registers").select("name, balance, type"),
         adminClient.from("safes").select("name, balance, type"),
-        adminClient.from("expenses").select("amount").gte("created_at", thirtyDaysAgoStr),
-        adminClient.from("sales").select("total_amount").gte("created_at", thirtyDaysAgoStr),
-        adminClient.from("repairs").select("price").in("status", ["completed", "handed_over"]).gte("created_at", thirtyDaysAgoStr),
       ]);
 
       const registers = registersRes.data || [];
       const safes = safesRes.data || [];
-      const totalExpenses = (expensesRes.data || []).reduce((s, e) => s + e.amount, 0);
-      const totalSalesRevenue = (salesRes.data || []).reduce((s, e) => s + e.total_amount, 0);
-      const totalRepairsRevenue = (repairsRes.data || []).reduce((s, r) => s + r.price, 0);
+      const report = await getFinanceReport(30);
 
       systemPrompt = buildFinanceCopilotSystem({
         totalCash: registers.reduce((s, r) => s + r.balance, 0),
         totalSafes: safes.reduce((s, r) => s + r.balance, 0),
-        totalExpenses,
-        totalRevenue: totalSalesRevenue + totalRepairsRevenue,
-        profit: totalSalesRevenue + totalRepairsRevenue - totalExpenses,
+        totalExpenses: report.totalExpenses,
+        totalRevenue: report.totalSales + report.repairsRevenue,
+        profit: report.profit,
         registers,
         safes,
       });

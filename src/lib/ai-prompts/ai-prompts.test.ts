@@ -226,43 +226,41 @@ describe("buildRepairDiagnosePrompt", () => {
 
 describe("buildInsightsPrompt", () => {
   const basePayload = {
-    todaySalesTotal: 5000,
-    salesTarget: 10000,
-    salesProgress: 50,
-    activeRepairs: 12,
-    awaitingParts: 3,
-    crossSellConversionRate: 20,
-    crossSellRevenue30Days: 8000,
-    supplyChainDelayRate: 15,
-    customerReturnRate: 40,
-    partnerVolumeShare: 10,
-    opexRunwayDays: 30,
-    dailyOpexRunRate: 500,
-    topModelsText: "iPhone 14 (ремонти: 5)",
-    stockoutText: "Акумулятор iPhone — 2 дні",
-    peakDayName: "Пт",
-    peakRevenueHour: 15,
-    peakAvgCheck: 1200,
+    rangeLabel: "Сьогодні",
+    revenue: 3800,
+    profit: 1227,
+    marginPercent: 32,
+    byCategoryText: "Техніка 3000 ₴ / 650 ₴ / 22%; Аксесуари 700 ₴ / 477 ₴ / 68%",
+    dailyTarget: 2000,
+    monthlyTarget: 40000,
+    monthProfit: 3975,
+    monthExpenses: 5050,
+    opexRunwayDays: 22,
+    dailyOpexRunRate: 168,
+    attentionText: "Ремонти без руху понад 14 днів: 3; Час замовляти: 32",
   };
 
-  it("містить числові показники в промпті", () => {
+  it("carries the profit and margin into the prompt", () => {
     const result = buildInsightsPrompt(basePayload);
-    expect(result).toContain("5000");
-    expect(result).toContain("50%");
-    expect(result).toContain("iPhone 14");
+    expect(result).toContain("1227");
+    expect(result).toContain("32%");
   });
 
-  it("вимагає JSON масив з полями type, title, description, impact", () => {
-    const result = buildInsightsPrompt(basePayload);
-    expect(result).toContain('"type"');
-    expect(result).toContain('"title"');
-    expect(result).toContain('"impact"');
-    expect(result).toContain("JSON масив");
+  it("states the net result for the month rather than making the model derive it", () => {
+    expect(buildInsightsPrompt(basePayload)).toContain("-1075");
   });
 
-  it("містить пікову годину і день", () => {
-    const result = buildInsightsPrompt(basePayload);
-    expect(result).toContain("Пт");
-    expect(result).toContain("15:00");
+  it("says targets are unset instead of printing null", () => {
+    const result = buildInsightsPrompt({
+      ...basePayload,
+      dailyTarget: null,
+      monthlyTarget: null,
+    });
+    expect(result).toContain("не задані");
+    expect(result).not.toContain("null");
+  });
+
+  it("warns the model off trend claims, since the shop just opened", () => {
+    expect(buildInsightsPrompt(basePayload)).toContain("24.07.2026");
   });
 });

@@ -111,28 +111,37 @@ export function buildRepairDiagnosePrompt(repair: {
 // ─── 7. Business Insights (JSON array) ──────────────────────────────────────
 
 export function buildInsightsPrompt(data: {
-  todaySalesTotal: number;
-  salesTarget: number;
-  salesProgress: number;
-  activeRepairs: number;
-  awaitingParts: number;
-  crossSellConversionRate: number;
-  crossSellRevenue30Days: number;
-  supplyChainDelayRate: number;
-  customerReturnRate: number;
-  partnerVolumeShare: number;
+  rangeLabel: string;
+  revenue: number;
+  profit: number;
+  marginPercent: number;
+  byCategoryText: string;
+  dailyTarget: number | null;
+  monthlyTarget: number | null;
+  monthProfit: number;
+  monthExpenses: number;
   opexRunwayDays: number;
   dailyOpexRunRate: number;
-  topModelsText: string;
-  stockoutText: string;
-  peakDayName: string;
-  peakRevenueHour: number;
-  peakAvgCheck: number;
+  attentionText: string;
 }): string {
-  return `Бізнес-аналітик VV CRM. Дай 4-5 actionable інсайтів. Тільки цифри і дії, без води.
+  const targets =
+    [
+      data.dailyTarget ? `день ${data.dailyTarget} ₴` : null,
+      data.monthlyTarget ? `місяць ${data.monthlyTarget} ₴` : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "не задані";
 
-Сьогодні: ${data.todaySalesTotal} ₴ з ${data.salesTarget} ₴ (${data.salesProgress}%). Ремонти: ${data.activeRepairs} активних, ${data.awaitingParts} чекають деталі. Крос-сейли: ${data.crossSellConversionRate}%, ${data.crossSellRevenue30Days} ₴/30д. Логістика: ${data.supplyChainDelayRate}% затримок. OPEX: ${data.opexRunwayDays} днів резерву (${data.dailyOpexRunRate} ₴/день). B2B: ${data.partnerVolumeShare}%. Повторні клієнти: ${data.customerReturnRate}%.
-ТОП моделей: ${data.topModelsText}. Критичні залишки: ${data.stockoutText}. Пік: ${data.peakDayName} ${data.peakRevenueHour}:00, чек ${data.peakAvgCheck} ₴.
+  return `Бізнес-аналітик VV CRM. Дай 3-4 actionable інсайти. Тільки цифри і дії, без води.
+
+Магазин відкрито 24.07.2026 — історії мало, не роби висновків про тренди й сезонність.
+
+${data.rangeLabel}: виторг ${data.revenue} ₴, прибуток ${data.profit} ₴, маржа ${data.marginPercent}%.
+По категоріях: ${data.byCategoryText}.
+Цілі по прибутку: ${targets}.
+Місяць: прибуток ${data.monthProfit} ₴, витрати ${data.monthExpenses} ₴, чистий ${data.monthProfit - data.monthExpenses} ₴.
+OPEX: ${data.opexRunwayDays} днів резерву (${data.dailyOpexRunRate} ₴/день).
+Потребує уваги: ${data.attentionText || "нічого"}.
 
 Поверни ТІЛЬКИ JSON масив (без markdown):
 [{"type":"opportunity|warning|achievement|info","title":"емодзі + до 6 слів","description":"1-2 речення з цифрами і конкретною дією","action":"до 4 слів","impact":"high|medium|low"}]`;
