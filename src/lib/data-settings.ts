@@ -62,6 +62,19 @@ export interface ParsedSettings {
   distribution_repairs: SafeDistribution;
   receipt_settings: ReceiptSettings;
   sales_targets: SalesTargets;
+  /**
+   * Момент, з якого рахуються гроші (ISO timestamp). До магазину справжнього
+   * відкриття були тестові продажі "з рук" — вони лишаються в базі, але не
+   * враховуються в жодному грошовому розрахунку. null = обмеження немає,
+   * рахується вся історія (стара поведінка).
+   */
+  finance_epoch: string | null;
+  /**
+   * Категорія витрат, яка є одноразовим капіталом на відкриття, а не
+   * операційною витратою — виключається з розрахунку операційного прибутку й
+   * частки співвласника. null = виключення вимкнено.
+   */
+  capital_category_id: string | null;
 }
 
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -91,6 +104,25 @@ function parseSalesTargets(value: unknown): SalesTargets {
   const one = (raw: unknown) =>
     typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.round(raw) : null;
   return { daily: one(obj.daily), monthly: one(obj.monthly) };
+}
+
+/**
+ * `finance_epoch` — рядок ISO timestamp, який `new Date(...)` вміє
+ * розібрати. Порожній рядок і некоректна дата — це те саме, що відсутнє
+ * налаштування: null, без обмеження.
+ */
+function parseFinanceEpoch(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  return Number.isNaN(new Date(value).getTime()) ? null : value;
+}
+
+/**
+ * `capital_category_id` — id категорії витрат, зарезервованої під
+ * капітальні (одноразові, не операційні) витрати. Порожній рядок трактується
+ * як відсутнє налаштування.
+ */
+function parseCapitalCategoryId(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
 function parseReceiptSettings(value: unknown, fallback: ReceiptSettings): ReceiptSettings {
@@ -171,6 +203,8 @@ export async function getSettings(): Promise<ParsedSettings> {
     distribution_accessories: { opex: 40, growth: 30, net_profit: 30 },
     distribution_repairs: { opex: 40, growth: 30, net_profit: 30 },
     sales_targets: { daily: null, monthly: null },
+    finance_epoch: null,
+    capital_category_id: null,
     receipt_settings: {
       company_name: "VV CRM",
       company_subtitle: "Магазин та сервісний центр",
@@ -219,6 +253,10 @@ export async function getSettings(): Promise<ParsedSettings> {
       resolved.distribution_repairs = parseDistribution(s.value);
     } else if (s.key === "sales_targets") {
       resolved.sales_targets = parseSalesTargets(s.value);
+    } else if (s.key === "finance_epoch") {
+      resolved.finance_epoch = parseFinanceEpoch(s.value);
+    } else if (s.key === "capital_category_id") {
+      resolved.capital_category_id = parseCapitalCategoryId(s.value);
     } else if (s.key === "receipt_settings") {
       resolved.receipt_settings = parseReceiptSettings(s.value, defaultSettings.receipt_settings);
     }

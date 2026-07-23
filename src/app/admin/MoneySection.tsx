@@ -208,7 +208,37 @@ export function MoneySection({
             Фінанси →
           </Link>
         </div>
+
+        <div className="border-t border-border pt-4">
+          <p className="text-xs font-medium text-muted">Моя частка · 50% чистого</p>
+          <div className="mt-2 grid grid-cols-3 gap-4">
+            <PartnerShareCell label="Сьогодні" net={money.partnerShare.today.net} share={money.partnerShare.today.share} />
+            <PartnerShareCell label="Тиждень" net={money.partnerShare.week.net} share={money.partnerShare.week.share} />
+            <PartnerShareCell label="Місяць" net={money.partnerShare.month.net} share={money.partnerShare.month.share} />
+          </div>
+          <p className="mt-2 text-[11px] text-muted">
+            День і тиждень можуть сильно стрибати — витрати (оренда, зарплата) лягають одним днем, тож день з орендою
+            виглядає глибоко мінусовим, а тихий день — навпаки високим; місяць — стабільніша цифра.
+          </p>
+        </div>
       </div>
     </section>
+  );
+}
+
+function PartnerShareCell({ label, net, share }: { label: string; net: number; share: number }) {
+  return (
+    <div>
+      <p className="text-xs text-muted">{label}</p>
+      <p
+        className={cn(
+          "mt-0.5 font-display text-lg font-semibold tabular tracking-tight",
+          share >= 0 ? "text-success" : "text-danger",
+        )}
+      >
+        {fmt(share)}
+      </p>
+      <p className="text-[11px] text-muted">чистий {fmt(net)}</p>
+    </div>
   );
 }

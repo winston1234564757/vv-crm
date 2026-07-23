@@ -1,6 +1,7 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
-import { computeProfit, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem } from "./profit";
+import { getSettings } from "./data-settings";
+import { computeProfit, floorAtEpoch, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem } from "./profit";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -79,11 +80,36 @@ export async function getFinanceData() {
 
 export async function getFinanceReport(daysBack = 30) {
   const supabase = await createClient();
+  const settings = await getSettings();
+  const capitalCategoryId = settings.capital_category_id;
 
-  const startDate = new Date();
+  const now = new Date();
+  const startDate = new Date(now);
   startDate.setDate(startDate.getDate() - daysBack);
   startDate.setHours(0, 0, 0, 0);
-  const startStr = startDate.toISOString();
+
+  // Нижня межа вікна опускається до фінансової епохи — тестові продажі
+  // "з рук" до відкриття магазину не мають враховуватись у звіті.
+  const floored = floorAtEpoch(startDate, now, settings.finance_epoch);
+
+  if (floored.empty) {
+    // Усе вікно лежить до епохи — грошей у ньому немає, запитів не робимо.
+    const emptyProfit = computeProfit([], new Map(), []);
+    return {
+      totalSales: 0,
+      totalPurchases: 0,
+      totalExpenses: 0,
+      capitalExpenses: 0,
+      salesCost: 0,
+      repairsRevenue: 0,
+      repairsCost: 0,
+      profit: 0,
+      categoryBreakdown: [] as { name: string; amount: number }[],
+      byCategory: emptyProfit.byCategory,
+    };
+  }
+
+  const startStr = floored.start.toISOString();
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
     supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").gte("created_at", startStr),
@@ -101,7 +127,15 @@ export async function getFinanceReport(daysBack = 30) {
   const salesData = salesRes.data ?? [];
   const totalSales = salesData.reduce((s, r) => s + r.total_amount, 0);
   const totalPurchases = (purchasesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
-  const totalExpenses = (expensesRes.data ?? []).reduce((s, r) => s + r.amount, 0);
+
+  // Капітальні витрати (одноразове вкладення на відкриття) — не операційні:
+  // виключаються з усього, що годує операційний прибуток і частку
+  // співвласника, але не губляться — повертаються окремим полем.
+  const allExpenses = expensesRes.data ?? [];
+  const operatingExpenses = allExpenses.filter((e) => e.category_id !== capitalCategoryId);
+  const capitalExpensesRows = allExpenses.filter((e) => e.category_id === capitalCategoryId);
+  const totalExpenses = operatingExpenses.reduce((s, r) => s + r.amount, 0);
+  const capitalExpenses = capitalExpensesRows.reduce((s, r) => s + r.amount, 0);
 
   // 1. Gather all sold device IDs
   const deviceIds: string[] = [];
@@ -145,12 +179,13 @@ export async function getFinanceReport(daysBack = 30) {
   const repairsRevenue = report.byCategory.find((c) => c.category === "repair")!.revenue;
   const repairsCost = report.byCategory.find((c) => c.category === "repair")!.cost;
 
-  // Accrual Net Profit = Sales Margin (Sales - COGS) + Repairs Margin - General Expenses
+  // Accrual Net Profit = Sales Margin (Sales - COGS) + Repairs Margin -
+  // Operating Expenses (капітал уже виключено з totalExpenses вище).
   const profit = report.profit - totalExpenses;
 
   const catMap = new Map((expCatRes.data ?? []).map((c) => [c.id, c.name]));
   const expenseByCat: Record<string, number> = {};
-  for (const e of expensesRes.data ?? []) {
+  for (const e of operatingExpenses) {
     const cat = catMap.get(e.category_id) ?? "Інше";
     expenseByCat[cat] = (expenseByCat[cat] || 0) + e.amount;
   }
@@ -162,6 +197,7 @@ export async function getFinanceReport(daysBack = 30) {
     totalSales,
     totalPurchases,
     totalExpenses,
+    capitalExpenses,
     salesCost,
     repairsRevenue,
     repairsCost,

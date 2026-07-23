@@ -1,7 +1,9 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { getSettings } from "./data-settings";
 import {
   computeProfit,
+  floorAtEpoch,
   resolveRange,
   type ProfitDeviceCost,
   type ProfitResult,
@@ -11,6 +13,9 @@ import {
 } from "./profit";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Частка співвласника в чистому прибутку. Фіксовано 50%, не налаштовується. */
+const PARTNER_SHARE = 0.5;
 
 export interface DashboardMoney {
   profit: ProfitResult;
@@ -26,6 +31,15 @@ export interface DashboardMoney {
   todayProfit: number;
   /** Витрати за поточний місяць — незалежно від обраного пресету. Для футера. */
   monthExpenses: number;
+  /**
+   * Частка співвласника — 50% чистого прибутку (маржа − витрати) за
+   * фіксованими вікнами. Може бути від'ємною.
+   */
+  partnerShare: {
+    today: { net: number; share: number };
+    week: { net: number; share: number };
+    month: { net: number; share: number };
+  };
 }
 
 /**
@@ -34,12 +48,19 @@ export interface DashboardMoney {
  * ті самі зовнішні завершені ремонти по `repairs.completed_at`, той самий
  * фолбек собівартості пристрою. Розходження тут — це розходження між
  * дашбордом і Фінансами, а звірку між ними перевіряє §8 спеки.
+ *
+ * `start`/`end` мають бути вже опущені до фінансової епохи викликачем
+ * (`floorAtEpoch`) — ця функція про епоху нічого не знає, вона лише коротить
+ * запит, коли вікно порожнє (`start >= end`), замість того щоб бити Supabase
+ * діапазоном навпаки.
  */
 async function profitForRange(
   supabase: Supabase,
   start: Date,
   end: Date,
 ): Promise<ProfitResult> {
+  if (start >= end) return computeProfit([], new Map(), []);
+
   const startStr = start.toISOString();
   const endStr = end.toISOString();
 
@@ -87,13 +108,51 @@ async function profitForRange(
   return computeProfit(profitSales, deviceCostsMap, repairsRes.data ?? []);
 }
 
+/**
+ * Сума операційних витрат за вікно [start, end): те саме `expenses.created_at`,
+ * що й скрізь, з винятком капітальної категорії (`capital_category_id`) —
+ * одноразового вкладення на відкриття, яке не є операційною витратою.
+ * Фільтруємо в JS, а не через `.neq()` у запиті: категорія капіталу — це
+ * налаштування, яке може бути відсутнім (null), і `.neq(null)` на Supabase
+ * не означає "без фільтра", а зламав би запит.
+ */
+async function expensesForRange(
+  supabase: Supabase,
+  start: Date,
+  end: Date,
+  capitalCategoryId: string | null,
+): Promise<number> {
+  if (start >= end) return 0;
+
+  const { data } = await supabase
+    .from("expenses")
+    .select("amount, category_id")
+    .gte("created_at", start.toISOString())
+    .lt("created_at", end.toISOString());
+
+  return (data ?? [])
+    .filter((e) => e.category_id !== capitalCategoryId)
+    .reduce((s, e) => s + e.amount, 0);
+}
+
 export async function getDashboardMoney(preset: RangePreset): Promise<DashboardMoney> {
   const supabase = await createClient();
   const now = new Date();
+  const settings = await getSettings();
+  const epoch = settings.finance_epoch;
+  const capitalCategoryId = settings.capital_category_id;
 
   const range = resolveRange(preset, now);
   const todayRange = resolveRange("today", now);
+  const weekRange = resolveRange("7d", now);
   const monthRange = resolveRange("month", now);
+
+  // Кожне грошове вікно опускається до фінансової епохи окремо — тестові
+  // продажі "з рук" до відкриття не мають враховуватись у жодному з них.
+  const floored = floorAtEpoch(range.start, range.end, epoch);
+  const todayFloored = floorAtEpoch(todayRange.start, todayRange.end, epoch);
+  const weekFloored = floorAtEpoch(weekRange.start, weekRange.end, epoch);
+  const monthFloored = floorAtEpoch(monthRange.start, monthRange.end, epoch);
 
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -101,41 +160,57 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
   const [
     profit,
     todayProfitResult,
+    weekProfitResult,
     monthProfitResult,
-    expensesRes,
-    monthExpensesRes,
+    expenses,
+    todayExpensesResult,
+    weekExpensesResult,
+    monthExpensesResult,
     cashRegistersRes,
     safesRes,
     opexExpensesRes,
   ] = await Promise.all([
-    profitForRange(supabase, range.start, range.end),
-    preset === "today" ? Promise.resolve(null) : profitForRange(supabase, todayRange.start, todayRange.end),
-    preset === "month" ? Promise.resolve(null) : profitForRange(supabase, monthRange.start, monthRange.end),
-    supabase
-      .from("expenses")
-      .select("amount")
-      .gte("created_at", range.start.toISOString())
-      .lt("created_at", range.end.toISOString()),
+    profitForRange(supabase, floored.start, floored.end),
+    preset === "today" ? Promise.resolve(null) : profitForRange(supabase, todayFloored.start, todayFloored.end),
+    preset === "7d" ? Promise.resolve(null) : profitForRange(supabase, weekFloored.start, weekFloored.end),
+    preset === "month" ? Promise.resolve(null) : profitForRange(supabase, monthFloored.start, monthFloored.end),
+    expensesForRange(supabase, floored.start, floored.end, capitalCategoryId),
+    preset === "today"
+      ? Promise.resolve(null)
+      : expensesForRange(supabase, todayFloored.start, todayFloored.end, capitalCategoryId),
+    preset === "7d"
+      ? Promise.resolve(null)
+      : expensesForRange(supabase, weekFloored.start, weekFloored.end, capitalCategoryId),
     preset === "month"
       ? Promise.resolve(null)
-      : supabase
-          .from("expenses")
-          .select("amount")
-          .gte("created_at", monthRange.start.toISOString())
-          .lt("created_at", monthRange.end.toISOString()),
+      : expensesForRange(supabase, monthFloored.start, monthFloored.end, capitalCategoryId),
     supabase.from("cash_registers").select("balance"),
     supabase.from("safes").select("balance, type"),
     supabase.from("expenses").select("amount").gte("created_at", thirtyDaysAgo.toISOString()),
   ]);
 
   const todayProfit = preset === "today" ? profit.profit : todayProfitResult!.profit;
+  const weekProfit = preset === "7d" ? profit.profit : weekProfitResult!.profit;
   const monthProfit = preset === "month" ? profit.profit : monthProfitResult!.profit;
 
-  const expenses = (expensesRes.data ?? []).reduce((s, e) => s + e.amount, 0);
-  // Пресет "Місяць" — той самий діапазон, що й обраний, тому окремого
-  // запиту не робимо й перевикористовуємо `expenses`.
-  const monthExpenses =
-    preset === "month" ? expenses : (monthExpensesRes?.data ?? []).reduce((s, e) => s + e.amount, 0);
+  // Пресети "Сьогодні" / "Тиждень" / "Місяць" можуть збігатися з обраним
+  // діапазоном — тоді окремого запиту не робимо й перевикористовуємо `expenses`.
+  const todayExpenses = preset === "today" ? expenses : todayExpensesResult!;
+  const weekExpenses = preset === "7d" ? expenses : weekExpensesResult!;
+  const monthExpenses = preset === "month" ? expenses : monthExpensesResult!;
+
+  // Частка співвласника — 50% чистого прибутку (маржа − витрати) за
+  // фіксованими вікнами: сьогодні, тиждень, місяць. Може бути від'ємною —
+  // не floor'имо до нуля, знак зберігається.
+  const todayNet = todayProfit - todayExpenses;
+  const weekNet = weekProfit - weekExpenses;
+  const monthNet = monthProfit - monthExpenses;
+  const partnerShare = {
+    today: { net: todayNet, share: Math.round(todayNet * PARTNER_SHARE) },
+    week: { net: weekNet, share: Math.round(weekNet * PARTNER_SHARE) },
+    month: { net: monthNet, share: Math.round(monthNet * PARTNER_SHARE) },
+  };
+
   const cashTotal =
     (cashRegistersRes.data ?? []).reduce((s, c) => s + c.balance, 0) +
     (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
@@ -150,5 +225,15 @@ export async function getDashboardMoney(preset: RangePreset): Promise<DashboardM
   const opexSafeBalance = (safesRes.data ?? []).find((s) => s.type === "opex")?.balance ?? 0;
   const runwayDays = Math.round(opexSafeBalance / dailyOpex);
 
-  return { profit, expenses, cashTotal, runwayDays, dailyOpex, monthProfit, todayProfit, monthExpenses };
+  return {
+    profit,
+    expenses,
+    cashTotal,
+    runwayDays,
+    dailyOpex,
+    monthProfit,
+    todayProfit,
+    monthExpenses,
+    partnerShare,
+  };
 }

@@ -241,6 +241,33 @@ export function isRangePreset(v: string | null | undefined): v is RangePreset {
   return !!v && (RANGE_PRESETS as string[]).includes(v);
 }
 
+// ─── Фінансова епоха ────────────────────────────────────────────────────────
+
+/**
+ * Опускає нижню межу грошового вікна до фінансової епохи (`finance_epoch` із
+ * settings), якщо вікно починається раніше за неї. До магазину справжнього
+ * відкриття були тестові продажі "з рук" — вони лишаються в базі (нічого не
+ * видаляється), але не мають враховуватись у жодному грошовому розрахунку.
+ *
+ * `epochIso === null` (налаштування не задане чи некоректне) — межу не
+ * чіпаємо, стара поведінка зберігається без змін.
+ *
+ * Якщо після підняття межі вона впирається в кінець вікна (чи виходить за
+ * нього), вікно вважається порожнім — виклик має пропустити запит до бази й
+ * повернути нулі, а не смикати Supabase діапазоном `start >= end`.
+ */
+export function floorAtEpoch(
+  start: Date,
+  end: Date,
+  epochIso: string | null,
+): { start: Date; end: Date; empty: boolean } {
+  if (!epochIso) return { start, end, empty: start >= end };
+  const epoch = new Date(epochIso);
+  if (Number.isNaN(epoch.getTime())) return { start, end, empty: start >= end };
+  const effectiveStart = epoch > start ? epoch : start;
+  return { start: effectiveStart, end, empty: effectiveStart >= end };
+}
+
 /**
  * Межі періоду: `start` включно, `end` виключно. Обидві — локальна північ,
  * бо магазин працює за місцевим часом, а не за UTC.
