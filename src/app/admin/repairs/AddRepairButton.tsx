@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Drawer from "@/components/ui/Drawer";
 import { RepairForm } from "@/components/forms/RepairForm";
 import { Button } from "@/components/ui/Button";
 import { IconPlus } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
 
 interface Customer {
   id: string;
@@ -23,6 +24,11 @@ interface Customer {
  *
  * Nothing passed the two initial props anyway: all three call sites used the
  * defaults.
+ *
+ * `customers` is now optional. Pages that already have the list (Ремонти)
+ * keep passing it. The dashboard no longer loads it on the server — that
+ * lookup is dead weight until someone actually opens this drawer — so when
+ * the prop is omitted the button fetches it itself, once, on open.
  */
 export function AddRepairButton({
   customers,
@@ -30,12 +36,29 @@ export function AddRepairButton({
   children,
   variant = "primary",
 }: {
-  customers: Customer[];
+  customers?: Customer[];
   className?: string;
   children?: React.ReactNode;
   variant?: "primary" | "secondary";
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [lazyCustomers, setLazyCustomers] = useState<Customer[]>([]);
+  const needsFetch = customers === undefined;
+
+  useEffect(() => {
+    if (!isOpen || !needsFetch) return;
+    let cancelled = false;
+    createClient()
+      .from("customers")
+      .select("id, name, phone")
+      .order("name")
+      .then(({ data }) => {
+        if (!cancelled) setLazyCustomers(data ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, needsFetch]);
 
   return (
     <>
@@ -50,7 +73,7 @@ export function AddRepairButton({
 
       {/* Full width: fourteen fields do not fit comfortably in half a screen. */}
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Прийом у ремонт" size="full">
-        <RepairForm customers={customers} onSuccess={() => setIsOpen(false)} />
+        <RepairForm customers={customers ?? lazyCustomers} onSuccess={() => setIsOpen(false)} />
       </Drawer>
     </>
   );

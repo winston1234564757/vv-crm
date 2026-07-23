@@ -1,26 +1,7 @@
-import type { DashboardData } from "@/lib/data-dashboard";
-import type { getCustomers } from "@/lib/data-customers";
-import type { getCashRegisters } from "@/lib/data-finance";
-import type { getDevices } from "@/lib/data-devices";
-import type { getAccessories } from "@/lib/data-accessories";
-import type { getServices } from "@/lib/data-services";
-
-export type Customers = Awaited<ReturnType<typeof getCustomers>>;
-export type CashRegisters = Awaited<ReturnType<typeof getCashRegisters>>;
-export type Devices = Awaited<ReturnType<typeof getDevices>>;
-export type Accessories = Awaited<ReturnType<typeof getAccessories>>;
-export type Services = Awaited<ReturnType<typeof getServices>>;
-
-export interface DashboardClientProps {
-  userRole: "owner" | "manager" | "technician" | "sales";
-  stats: DashboardData;
-  repairs: any[];
-  customers: Customers;
-  cashRegisters: CashRegisters;
-  devices: Devices;
-  accessories: Accessories;
-  services: Services;
-}
+// `DashboardClientProps`, `DashboardData` and the lookup type aliases that
+// used to live here were the old role-branching dashboard's props. Task 8
+// rebuilt the dashboard around attention + money and dropped all of it;
+// nothing else in the app imported them (checked via grep before deleting).
 
 export const statusColors: Record<string, string> = {
   received: "var(--color-accent)",
