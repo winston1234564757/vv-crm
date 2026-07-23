@@ -15,7 +15,7 @@ import {
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 /** Частка співвласника в чистому прибутку. Фіксовано 50%, не налаштовується. */
-const PARTNER_SHARE = 0.5;
+export const PARTNER_SHARE = 0.5;
 
 export interface DashboardMoney {
   profit: ProfitResult;

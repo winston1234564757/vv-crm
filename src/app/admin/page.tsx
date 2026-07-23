@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/data-settings";
 import { getAttentionData } from "@/lib/data-attention";
 import { getDashboardMoney } from "@/lib/data-dashboard";
+import { getDailyShares } from "@/lib/data-daily-share";
 import { isRangePreset, type RangePreset } from "@/lib/profit";
 import { DashboardClient } from "./DashboardClient";
 
@@ -21,10 +22,11 @@ export default async function AdminDashboard({
   const { range } = await searchParams;
   const preset: RangePreset = isRangePreset(range) ? range : "today";
 
-  const [settings, attention, money] = await Promise.all([
+  const [settings, attention, money, daily] = await Promise.all([
     getSettings(),
     getAttentionData(),
     getDashboardMoney(preset),
+    getDailyShares(),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function AdminDashboard({
       attention={attention}
       money={money}
       targets={settings.sales_targets}
+      daily={daily}
     />
   );
 }

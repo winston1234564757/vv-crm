@@ -7,9 +7,11 @@ import { AddSaleButton } from "./AddSaleButton";
 import { AddRepairButton } from "./repairs/AddRepairButton";
 import { AttentionSection } from "./AttentionSection";
 import { MoneySection } from "./MoneySection";
+import { DailyShareNavigator } from "./DailyShareNavigator";
 import { InsightsSection } from "./InsightsSection";
 import { findAttention, type AttentionRepair, type AttentionStockItem } from "@/lib/attention";
 import type { DashboardMoney } from "@/lib/data-dashboard";
+import type { DailyShare } from "@/lib/data-daily-share";
 import type { SalesTargets } from "@/lib/data-settings";
 import type { RangePreset } from "@/lib/profit";
 import { cn } from "@/lib/utils/cn";
@@ -22,6 +24,7 @@ interface DashboardClientProps {
   attention: { repairs: AttentionRepair[]; stock: AttentionStockItem[] };
   money: DashboardMoney;
   targets: SalesTargets;
+  daily: DailyShare[];
 }
 
 /**
@@ -34,7 +37,7 @@ interface DashboardClientProps {
  * server fetched — same pattern as the header's own `today` string below,
  * which has always been computed at render time rather than passed down.
  */
-export function DashboardClient({ preset, attention, money, targets }: DashboardClientProps) {
+export function DashboardClient({ preset, attention, money, targets, daily }: DashboardClientProps) {
   const groups = useMemo(() => findAttention(attention, new Date()), [attention]);
   const today = new Date().toLocaleDateString("uk-UA", {
     weekday: "long",
@@ -64,6 +67,7 @@ export function DashboardClient({ preset, attention, money, targets }: Dashboard
 
       <AttentionSection groups={groups} />
       <MoneySection preset={preset} money={money} targets={targets} />
+      <DailyShareNavigator daily={daily} />
       <InsightsSection preset={preset} />
     </div>
   );
