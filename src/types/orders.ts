@@ -17,14 +17,27 @@ export type OrderStatus =
   | "completed"
   | "cancelled";
 
+/** Одна позиція замовлення (форма вводу — без id/order_id). */
+export interface OrderItemInput {
+  item_type: OrderItemType;
+  item_name: string;
+  item_url: string | null;
+  unit_price: number;
+  quantity: number;
+}
+
+/** Збережена позиція замовлення (`client_order_items`). */
+export interface ClientOrderItem extends OrderItemInput {
+  id: string;
+  order_id: string;
+}
+
 export interface ClientOrder {
   id: string;
   order_no: string;
   public_token: string;
   customer_id: string;
-  item_type: OrderItemType;
-  item_name: string;
-  item_url: string | null;
+  /** Узгоджений ПІДСУМОК за все замовлення. */
   agreed_price: number;
   deposit: number;
   deadline: string | null;
@@ -35,9 +48,10 @@ export interface ClientOrder {
   updated_at: string;
 }
 
-/** Рядок замовлення разом із приєднаним клієнтом (для списку/трекера). */
+/** Рядок замовлення з клієнтом і позиціями (для списку/трекера). */
 export interface ClientOrderWithCustomer extends ClientOrder {
   customers: { name: string; phone: string } | null;
+  client_order_items: ClientOrderItem[];
 }
 
 /** Результат RPC `create_client_order`. */

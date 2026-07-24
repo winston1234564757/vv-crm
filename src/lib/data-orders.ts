@@ -10,7 +10,7 @@ export async function getClientOrders(): Promise<ClientOrderWithCustomer[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("client_orders")
-    .select("*, customers(name, phone)")
+    .select("*, customers(name, phone), client_order_items(*)")
     .order("created_at", { ascending: false });
 
   if (error) {

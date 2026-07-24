@@ -94,9 +94,8 @@ export interface ResolvedReceipt {
 export interface ReceiptOrder {
   /** Human number, e.g. "0001". Printed instead of the uuid prefix. */
   orderNo: string;
-  itemTypeLabel: string;
-  itemName: string;
-  agreedPrice: number;
+  items: ReceiptLineItem[];
+  total: number;
   deposit: number;
   remaining: number;
   /** Already formatted, e.g. "31.07.2026". */
@@ -309,29 +308,30 @@ function composeSaleBody(receipt: ResolvedReceipt, columns: number): Block[] {
 
 function composeOrderBody(receipt: ResolvedReceipt, columns: number): Block[] {
   const order = receipt.order;
-  const blocks: Block[] = [{ kind: "divider" }, heading("ЗАМОВЛЕННЯ")];
+  const blocks: Block[] = [{ kind: "divider" }, heading("ПЕРЕЛІК ТОВАРІВ")];
   if (!order) return blocks;
 
-  blocks.push(...body(`Категорія: ${order.itemTypeLabel}`, columns));
-  blocks.push(...body(`Товар: ${order.itemName}`, columns));
+  for (const item of order.items) {
+    blocks.push(
+      ...itemLines(item.name, item.quantity, item.unitPrice, item.totalPrice, columns).map((l) => text(l)),
+    );
+  }
+
+  blocks.push({ kind: "divider" });
   if (order.deadline) blocks.push(...body(`Термін: ${order.deadline}`, columns));
   blocks.push(...body(`Статус: ${order.statusLabel}`, columns));
 
   blocks.push({ kind: "divider" });
-  blocks.push(...labelValue("Ціна:", `${money(order.agreedPrice)} грн`, columns).map((l) => text(l)));
+  blocks.push(...labelValue("Підсумок:", `${money(order.total)} грн`, columns).map((l) => text(l)));
 
   if (order.deposit > 0) {
     blocks.push(...labelValue("Аванс:", `${money(order.deposit)} грн`, columns).map((l) => text(l)));
     blocks.push(
-      ...labelValue("ЗАЛИШОК:", `${money(order.remaining)} грн`, columns).map((l) =>
-        text(l, { bold: true }),
-      ),
+      ...labelValue("ЗАЛИШОК:", `${money(order.remaining)} грн`, columns).map((l) => text(l, { bold: true })),
     );
   } else {
     blocks.push(
-      ...labelValue("ДО СПЛАТИ:", `${money(order.agreedPrice)} грн`, columns).map((l) =>
-        text(l, { bold: true }),
-      ),
+      ...labelValue("ДО СПЛАТИ:", `${money(order.total)} грн`, columns).map((l) => text(l, { bold: true })),
     );
   }
 

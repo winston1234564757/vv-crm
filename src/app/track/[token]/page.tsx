@@ -82,7 +82,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: order } = await (supabase as any)
       .from("client_orders")
-      .select("*, customers(name, phone)")
+      .select("*, customers(name, phone), client_order_items(*)")
       .eq("public_token", decodedToken)
       .single();
 
@@ -118,20 +118,26 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
           <div className="mb-6 rounded-2xl border border-warm-border/60 bg-white p-6">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-xs text-text-secondary">Категорія</p>
-                <p className="font-medium text-text-primary">{labelOf(orderItemType, order.item_type).label}</p>
-              </div>
-              <div>
                 <p className="text-xs text-text-secondary">Статус</p>
                 <StatusPill map={orderStatusPublic} value={order.status} />
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs text-text-secondary">Товар</p>
-                <p className="font-medium text-text-primary">{order.item_name}</p>
               </div>
               <div>
                 <p className="text-xs text-text-secondary">Узгоджена ціна</p>
                 <p className="font-semibold text-text-primary">{(order.agreed_price ?? 0).toLocaleString()} грн</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-text-secondary mb-1">Товари</p>
+                <ul className="divide-y divide-warm-border/60 rounded-xl border border-warm-border/60">
+                  {(order.client_order_items ?? []).map((it: { id: string; item_name: string; item_type: string; quantity: number }) => (
+                    <li key={it.id} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-text-primary">
+                        {it.item_name}
+                        {it.quantity > 1 ? <span className="text-text-secondary"> ×{it.quantity}</span> : null}
+                      </span>
+                      <span className="text-xs text-text-secondary">{labelOf(orderItemType, it.item_type).label}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
               {(order.deposit ?? 0) > 0 && (
                 <div>

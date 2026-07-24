@@ -24,7 +24,7 @@ import {
   getConditionLabel,
   getFallbackTitle,
 } from "@/lib/printer/receipt-content";
-import { labelOf, orderItemType, orderStatus } from "@/lib/domain-labels";
+import { labelOf, orderStatus } from "@/lib/domain-labels";
 
 interface ReceiptPrintModalProps {
   isOpen: boolean;
@@ -38,9 +38,7 @@ interface ReceiptPrintModalProps {
     seller_name?: string;
     // For client orders:
     order_no?: string;
-    item_type?: string;
-    item_name?: string;
-    item_url?: string | null;
+    order_items?: Array<{ item_name: string; quantity: number; unit_price: number }>;
     agreed_price?: number;
     deposit?: number;
     deadline?: string | null;
@@ -312,9 +310,13 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           type === "order"
             ? {
                 orderNo: data.order_no ?? data.id.substring(0, 8),
-                itemTypeLabel: labelOf(orderItemType, data.item_type).label,
-                itemName: data.item_name ?? "",
-                agreedPrice: data.agreed_price ?? 0,
+                items: (data.order_items ?? []).map((it) => ({
+                  name: it.item_name,
+                  quantity: it.quantity,
+                  unitPrice: it.unit_price,
+                  totalPrice: it.unit_price * it.quantity,
+                })),
+                total: data.agreed_price ?? 0,
                 deposit: data.deposit ?? 0,
                 remaining: Math.max(0, (data.agreed_price ?? 0) - (data.deposit ?? 0)),
                 deadline: data.deadline ? format(new Date(data.deadline), "dd.MM.yyyy") : undefined,
@@ -521,20 +523,42 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
 
         {type === "order" && (
           <>
-            <p className="text-[9px] text-gray-400 uppercase font-bold">Замовлення</p>
+            <p className="text-[9px] text-gray-400 uppercase font-bold mb-1">Перелік товарів</p>
+            <table className="w-full table-fixed text-left text-[9px]">
+              <colgroup>
+                <col style={{ width: "58%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "27%" }} />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-black/20 font-bold">
+                  <th className="py-0.5 pr-1">Назва</th>
+                  <th className="py-0.5 text-center whitespace-nowrap">К-ть</th>
+                  <th className="py-0.5 text-right whitespace-nowrap">Сума</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.order_items ?? []).map((item, idx) => (
+                  <tr key={idx} className="border-b border-black/10 last:border-0">
+                    <td className="py-1 pr-1 break-words">{item.item_name}</td>
+                    <td className="py-1 px-0.5 text-center align-top">{item.quantity}</td>
+                    <td className="py-1 text-right align-top whitespace-nowrap">{(item.unit_price * item.quantity).toLocaleString()} ₴</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="receipt-divider" />
+
             <div className="space-y-0.5 text-[9px]">
-              <p><strong>Категорія:</strong> {labelOf(orderItemType, data.item_type).label}</p>
-              <p><strong>Товар:</strong> {data.item_name}</p>
-              {data.deadline && (
-                <p><strong>Термін:</strong> {format(new Date(data.deadline), "dd.MM.yyyy")}</p>
-              )}
+              {data.deadline && <p><strong>Термін:</strong> {format(new Date(data.deadline), "dd.MM.yyyy")}</p>}
               <p><strong>Статус:</strong> {labelOf(orderStatus, data.order_status).label}</p>
             </div>
 
             <div className="receipt-divider" />
 
             <div className="text-right space-y-0.5 text-[9px]">
-              <p>Ціна: {(data.agreed_price || 0).toLocaleString()} ₴</p>
+              <p>Підсумок: {(data.agreed_price || 0).toLocaleString()} ₴</p>
               {(data.deposit || 0) > 0 ? (
                 <>
                   <p>Аванс: {(data.deposit || 0).toLocaleString()} ₴</p>

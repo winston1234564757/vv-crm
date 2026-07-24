@@ -7,7 +7,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { Select } from "@/components/ui/Select";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 import { IconSearch, IconDownload, IconDelete } from "@/components/icons";
-import { orderStatus, orderItemType, optionsOf, labelOf } from "@/lib/domain-labels";
+import { orderStatus, optionsOf } from "@/lib/domain-labels";
 import { updateOrderStatus, deleteClientOrder } from "@/lib/actions/orders";
 import type { ClientOrderWithCustomer } from "@/types/orders";
 
@@ -21,9 +21,11 @@ function toReceipt(o: ClientOrderWithCustomer): ReceiptData {
     public_token: o.public_token,
     customer_name: o.customers?.name || "Клієнт",
     customer_phone: o.customers?.phone,
-    item_type: o.item_type,
-    item_name: o.item_name,
-    item_url: o.item_url,
+    order_items: (o.client_order_items ?? []).map((it) => ({
+      item_name: it.item_name,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+    })),
     agreed_price: o.agreed_price,
     deposit: o.deposit,
     deadline: o.deadline,
@@ -32,6 +34,13 @@ function toReceipt(o: ClientOrderWithCustomer): ReceiptData {
 }
 
 const money = (n: number) => `${n.toLocaleString("uk-UA")} грн`;
+
+/** Короткий опис позицій замовлення для списку. */
+function itemSummary(o: ClientOrderWithCustomer): string {
+  const list = o.client_order_items ?? [];
+  if (list.length === 0) return "—";
+  return list.length > 1 ? `${list[0].item_name} +${list.length - 1}` : list[0].item_name;
+}
 
 export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
   const router = useRouter();
@@ -42,9 +51,10 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
   const filtered = orders.filter((o) => {
     if (!q) return true;
     const lq = q.toLowerCase();
+    const itemsText = (o.client_order_items ?? []).map((i) => i.item_name).join(" ").toLowerCase();
     return (
       o.order_no.toLowerCase().includes(lq) ||
-      o.item_name.toLowerCase().includes(lq) ||
+      itemsText.includes(lq) ||
       (o.customers?.name ?? "").toLowerCase().includes(lq) ||
       (o.customers?.phone ?? "").includes(lq)
     );
@@ -100,8 +110,8 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-mono text-text-secondary">#{o.order_no}</p>
-                    <h4 className="font-bold text-sm text-text-primary">{o.item_name}</h4>
-                    <p className="text-xs text-text-secondary mt-0.5">{labelOf(orderItemType, o.item_type).label}</p>
+                    <h4 className="font-bold text-sm text-text-primary">{itemSummary(o)}</h4>
+                    <p className="text-xs text-text-secondary mt-0.5">{(o.client_order_items ?? []).length} поз.</p>
                   </div>
                   <StatusPill map={orderStatus} value={o.status} />
                 </div>
@@ -169,8 +179,8 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                     <td className="py-3 pr-4 font-mono text-xs text-text-secondary">#{o.order_no}</td>
                     <td className="py-3 pr-4">{o.customers?.name ?? "—"}</td>
                     <td className="py-3 pr-4">
-                      <div className="font-medium">{o.item_name}</div>
-                      <div className="text-xs text-text-secondary">{labelOf(orderItemType, o.item_type).label}</div>
+                      <div className="font-medium">{itemSummary(o)}</div>
+                      <div className="text-xs text-text-secondary">{(o.client_order_items ?? []).length} поз.</div>
                     </td>
                     <td className="py-3 pr-4 text-right">
                       <div className="font-medium">{money(o.agreed_price ?? 0)}</div>

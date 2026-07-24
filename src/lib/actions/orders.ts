@@ -29,12 +29,17 @@ const REGISTER_TYPE_BY_ITEM: Record<OrderItemType, string> = {
   service: "repairs",
 };
 
+const orderItemSchema = z.object({
+  item_type: z.enum(["device", "accessory", "part", "service"]),
+  item_name: z.string().trim().min(2, "Вкажіть назву товару"),
+  item_url: z.string().trim().url("Некоректне посилання").nullable().optional(),
+  unit_price: z.coerce.number().int().min(0).default(0),
+  quantity: z.coerce.number().int().min(1).default(1),
+});
+
 const orderSchema = z.object({
   customer_id: z.string().uuid("Оберіть клієнта"),
-  item_type: z.enum(["device", "accessory", "part", "service"]),
-  item_name: z.string().min(2, "Вкажіть назву товару"),
-  item_url: z.string().trim().url("Некоректне посилання").nullable().optional(),
-  agreed_price: z.coerce.number().int().min(0).default(0),
+  items: z.array(orderItemSchema).min(1, "Додайте хоча б один товар"),
   deposit: z.coerce.number().int().min(0).default(0),
   deadline: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -45,22 +50,25 @@ export async function createClientOrder(
   formData: FormData,
 ): Promise<ActionState<CreatedClientOrder>> {
   try {
-    const urlRaw = (formData.get("item_url") as string | null)?.trim();
-    const data = {
+    let itemsRaw: unknown = [];
+    try {
+      itemsRaw = JSON.parse((formData.get("items") as string) || "[]");
+    } catch {
+      return { success: false, error: "Некоректний список товарів" };
+    }
+
+    const parsed = orderSchema.parse({
       customer_id: formData.get("customer_id"),
-      item_type: formData.get("item_type"),
-      item_name: formData.get("item_name"),
-      item_url: urlRaw ? urlRaw : null,
-      agreed_price: formData.get("agreed_price") || 0,
+      items: itemsRaw,
       deposit: formData.get("deposit") || 0,
       deadline: (formData.get("deadline") as string | null) || null,
       notes: (formData.get("notes") as string | null) || null,
-    };
+    });
 
-    const parsed = orderSchema.parse(data);
+    const total = parsed.items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
 
-    if (parsed.deposit > parsed.agreed_price) {
-      return { success: false, error: "Аванс не може перевищувати узгоджену ціну" };
+    if (parsed.deposit > total) {
+      return { success: false, error: "Аванс не може перевищувати підсумок" };
     }
 
     const supabase = await createClient();
@@ -68,10 +76,11 @@ export async function createClientOrder(
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Касу шукаємо лише коли справді є аванс — інакше рух грошей не потрібен.
+    // Касу шукаємо лише коли є аванс. Для змішаного замовлення маршрутизуємо
+    // за категорією першої позиції — той самий принцип, що й у продажах.
     let registerId: string | null = null;
     if (parsed.deposit > 0) {
-      const registerType = REGISTER_TYPE_BY_ITEM[parsed.item_type];
+      const registerType = REGISTER_TYPE_BY_ITEM[parsed.items[0].item_type];
       const { data: register, error: regError } = await supabase
         .from("cash_registers")
         .select("id")
@@ -86,15 +95,19 @@ export async function createClientOrder(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: result, error } = await (supabase as any).rpc("create_client_order", {
       p_customer_id: parsed.customer_id,
-      p_item_type: parsed.item_type,
-      p_item_name: parsed.item_name,
-      p_item_url: parsed.item_url ?? null,
-      p_agreed_price: parsed.agreed_price,
+      p_total: total,
       p_deposit: parsed.deposit,
       p_deadline: parsed.deadline || null,
       p_notes: parsed.notes ?? null,
       p_user_id: user?.id ?? null,
       p_register_id: registerId,
+      p_items: parsed.items.map((it) => ({
+        item_type: it.item_type,
+        item_name: it.item_name,
+        item_url: it.item_url ?? null,
+        unit_price: it.unit_price,
+        quantity: it.quantity,
+      })),
     });
 
     if (error) throw error;
