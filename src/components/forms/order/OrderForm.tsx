@@ -34,7 +34,12 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
   const [state, formAction, pending] = useActionState(createClientOrder, initialState);
 
   // --- клієнт ---
-  const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
+  // `customers` довантажується батьком (AddOrderButton) вже ПІСЛЯ монтування
+  // форми, тож не копіюємо його в стан (інакше список лишиться порожнім —
+  // useState бере лише перше значення). Тримаємо окремо лише щойно створених
+  // і зливаємо на кожному рендері.
+  const [createdCustomers, setCreatedCustomers] = useState<Customer[]>([]);
+  const allCustomers = [...customers, ...createdCustomers];
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState("");
@@ -64,7 +69,7 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
   const depositError =
     depositNum > priceNum ? "Аванс не може перевищувати ціну" : deposit ? validatePrice(deposit) : null;
 
-  const selectedCustomer = localCustomers.find((c) => c.id === selectedCustomerId);
+  const selectedCustomer = allCustomers.find((c) => c.id === selectedCustomerId);
   const hasErrors =
     !selectedCustomerId ||
     itemName.trim().length < 2 ||
@@ -91,7 +96,7 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
     const res = await createCustomer({ success: false, error: "" }, fd);
     if (res.success && res.data) {
       const c = res.data as Customer;
-      setLocalCustomers((prev) => [...prev, c]);
+      setCreatedCustomers((prev) => [...prev, c]);
       setSelectedCustomerId(c.id);
       setShowNewCustomer(false);
       setNewCustName("");
@@ -109,7 +114,7 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-ink">Клієнт</h3>
           <SaleFormCustomerSection
-            customers={localCustomers}
+            customers={allCustomers}
             selectedCustomerId={selectedCustomerId}
             onChange={handleCustomerSelect}
             showNewCustomer={showNewCustomer}
