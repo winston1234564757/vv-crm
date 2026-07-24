@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Select } from "@/components/ui/Select";
+import Drawer from "@/components/ui/Drawer";
+import { Button } from "@/components/ui/Button";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 import { IconSearch, IconDownload, IconDelete } from "@/components/icons";
-import { orderStatus, optionsOf } from "@/lib/domain-labels";
+import { orderStatus, orderItemType, optionsOf, labelOf } from "@/lib/domain-labels";
 import { updateOrderStatus, deleteClientOrder } from "@/lib/actions/orders";
-import type { ClientOrderWithCustomer } from "@/types/orders";
+import type { ClientOrderWithCustomer, OrderStatus } from "@/types/orders";
 
 type ReceiptData = React.ComponentProps<typeof ReceiptPrintModal>["data"];
 
@@ -47,6 +49,7 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
   const [q, setQ] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [printOrder, setPrintOrder] = useState<ClientOrderWithCustomer | null>(null);
+  const [detailOrder, setDetailOrder] = useState<ClientOrderWithCustomer | null>(null);
 
   const filtered = orders.filter((o) => {
     if (!q) return true;
@@ -86,6 +89,12 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
   const remainingOf = (o: ClientOrderWithCustomer) =>
     Math.max(0, (o.agreed_price ?? 0) - (o.deposit ?? 0));
 
+  async function handleDetailStatus(status: string) {
+    if (!detailOrder) return;
+    await handleStatusChange(detailOrder.id, status);
+    setDetailOrder({ ...detailOrder, status: status as OrderStatus });
+  }
+
   return (
     <>
       <div className="relative">
@@ -106,7 +115,11 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
             <p className="py-12 text-center text-sm text-text-secondary">Замовлень немає</p>
           ) : (
             pager.pageItems.map((o) => (
-              <div key={o.id} className="rounded-2xl border border-warm-border bg-surface p-4 shadow-sm space-y-3">
+              <div
+                key={o.id}
+                onClick={() => setDetailOrder(o)}
+                className="cursor-pointer rounded-2xl border border-warm-border bg-surface p-4 shadow-sm space-y-3 transition-colors hover:border-border-strong"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-mono text-text-secondary">#{o.order_no}</p>
@@ -124,7 +137,10 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 border-t border-border pt-2.5">
+                <div
+                  className="flex items-center gap-2 border-t border-border pt-2.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Select
                     inline
                     aria-label="Статус"
@@ -175,7 +191,11 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                 </tr>
               ) : (
                 pager.pageItems.map((o) => (
-                  <tr key={o.id} className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]">
+                  <tr
+                    key={o.id}
+                    onClick={() => setDetailOrder(o)}
+                    className="cursor-pointer border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02]"
+                  >
                     <td className="py-3 pr-4 font-mono text-xs text-text-secondary">#{o.order_no}</td>
                     <td className="py-3 pr-4">{o.customers?.name ?? "—"}</td>
                     <td className="py-3 pr-4">
@@ -191,7 +211,7 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                     <td className="py-3 pr-4 text-text-secondary text-xs">
                       {o.deadline ? new Date(o.deadline).toLocaleDateString("uk-UA") : "—"}
                     </td>
-                    <td className="py-3 pr-4">
+                    <td className="py-3 pr-4" onClick={(e) => e.stopPropagation()}>
                       <Select
                         inline
                         aria-label="Статус"
@@ -201,7 +221,7 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                         options={optionsOf(orderStatus)}
                       />
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setPrintOrder(o)}
@@ -238,6 +258,132 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
           itemLabel="замовлень"
         />
       </div>
+
+      {detailOrder && (
+        <Drawer
+          isOpen={!!detailOrder}
+          onClose={() => setDetailOrder(null)}
+          title={`Замовлення #${detailOrder.order_no}`}
+          size="half"
+        >
+          <div className="space-y-6 p-1">
+            {/* Клієнт + статус */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-text-secondary">Клієнт</p>
+                <p className="font-semibold text-text-primary">{detailOrder.customers?.name ?? "—"}</p>
+                {detailOrder.customers?.phone && (
+                  <a href={`tel:${detailOrder.customers.phone}`} className="font-mono text-sm text-violet hover:underline">
+                    {detailOrder.customers.phone}
+                  </a>
+                )}
+              </div>
+              <StatusPill map={orderStatus} value={detailOrder.status} />
+            </div>
+
+            {/* Зміна статусу */}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-text-secondary">Статус замовлення</p>
+              <Select
+                aria-label="Статус"
+                value={detailOrder.status}
+                disabled={updatingId === detailOrder.id}
+                onChange={(e) => handleDetailStatus(e.target.value)}
+                options={optionsOf(orderStatus)}
+              />
+            </div>
+
+            {/* Позиції */}
+            <div>
+              <p className="mb-2 text-xs font-medium text-text-secondary">
+                Товари ({(detailOrder.client_order_items ?? []).length})
+              </p>
+              <div className="space-y-2">
+                {(detailOrder.client_order_items ?? []).map((it) => (
+                  <div key={it.id} className="rounded-xl border border-warm-border/60 p-3">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-medium text-text-primary">{it.item_name}</span>
+                      <span className="whitespace-nowrap font-medium text-text-primary">{money(it.unit_price * it.quantity)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between gap-2 text-xs text-text-secondary">
+                      <span>{labelOf(orderItemType, it.item_type).label} · {money(it.unit_price)} × {it.quantity}</span>
+                      {it.item_url && (
+                        <a href={it.item_url} target="_blank" rel="noreferrer" className="shrink-0 text-violet hover:underline">
+                          Посилання
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Підсумки */}
+            <div className="space-y-1.5 rounded-xl border border-warm-border/60 bg-warm-bg/40 p-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Підсумок</span>
+                <span className="font-medium">{money(detailOrder.agreed_price ?? 0)}</span>
+              </div>
+              {(detailOrder.deposit ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Аванс</span>
+                  <span className="font-medium text-success">− {money(detailOrder.deposit ?? 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-warm-border/60 pt-1.5">
+                <span className="font-medium">Залишок</span>
+                <span className="font-semibold">{money(remainingOf(detailOrder))}</span>
+              </div>
+            </div>
+
+            {/* Деталі */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-text-secondary">Термін</p>
+                <p className="text-text-primary">
+                  {detailOrder.deadline ? new Date(detailOrder.deadline).toLocaleDateString("uk-UA") : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Створено</p>
+                <p className="text-text-primary">{new Date(detailOrder.created_at).toLocaleDateString("uk-UA")}</p>
+              </div>
+              {detailOrder.notes && (
+                <div className="col-span-2">
+                  <p className="text-xs text-text-secondary">Нотатки</p>
+                  <p className="text-text-primary">{detailOrder.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Дії */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-warm-border pt-4">
+              <Button variant="secondary" leadingIcon={<IconDownload />} onClick={() => setPrintOrder(detailOrder)}>
+                Друк чека
+              </Button>
+              <a
+                href={`/track/${detailOrder.public_token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-press inline-flex h-10 items-center rounded-[var(--radius-md)] border border-border-strong px-4 text-sm font-medium text-ink transition-colors hover:bg-hover"
+              >
+                Сторінка статусу
+              </a>
+              <Button
+                variant="danger"
+                leadingIcon={<IconDelete />}
+                className="ml-auto"
+                onClick={async () => {
+                  await handleDelete(detailOrder.id);
+                  setDetailOrder(null);
+                }}
+              >
+                Видалити
+              </Button>
+            </div>
+          </div>
+        </Drawer>
+      )}
 
       {printOrder && (
         <ReceiptPrintModal
