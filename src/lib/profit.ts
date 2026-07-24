@@ -269,6 +269,18 @@ export function floorAtEpoch(
 }
 
 /**
+ * Межі одного конкретного дня за ключем `YYYY-MM-DD`: `[північ, наступна
+ * північ)`, локальний час — так само, як `resolveRange`. Ключ має бути вже
+ * провалідований (`isDayKey`); тут ми йому довіряємо.
+ */
+export function dayRange(dayKey: string): { start: Date; end: Date } {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const start = new Date(y, m - 1, d);
+  const end = new Date(y, m - 1, d + 1);
+  return { start, end };
+}
+
+/**
  * Межі періоду: `start` включно, `end` виключно. Обидві — локальна північ,
  * бо магазин працює за місцевим часом, а не за UTC.
  */

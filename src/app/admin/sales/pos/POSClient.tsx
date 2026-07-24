@@ -9,6 +9,7 @@ import { validatePromoCode } from "@/lib/actions/partners";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 
 import { Customer, CashRegister, Device, Accessory, Part, Service, LastSaleData } from "./pos-types";
+import { DEFAULT_WARRANTY_TERM, warrantyWindow, type WarrantyTerm } from "./pos-warranty";
 import { usePOSCart } from "./usePOSCart";
 import { usePOSCatalog } from "./usePOSCatalog";
 import { POSCatalog } from "./POSCatalog";
@@ -40,6 +41,7 @@ export function POSClient({
   const [activeMobileTab, setActiveMobileTab] = useState<"catalog" | "cart">("catalog");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [warrantyTerm, setWarrantyTerm] = useState<WarrantyTerm>(DEFAULT_WARRANTY_TERM);
   
   const [isSplit, setIsSplit] = useState<boolean>(false);
   const [cashAmount, setCashAmount] = useState<string>("");
@@ -129,10 +131,14 @@ export function POSClient({
     setPending(true);
     setActionError("");
 
+    const warranty = warrantyWindow(warrantyTerm);
+
     const payload = {
       customer_id: selectedCustomerId || null,
       discount,
       notes,
+      warranty_start: warranty.start,
+      warranty_end: warranty.end,
       is_split: isSplit,
       cash_amount: isSplit ? parseFloat(cashAmount) || 0 : 0,
       card_amount: isSplit ? parseFloat(cardAmount) || 0 : 0,
@@ -170,7 +176,8 @@ export function POSClient({
         })),
         total_amount: finalTotal,
         discount: discount,
-        register_name: "Основна каса"
+        register_name: "Основна каса",
+        warranty_end: warranty.end
       });
       setSuccessSaleId(res.data.saleId);
       clearCart();
@@ -255,6 +262,8 @@ export function POSClient({
           setLinkDeviceToCustomer={setLinkDeviceToCustomer}
           notes={notes}
           setNotes={setNotes}
+          warrantyTerm={warrantyTerm}
+          setWarrantyTerm={setWarrantyTerm}
         />
 
         {/* RIGHT COLUMN: Bento Storefront Grid */}

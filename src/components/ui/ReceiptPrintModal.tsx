@@ -368,12 +368,17 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         {type === "sale" && (
           <>
             <p className="text-[9px] text-gray-400 uppercase font-bold mb-1">Перелік товарів</p>
-            <table className="w-full text-left text-[9px]">
+            <table className="w-full table-fixed text-left text-[9px]">
+              <colgroup>
+                <col style={{ width: "58%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "27%" }} />
+              </colgroup>
               <thead>
                 <tr className="border-b border-black/20 font-bold">
-                  <th className="py-0.5">Назва</th>
-                  <th className="py-0.5 text-center">К-ть</th>
-                  <th className="py-0.5 text-right">Сума</th>
+                  <th className="py-0.5 pr-1">Назва</th>
+                  <th className="py-0.5 text-center whitespace-nowrap">К-ть</th>
+                  <th className="py-0.5 text-right whitespace-nowrap">Сума</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,12 +447,17 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
               <>
                 <div className="receipt-divider" />
                 <p className="text-[9px] text-gray-400 uppercase font-bold">Виконані роботи / деталі</p>
-                <table className="w-full text-left text-[9px] mt-0.5">
+                <table className="w-full table-fixed text-left text-[9px] mt-0.5">
+                  <colgroup>
+                    <col style={{ width: "58%" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "27%" }} />
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-black/20 font-bold">
-                      <th className="py-0.5">Найменування</th>
-                      <th className="py-0.5 text-center">К-ть</th>
-                      <th className="py-0.5 text-right">Сума</th>
+                      <th className="py-0.5 pr-1">Найменування</th>
+                      <th className="py-0.5 text-center whitespace-nowrap">К-ть</th>
+                      <th className="py-0.5 text-right whitespace-nowrap">Сума</th>
                     </tr>
                   </thead>
                   <tbody>

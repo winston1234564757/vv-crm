@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { IconDelete, IconSpinner } from "@/components/icons";
 import { Customer, CartItem } from "./pos-types";
+import { WARRANTY_TERMS, type WarrantyTerm } from "./pos-warranty";
 
 interface POSCartSidebarProps {
   activeMobileTab: "catalog" | "cart";
@@ -43,6 +44,9 @@ interface POSCartSidebarProps {
   setLinkDeviceToCustomer: (val: boolean) => void;
   notes: string;
   setNotes: (val: string) => void;
+
+  warrantyTerm: WarrantyTerm;
+  setWarrantyTerm: (val: WarrantyTerm) => void;
 }
 
 export function POSCartSidebar({
@@ -80,7 +84,9 @@ export function POSCartSidebar({
   linkDeviceToCustomer,
   setLinkDeviceToCustomer,
   notes,
-  setNotes
+  setNotes,
+  warrantyTerm,
+  setWarrantyTerm
 }: POSCartSidebarProps) {
   return (
     <div className={`${activeMobileTab === "cart" ? "flex" : "hidden lg:flex"} w-full lg:w-[42%] flex-col justify-between rounded-xl p-5 bg-surface shadow-[0_1px_3px_oklch(0%_0_0_/_0.06)] border border-warm-border max-h-[85vh] overflow-y-auto`}>
@@ -273,6 +279,20 @@ export function POSCartSidebar({
             onChange={e => setNotes(e.target.value)}
             className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2 text-xs outline-none focus:border-violet"
           />
+        </div>
+
+        {/* Warranty term — друкується на чеку як «Гарантія дійсна до: …» */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium text-text-secondary">Гарантія на чек</label>
+          <select
+            value={warrantyTerm}
+            onChange={e => setWarrantyTerm(e.target.value as WarrantyTerm)}
+            className="w-full rounded-xl border border-iris/20 bg-surface px-3.5 py-2.5 text-xs text-text-primary outline-none focus:border-violet cursor-pointer"
+          >
+            {WARRANTY_TERMS.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
         </div>
 
         {selectedCustomerId && cart.some(c => c.item_type === "device") && (

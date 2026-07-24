@@ -1,7 +1,7 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { getSettings } from "./data-settings";
-import { computeProfit, floorAtEpoch, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem } from "./profit";
+import { computeProfit, floorAtEpoch, resolveRange, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem, type RangePreset } from "./profit";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -78,19 +78,17 @@ export async function getFinanceData() {
   return { cashRegisters, safes, transactions: resolved, expenseCategories };
 }
 
-export async function getFinanceReport(daysBack = 30) {
+export async function getFinanceReport(preset: RangePreset = "30d") {
   const supabase = await createClient();
   const settings = await getSettings();
   const capitalCategoryId = settings.capital_category_id;
 
   const now = new Date();
-  const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - daysBack);
-  startDate.setHours(0, 0, 0, 0);
+  const range = resolveRange(preset, now);
 
   // Нижня межа вікна опускається до фінансової епохи — тестові продажі
   // "з рук" до відкриття магазину не мають враховуватись у звіті.
-  const floored = floorAtEpoch(startDate, now, settings.finance_epoch);
+  const floored = floorAtEpoch(range.start, range.end, settings.finance_epoch);
 
   if (floored.empty) {
     // Усе вікно лежить до епохи — грошей у ньому немає, запитів не робимо.
@@ -104,35 +102,43 @@ export async function getFinanceReport(daysBack = 30) {
       repairsRevenue: 0,
       repairsCost: 0,
       profit: 0,
+      ownerShare: 0,
       categoryBreakdown: [] as { name: string; amount: number }[],
       byCategory: emptyProfit.byCategory,
     };
   }
 
   const startStr = floored.start.toISOString();
+  const endStr = floored.end.toISOString();
 
-  const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").gte("created_at", startStr),
-    supabase.from("purchases").select("total_amount").gte("created_at", startStr),
-    supabase.from("expenses").select("amount, category_id").gte("created_at", startStr),
+  const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes, safesForReport] = await Promise.all([
+    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").gte("created_at", startStr).lt("created_at", endStr),
+    supabase.from("purchases").select("total_amount").gte("created_at", startStr).lt("created_at", endStr),
+    supabase.from("expenses").select("amount, category_id, paid_from_safe_id").gte("created_at", startStr).lt("created_at", endStr),
     supabase.from("expense_categories").select("*"),
     supabase
       .from("repairs")
       .select("price, cost, external_sc_cost")
       .is("inventory_device_id", null)
       .in("status", ["completed", "handed_over"])
-      .gte("completed_at", startStr),
+      .gte("completed_at", startStr)
+      .lt("completed_at", endStr),
+    supabase.from("safes").select("id, type"),
   ]);
+
+  const netProfitSafeId = (safesForReport.data ?? []).find((s) => s.type === "net_profit")?.id ?? null;
 
   const salesData = salesRes.data ?? [];
   const totalSales = salesData.reduce((s, r) => s + r.total_amount, 0);
   const totalPurchases = (purchasesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
 
-  // Капітальні витрати (одноразове вкладення на відкриття) — не операційні:
-  // виключаються з усього, що годує операційний прибуток і частку
-  // співвласника, але не губляться — повертаються окремим полем.
+  // Капітальні витрати та вилучення прибутку власниками — не операційні:
+  // вилучення з net_profit-сейфа вже є частиною розподіленого прибутку,
+  // записувати їх ще раз у P&L — подвійний рахунок.
   const allExpenses = expensesRes.data ?? [];
-  const operatingExpenses = allExpenses.filter((e) => e.category_id !== capitalCategoryId);
+  const operatingExpenses = allExpenses
+    .filter((e) => e.category_id !== capitalCategoryId)
+    .filter((e) => e.paid_from_safe_id !== netProfitSafeId);
   const capitalExpensesRows = allExpenses.filter((e) => e.category_id === capitalCategoryId);
   const totalExpenses = operatingExpenses.reduce((s, r) => s + r.amount, 0);
   const capitalExpenses = capitalExpensesRows.reduce((s, r) => s + r.amount, 0);
@@ -202,6 +208,7 @@ export async function getFinanceReport(daysBack = 30) {
     repairsRevenue,
     repairsCost,
     profit,
+    ownerShare: Math.round(profit * 0.5),
     categoryBreakdown,
     byCategory: report.byCategory,
   };

@@ -21,6 +21,8 @@ const btnPrimary =
 
 interface DashboardClientProps {
   preset: RangePreset;
+  /** Обраний минулий день (`YYYY-MM-DD`) на вкладці «Сьогодні», або null. */
+  selectedDay: string | null;
   attention: { repairs: AttentionRepair[]; stock: AttentionStockItem[] };
   money: DashboardMoney;
   targets: SalesTargets;
@@ -37,7 +39,7 @@ interface DashboardClientProps {
  * server fetched — same pattern as the header's own `today` string below,
  * which has always been computed at render time rather than passed down.
  */
-export function DashboardClient({ preset, attention, money, targets, daily }: DashboardClientProps) {
+export function DashboardClient({ preset, selectedDay, attention, money, targets, daily }: DashboardClientProps) {
   const groups = useMemo(() => findAttention(attention, new Date()), [attention]);
   const today = new Date().toLocaleDateString("uk-UA", {
     weekday: "long",
@@ -66,7 +68,7 @@ export function DashboardClient({ preset, attention, money, targets, daily }: Da
       />
 
       <AttentionSection groups={groups} />
-      <MoneySection preset={preset} money={money} targets={targets} />
+      <MoneySection preset={preset} selectedDay={selectedDay} money={money} targets={targets} />
       <DailyShareNavigator daily={daily} />
       <InsightsSection preset={preset} />
     </div>

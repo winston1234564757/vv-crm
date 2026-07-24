@@ -2,32 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { dayKey, addDays, dayLabel } from "@/lib/utils/day";
 import type { DailyShare } from "@/lib/data-daily-share";
 
 function fmt(n: number): string {
   return `${n.toLocaleString("uk-UA")} ₴`;
-}
-
-/** Локальний `YYYY-MM-DD` — той самий формат, що й ключі з `getDailyShares`. */
-function keyOf(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function addDays(key: string, delta: number): string {
-  const [y, m, d] = key.split("-").map(Number);
-  return keyOf(new Date(y, m - 1, d + delta));
-}
-
-function labelFor(key: string): string {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("uk-UA", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
 }
 
 /**
@@ -38,7 +17,7 @@ function labelFor(key: string): string {
  */
 export function DailyShareNavigator({ daily }: { daily: DailyShare[] }) {
   const byDate = useMemo(() => new Map(daily.map((d) => [d.date, d])), [daily]);
-  const [selected, setSelected] = useState<string>(() => keyOf(new Date()));
+  const [selected, setSelected] = useState<string>(() => dayKey(new Date()));
 
   const row = byDate.get(selected);
   const net = row?.net ?? 0;
@@ -67,7 +46,7 @@ export function DailyShareNavigator({ daily }: { daily: DailyShare[] }) {
         </button>
 
         <div className="min-w-0 flex-1 text-center">
-          <p className="text-xs capitalize text-muted">{labelFor(selected)}</p>
+          <p className="text-xs capitalize text-muted">{dayLabel(selected)}</p>
           <p
             className={cn(
               "mt-0.5 font-display text-2xl font-semibold tabular tracking-tight",

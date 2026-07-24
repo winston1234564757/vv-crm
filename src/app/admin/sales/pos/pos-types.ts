@@ -42,4 +42,6 @@ export interface LastSaleData {
   total_amount: number;
   discount: number;
   register_name: string;
+  /** Дата кінця гарантії `YYYY-MM-DD`, або null якщо без гарантії. */
+  warranty_end: string | null;
 }

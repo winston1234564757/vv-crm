@@ -287,7 +287,10 @@ export function POSCatalog({
                     {/* Info details */}
                     <div className="flex-1 flex flex-col justify-between">
                       <div>
-                        <h4 className="text-xs font-bold text-text-primary leading-tight line-clamp-2">
+                        <h4
+                          title={displayName}
+                          className="text-xs font-bold text-text-primary leading-snug break-words"
+                        >
                           {displayName}
                         </h4>
                         {displayImei && (

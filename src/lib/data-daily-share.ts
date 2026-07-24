@@ -56,7 +56,7 @@ export async function getDailyShares(): Promise<DailyShare[]> {
     .select("completed_at, price, cost, external_sc_cost")
     .is("inventory_device_id", null)
     .in("status", ["completed", "handed_over"]);
-  const expensesQ = supabase.from("expenses").select("created_at, amount, category_id");
+  const expensesQ = supabase.from("expenses").select("created_at, amount, category_id, paid_from_safe_id");
 
   if (epochStr) {
     salesQ.gte("created_at", epochStr);
@@ -64,7 +64,13 @@ export async function getDailyShares(): Promise<DailyShare[]> {
     expensesQ.gte("created_at", epochStr);
   }
 
-  const [salesRes, repairsRes, expensesRes] = await Promise.all([salesQ, repairsQ, expensesQ]);
+  const [salesRes, repairsRes, expensesRes, safesRes] = await Promise.all([salesQ, repairsQ, expensesQ,
+    supabase.from("safes").select("id, type"),
+  ]);
+
+  // Сейф чистого прибутку: витрати з нього — вилучення власника, не OPEX.
+  const netProfitSafeId = (safesRes.data ?? []).find((s) => s.type === "net_profit")?.id ?? null;
+
   const salesData = salesRes.data ?? [];
 
   // Собівартості проданих пристроїв — потрібні `computeProfit` (пристрій
@@ -105,6 +111,7 @@ export async function getDailyShares(): Promise<DailyShare[]> {
   const opexByDay = new Map<string, number>();
   for (const e of expensesRes.data ?? []) {
     if (e.category_id === capitalCategoryId) continue; // капітал — не операційна витрата
+    if (e.paid_from_safe_id === netProfitSafeId) continue; // вилучення прибутку — не OPEX
     const key = localDateKey(e.created_at as string);
     opexByDay.set(key, (opexByDay.get(key) ?? 0) + e.amount);
   }

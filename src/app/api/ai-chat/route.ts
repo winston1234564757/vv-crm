@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
       const registers = registersRes.data || [];
       const safes = safesRes.data || [];
-      const report = await getFinanceReport(30);
+      const report = await getFinanceReport("30d");
 
       systemPrompt = buildFinanceCopilotSystem({
         totalCash: registers.reduce((s, r) => s + r.balance, 0),

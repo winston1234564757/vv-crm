@@ -240,4 +240,47 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
   }
 }
 
+const withdrawSchema = z.object({
+  source_type: z.enum(["safe", "cash_register"]),
+  source_id: z.string().uuid("Оберіть джерело вилучення"),
+  amount: z.coerce.number().min(1, "Сума вилучення має бути більше 0"),
+  description: z.string().optional(),
+});
+
+export async function withdrawOwnerShareAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+  try {
+    await requireRole(["owner"]);
+    const data = {
+      source_type: formData.get("source_type"),
+      source_id: formData.get("source_id"),
+      amount: formData.get("amount"),
+      description: formData.get("description") || "",
+    };
+
+    const parsed = withdrawSchema.parse(data);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+    }
+
+    const { error: rpcError } = await supabase.rpc("withdraw_owner_share" as any, {
+      source_type: parsed.source_type,
+      source_id: parsed.source_id,
+      amount: parsed.amount,
+      desc_text: parsed.description || "Вилучення частки прибутку співвласника",
+      user_id: user.id,
+    });
+
+    if (rpcError) throw rpcError;
+
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
 

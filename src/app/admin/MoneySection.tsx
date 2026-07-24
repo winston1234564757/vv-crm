@@ -1,5 +1,7 @@
 "use client";
 
+import { WithdrawShareButton } from "./finance/WithdrawShareButton";
+
 import { useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -14,6 +16,10 @@ import type { DashboardMoney } from "@/lib/data-dashboard";
 import type { SalesTargets } from "@/lib/data-settings";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
+import { dayKey, addDays, dayLabel } from "@/lib/utils/day";
+
+/** Наскільки днів назад дозволяємо гортати вкладку «Сьогодні». */
+const DAY_NAV_LOOKBACK = 30;
 
 function fmt(n: number): string {
   return `${Math.round(n).toLocaleString("uk-UA")} ₴`;
@@ -53,10 +59,13 @@ function TargetRow({ label, value, target }: { label: string; value: number; tar
  */
 export function MoneySection({
   preset,
+  selectedDay,
   money,
   targets,
 }: {
   preset: RangePreset;
+  /** Обраний минулий день (`YYYY-MM-DD`) на вкладці «Сьогодні», або null. */
+  selectedDay: string | null;
   money: DashboardMoney;
   targets: SalesTargets;
 }) {
@@ -68,6 +77,23 @@ export function MoneySection({
     if (next === preset) return;
     startTransition(() => {
       router.replace(`${pathname}?range=${next}`);
+    });
+  }
+
+  // Денна навігація на вкладці «Сьогодні». Сьогодні = чистий `?range=today`;
+  // минулий день несе `&day=`. Гортати можна на 30 днів назад, не в майбутнє.
+  const todayKey = dayKey(new Date());
+  const activeDay = selectedDay ?? todayKey;
+  const minKey = addDays(todayKey, -DAY_NAV_LOOKBACK);
+  const isToday = activeDay >= todayKey;
+
+  function goToDay(next: string) {
+    const clamped = next < minKey ? minKey : next > todayKey ? todayKey : next;
+    if (clamped === activeDay) return;
+    const url =
+      clamped === todayKey ? `${pathname}?range=today` : `${pathname}?range=today&day=${clamped}`;
+    startTransition(() => {
+      router.replace(url);
     });
   }
 
@@ -108,6 +134,48 @@ export function MoneySection({
       </div>
 
       <div className="card space-y-5 p-5">
+        {preset === "today" && (
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 transition-opacity",
+              isPending && "opacity-60",
+            )}
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => goToDay(addDays(activeDay, -1))}
+                disabled={activeDay <= minKey}
+                aria-label="Попередній день"
+                className="btn-press rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-base text-muted hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+              >
+                ←
+              </button>
+              <p className="min-w-0 flex-1 truncate text-center text-xs font-medium capitalize text-ink">
+                {isToday ? "Сьогодні" : dayLabel(activeDay)}
+              </p>
+              <button
+                type="button"
+                onClick={() => goToDay(addDays(activeDay, 1))}
+                disabled={activeDay >= todayKey}
+                aria-label="Наступний день"
+                className="btn-press rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-base text-muted hover:bg-hover disabled:pointer-events-none disabled:opacity-40"
+              >
+                →
+              </button>
+            </div>
+            <input
+              type="date"
+              value={activeDay}
+              min={minKey}
+              max={todayKey}
+              onChange={(e) => e.target.value && goToDay(e.target.value)}
+              aria-label="Обрати день"
+              className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-xs text-ink"
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-xs font-medium text-muted">Виторг</p>
@@ -210,7 +278,14 @@ export function MoneySection({
         </div>
 
         <div className="border-t border-border pt-4">
-          <p className="text-xs font-medium text-muted">Моя частка · 50% чистого</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-muted">Моя частка · 50% чистого</p>
+            {money.partnerLedger && (
+              <span className="text-[11px] font-medium text-accent">
+                Доступно до зняття: <span className="font-bold">{fmt(money.partnerLedger.myAvailable)}</span>
+              </span>
+            )}
+          </div>
           <div className="mt-2 grid grid-cols-3 gap-4">
             <PartnerShareCell label="Сьогодні" net={money.partnerShare.today.net} share={money.partnerShare.today.share} />
             <PartnerShareCell label="Тиждень" net={money.partnerShare.week.net} share={money.partnerShare.week.share} />
@@ -220,6 +295,36 @@ export function MoneySection({
             День і тиждень можуть сильно стрибати — витрати (оренда, зарплата) лягають одним днем, тож день з орендою
             виглядає глибоко мінусовим, а тихий день — навпаки високим; місяць — стабільніша цифра.
           </p>
+
+          {money.partnerLedger && (
+            <div className="mt-3 rounded-[var(--radius-md)] bg-hover/50 p-3 text-xs space-y-1.5">
+              <div className="flex justify-between items-center text-muted">
+                <span>Всього розподілено з каси в сейф ЧП:</span>
+                <span className="font-medium text-ink tabular">{fmt(money.partnerLedger.totalDistributed)}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted">
+                <span>Моя накопичена частка (50%):</span>
+                <span className="font-medium text-ink tabular">{fmt(money.partnerLedger.myAccrued)}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted">
+                <span>Вилучено мною раніше:</span>
+                <span className="font-medium text-danger tabular">-{fmt(money.partnerLedger.myWithdrawn)}</span>
+              </div>
+              <div className="flex justify-between items-center font-medium pt-1 border-t border-border/50 text-ink">
+                <span>Залишок моєї частки (доступно):</span>
+                <span className={cn("font-bold tabular text-sm", money.partnerLedger.myAvailable >= 0 ? "text-success" : "text-danger")}>
+                  {fmt(money.partnerLedger.myAvailable)}
+                </span>
+              </div>
+              <div className="pt-2 flex justify-end">
+                <WithdrawShareButton
+                  safes={money.sources.filter((s) => s.type === "safe")}
+                  cashRegisters={money.sources.filter((s) => s.type === "cash_register")}
+                  label="💵 Зняти свою частку"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -11,7 +11,9 @@ import type { SafeDistribution } from "@/lib/data-settings";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
 import { getPurchases } from "@/lib/data-purchases";
+import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
+import { PLBreakdownPanel } from "./PLBreakdownPanel";
 
 export default async function FinancePage() {
   const [
@@ -59,6 +61,7 @@ export default async function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
+          <WithdrawShareButton safes={safes} cashRegisters={cashRegisters} />
           <AddTopUpButton safes={safes} />
           <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
@@ -90,41 +93,16 @@ export default async function FinancePage() {
               </div>
             </div>
 
-            {/* Income and Costs layout meters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-text-secondary">Сумарний Валовий Дохід</span>
-                  <span className="font-semibold text-emerald">{(report.totalSales + report.repairsRevenue).toLocaleString()} ₴</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-warm-border overflow-hidden">
-                  <div className="h-full bg-emerald rounded-full" style={{ width: '100%' }} />
-                </div>
-                <div className="flex justify-between text-[9px] text-text-muted font-mono">
-                  <span>Продажі: {report.totalSales.toLocaleString()} ₴</span>
-                  <span>Ремонти: {report.repairsRevenue.toLocaleString()} ₴</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-text-secondary">Собівартість & Витрати</span>
-                  <span className="font-semibold text-rose">{(report.salesCost + report.repairsCost + report.totalExpenses).toLocaleString()} ₴</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-warm-border overflow-hidden">
-                  <div 
-                    className="h-full bg-rose rounded-full animate-progress" 
-                    style={{ 
-                      width: `${Math.min(100, Math.round(((report.salesCost + report.repairsCost + report.totalExpenses) / Math.max(1, report.totalSales + report.repairsRevenue)) * 100))}%` 
-                    }} 
-                  />
-                </div>
-                <div className="flex justify-between text-[9px] text-text-muted font-mono">
-                  <span>Собівартість: {(report.salesCost + report.repairsCost).toLocaleString()} ₴</span>
-                  <span>Витрати: {report.totalExpenses.toLocaleString()} ₴</span>
-                </div>
-              </div>
-            </div>
+            {/* Income and Costs layout meters — клікабельні, з розкладкою у модалці */}
+            <PLBreakdownPanel
+              totalSales={report.totalSales}
+              repairsRevenue={report.repairsRevenue}
+              salesCost={report.salesCost}
+              repairsCost={report.repairsCost}
+              totalExpenses={report.totalExpenses}
+              byCategory={report.byCategory}
+              categoryBreakdown={report.categoryBreakdown}
+            />
           </div>
 
           {/* B. Ledger Nodes: Registers & Safes combined layout */}

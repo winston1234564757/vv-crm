@@ -97,7 +97,9 @@ export function ExpenseForm({
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
         >
           <option value="" disabled>Оберіть сейф...</option>
-          {safes.map((safe) => (
+          {safes
+            .filter((s) => s.type !== "net_profit") // вилучення прибутку — через Переказ, не Витрату
+            .map((safe) => (
             <option key={safe.id} value={safe.id}>
               {safe.name} ({safe.balance.toLocaleString()} грн)
             </option>

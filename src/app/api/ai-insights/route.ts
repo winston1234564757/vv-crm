@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const preset: RangePreset = isRangePreset(body.range) ? body.range : "today";
 
   const [money, attention, settings] = await Promise.all([
-    getDashboardMoney(preset),
+    getDashboardMoney(preset, user.id),
     getAttentionData(),
     getSettings(),
   ]);
