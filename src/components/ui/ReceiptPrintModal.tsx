@@ -24,17 +24,27 @@ import {
   getConditionLabel,
   getFallbackTitle,
 } from "@/lib/printer/receipt-content";
+import { labelOf, orderItemType, orderStatus } from "@/lib/domain-labels";
 
 interface ReceiptPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: "sale" | "repair_acceptance" | "repair_warranty";
+  type: "sale" | "repair_acceptance" | "repair_warranty" | "order";
   data: {
     id: string;
     created_at?: string;
     customer_name: string;
     customer_phone?: string;
     seller_name?: string;
+    // For client orders:
+    order_no?: string;
+    item_type?: string;
+    item_name?: string;
+    item_url?: string | null;
+    agreed_price?: number;
+    deposit?: number;
+    deadline?: string | null;
+    order_status?: string;
     // For sale:
     items?: Array<{ name: string; quantity: number; unit_price: number; total_price: number }>;
     total_amount?: number;
@@ -144,7 +154,9 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           setPhone(settings.phone || "+380 99 999 9999");
           setFooterText(settings.footer_text || "Дякуємо за покупку!\nЧекаємо Вас знову!");
 
-          const template = settings.templates?.[type];
+          // "order" has no stored template — index only the keys that exist,
+          // so an order falls through to loadFallbacks() below.
+          const template = settings.templates?.[type as keyof NonNullable<typeof settings.templates>];
           if (template) {
             setTitle(template.title || getFallbackTitle(type));
             setShowSeller(template.show_seller ?? true);
@@ -287,6 +299,20 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           totalPrice: item.unit_price * item.quantity,
         })),
         price: data.price,
+        order:
+          type === "order"
+            ? {
+                orderNo: data.order_no ?? data.id.substring(0, 8),
+                itemTypeLabel: labelOf(orderItemType, data.item_type).label,
+                itemName: data.item_name ?? "",
+                itemUrl: data.item_url ?? undefined,
+                agreedPrice: data.agreed_price ?? 0,
+                deposit: data.deposit ?? 0,
+                remaining: Math.max(0, (data.agreed_price ?? 0) - (data.deposit ?? 0)),
+                deadline: data.deadline ? format(new Date(data.deadline), "dd.MM.yyyy") : undefined,
+                statusLabel: labelOf(orderStatus, data.order_status).label,
+              }
+            : undefined,
       };
 
       const deviceLabel = await printReceipt(receipt, printerConfig);
@@ -335,14 +361,14 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       
       {/* Document Meta */}
       <div className="space-y-0.5 text-[9px]">
-        <p className="font-bold">{title} №{data.id.substring(0, 8)}</p>
+        <p className="font-bold">{title} №{type === "order" && data.order_no ? data.order_no : data.id.substring(0, 8)}</p>
         <p>Дата: {formattedDate}</p>
         {type === "sale" && data.register_name && (
           <p>Каса: {data.register_name}</p>
         )}
         {showSeller && (
           <p>
-            {type === "repair_acceptance" ? "Прийняв" : type === "repair_warranty" ? "Видав" : "Продавець"}: {employeeName}
+            {type === "repair_acceptance" ? "Прийняв" : type === "repair_warranty" ? "Видав" : type === "order" ? "Оформив" : "Продавець"}: {employeeName}
           </p>
         )}
       </div>
@@ -484,6 +510,37 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             )}
           </>
         )}
+
+        {type === "order" && (
+          <>
+            <p className="text-[9px] text-gray-400 uppercase font-bold">Замовлення</p>
+            <div className="space-y-0.5 text-[9px]">
+              <p><strong>Категорія:</strong> {labelOf(orderItemType, data.item_type).label}</p>
+              <p><strong>Товар:</strong> {data.item_name}</p>
+              {data.item_url && <p className="break-all"><strong>Посилання:</strong> {data.item_url}</p>}
+              {data.deadline && (
+                <p><strong>Термін:</strong> {format(new Date(data.deadline), "dd.MM.yyyy")}</p>
+              )}
+              <p><strong>Статус:</strong> {labelOf(orderStatus, data.order_status).label}</p>
+            </div>
+
+            <div className="receipt-divider" />
+
+            <div className="text-right space-y-0.5 text-[9px]">
+              <p>Ціна: {(data.agreed_price || 0).toLocaleString()} ₴</p>
+              {(data.deposit || 0) > 0 ? (
+                <>
+                  <p>Аванс: {(data.deposit || 0).toLocaleString()} ₴</p>
+                  <p className="text-[11px] font-bold">
+                    ЗАЛИШОК: {Math.max(0, (data.agreed_price || 0) - (data.deposit || 0)).toLocaleString()} ₴
+                  </p>
+                </>
+              ) : (
+                <p className="text-[11px] font-bold">ДО СПЛАТИ: {(data.agreed_price || 0).toLocaleString()} ₴</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {warrantyText && (
@@ -491,7 +548,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           <div className="receipt-divider" />
           <div className="space-y-0.5">
             <p className="text-[9px] text-gray-400 uppercase font-bold">
-              {type === "repair_acceptance" ? "Умови ремонту" : "Гарантійні зобов'язання"}
+              {type === "repair_acceptance" ? "Умови ремонту" : type === "order" ? "Умови замовлення" : "Гарантійні зобов'язання"}
             </p>
             <p className="text-[9px] text-gray-700 leading-normal whitespace-pre-wrap">
               {warrantyText}
@@ -501,18 +558,18 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
       )}
 
       {/* Signatures */}
-      {(type === "repair_acceptance" || type === "repair_warranty") && (
+      {(type === "repair_acceptance" || type === "repair_warranty" || type === "order") && (
         <>
           <div className="receipt-divider" />
           {/* Stacked, not two columns: at 48 mm a two-up grid leaves ~20 mm per
               cell, which is narrower than the label "Прийняв (підпис)" itself. */}
           <div className="pt-1 space-y-2.5 text-[9px] text-black">
             <div>
-              <p>{type === "repair_acceptance" ? "Здав (підпис)" : "Отримав (підпис)"}</p>
+              <p>{type === "repair_acceptance" ? "Здав (підпис)" : type === "order" ? "Замовник (підпис)" : "Отримав (підпис)"}</p>
               <p className="mt-3 font-bold">______________________</p>
             </div>
             <div>
-              <p>{type === "repair_acceptance" ? "Прийняв (підпис)" : "Видав (підпис)"}</p>
+              <p>{type === "repair_acceptance" ? "Прийняв (підпис)" : type === "order" ? "Оформив (підпис)" : "Видав (підпис)"}</p>
               <p className="mt-3 font-bold">______________________</p>
             </div>
           </div>

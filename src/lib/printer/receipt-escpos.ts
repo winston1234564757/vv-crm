@@ -86,6 +86,23 @@ export interface ResolvedReceipt {
   issue?: string;
   repairItems?: ReceiptLineItem[];
   price?: number;
+
+  /** Present only for `type: "order"`. Labels are pre-resolved by the caller. */
+  order?: ReceiptOrder;
+}
+
+export interface ReceiptOrder {
+  /** Human number, e.g. "0001". Printed instead of the uuid prefix. */
+  orderNo: string;
+  itemTypeLabel: string;
+  itemName: string;
+  itemUrl?: string;
+  agreedPrice: number;
+  deposit: number;
+  remaining: number;
+  /** Already formatted, e.g. "31.07.2026". */
+  deadline?: string;
+  statusLabel: string;
 }
 
 export type Block =
@@ -194,8 +211,10 @@ export function composeReceipt(receipt: ResolvedReceipt, columns = DEFAULT_WIDTH
 
   blocks.push({ kind: "divider" });
 
-  // Document meta
-  blocks.push(...body(`${receipt.title} №${receipt.id.substring(0, 8)}`, columns, { bold: true }));
+  // Document meta — an order shows its human number, others the uuid prefix.
+  const docNo =
+    type === "order" && receipt.order ? receipt.order.orderNo : receipt.id.substring(0, 8);
+  blocks.push(...body(`${receipt.title} №${docNo}`, columns, { bold: true }));
   blocks.push(...body(`Дата: ${receipt.date}`, columns));
   if (type === "sale" && receipt.registerName) {
     blocks.push(...body(`Каса: ${receipt.registerName}`, columns));
@@ -213,6 +232,8 @@ export function composeReceipt(receipt: ResolvedReceipt, columns = DEFAULT_WIDTH
 
   if (type === "sale") {
     blocks.push(...composeSaleBody(receipt, columns));
+  } else if (type === "order") {
+    blocks.push(...composeOrderBody(receipt, columns));
   } else {
     blocks.push(...composeRepairBody(receipt, columns));
   }
@@ -283,6 +304,38 @@ function composeSaleBody(receipt: ResolvedReceipt, columns: number): Block[] {
       text(l, { bold: true }),
     ),
   );
+
+  return blocks;
+}
+
+function composeOrderBody(receipt: ResolvedReceipt, columns: number): Block[] {
+  const order = receipt.order;
+  const blocks: Block[] = [{ kind: "divider" }, heading("ЗАМОВЛЕННЯ")];
+  if (!order) return blocks;
+
+  blocks.push(...body(`Категорія: ${order.itemTypeLabel}`, columns));
+  blocks.push(...body(`Товар: ${order.itemName}`, columns));
+  if (order.itemUrl) blocks.push(...body(`Посилання: ${order.itemUrl}`, columns));
+  if (order.deadline) blocks.push(...body(`Термін: ${order.deadline}`, columns));
+  blocks.push(...body(`Статус: ${order.statusLabel}`, columns));
+
+  blocks.push({ kind: "divider" });
+  blocks.push(...labelValue("Ціна:", `${money(order.agreedPrice)} грн`, columns).map((l) => text(l)));
+
+  if (order.deposit > 0) {
+    blocks.push(...labelValue("Аванс:", `${money(order.deposit)} грн`, columns).map((l) => text(l)));
+    blocks.push(
+      ...labelValue("ЗАЛИШОК:", `${money(order.remaining)} грн`, columns).map((l) =>
+        text(l, { bold: true }),
+      ),
+    );
+  } else {
+    blocks.push(
+      ...labelValue("ДО СПЛАТИ:", `${money(order.agreedPrice)} грн`, columns).map((l) =>
+        text(l, { bold: true }),
+      ),
+    );
+  }
 
   return blocks;
 }

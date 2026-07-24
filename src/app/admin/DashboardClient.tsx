@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { CurrentTime } from "@/components/CurrentTime";
 import { AddSaleButton } from "./AddSaleButton";
 import { AddRepairButton } from "./repairs/AddRepairButton";
+import { AddOrderButton } from "./AddOrderButton";
 import { AttentionSection } from "./AttentionSection";
 import { MoneySection } from "./MoneySection";
 import { DailyShareNavigator } from "./DailyShareNavigator";
@@ -58,11 +59,14 @@ export function DashboardClient({ preset, selectedDay, attention, money, targets
           </span>
         }
         actions={
-          <div className="flex w-full flex-row gap-2 md:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
             <AddSaleButton className={cn(btnPrimary, "flex-1 md:flex-none")} />
             <AddRepairButton variant="secondary" className="flex-1 md:flex-none">
               Прийняти в ремонт
             </AddRepairButton>
+            <AddOrderButton variant="secondary" className="flex-1 md:flex-none">
+              Замовлення
+            </AddOrderButton>
           </div>
         }
       />

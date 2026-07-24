@@ -80,6 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: IconSale,
     items: [
       { href: "/admin/sales", label: "Продажі", icon: IconSale },
+      { href: "/admin/orders", label: "Замовлення", icon: IconPurchase },
       { href: "/admin/customers", label: "Клієнти", icon: IconCustomer },
       { href: "/admin/partners", label: "Партнери", icon: IconPartner },
     ],

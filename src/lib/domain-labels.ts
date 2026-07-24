@@ -218,6 +218,39 @@ export const paymentMethod: LabelMap = {
   transfer: { label: "Переказ", tone: "neutral" },
 };
 
+/* ----------------------------------------------------------- client orders */
+
+/**
+ * `client_orders.status` — text + CHECK (не enum, свідомо — див. міграцію
+ * client_orders). Порядок = робочий цикл замовлення, не алфавіт.
+ */
+export const orderStatus: LabelMap = {
+  new: { label: "Нове", tone: "info" },
+  ordered: { label: "Замовлено", tone: "accent" },
+  arrived: { label: "Прибуло", tone: "warning" },
+  ready: { label: "Готове до видачі", tone: "success" },
+  completed: { label: "Видано", tone: "neutral" },
+  cancelled: { label: "Скасовано", tone: "danger" },
+};
+
+/** Клієнтські формулювання для публічного трекера. Ті самі ключі. */
+export const orderStatusPublic: LabelMap = {
+  new: { label: "Прийнято замовлення", tone: "info" },
+  ordered: { label: "Замовлено у постачальника", tone: "accent" },
+  arrived: { label: "Прибуло на склад", tone: "warning" },
+  ready: { label: "Готове до видачі", tone: "success" },
+  completed: { label: "Видано клієнту", tone: "neutral" },
+  cancelled: { label: "Скасовано", tone: "danger" },
+};
+
+/** `client_orders.item_type` — категорія товару в замовленні. */
+export const orderItemType: LabelMap = {
+  device: { label: "Телефон / техніка", tone: "neutral" },
+  accessory: { label: "Аксесуар", tone: "neutral" },
+  part: { label: "Запчастина", tone: "neutral" },
+  service: { label: "Послуга", tone: "neutral" },
+};
+
 /**
  * Convenience for <select> population: the options of a map in insertion
  * order, which is the order the maps above are written in (workflow order for

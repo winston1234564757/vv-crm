@@ -9,12 +9,13 @@
  * sold. One source, two renderers.
  */
 
-export type ReceiptType = "sale" | "repair_acceptance" | "repair_warranty";
+export type ReceiptType = "sale" | "repair_acceptance" | "repair_warranty" | "order";
 
 /** Used when the stored template has no title of its own. */
 export function getFallbackTitle(type: ReceiptType): string {
   if (type === "sale") return "ТОВАРНИЙ ЧЕК";
   if (type === "repair_acceptance") return "КВИТАНЦІЯ ПРИЙМАННЯ";
+  if (type === "order") return "БЛАНК ЗАМОВЛЕННЯ";
   return "ГАРАНТІЙНИЙ ТАЛОН РЕМОНТУ";
 }
 
@@ -22,6 +23,7 @@ export function getFallbackTitle(type: ReceiptType): string {
 export function getPartyLabel(type: ReceiptType): string {
   if (type === "repair_acceptance") return "Прийняв";
   if (type === "repair_warranty") return "Видав";
+  if (type === "order") return "Оформив";
   return "Продавець";
 }
 
@@ -53,6 +55,11 @@ const ACCEPTANCE_TERMS_FALLBACK =
   "1. Безкоштовне зберігання готового пристрою - до 14 днів.\n" +
   "2. СЦ не несе відповідальності за збереження даних.\n" +
   "3. Пристрій приймається без гарантії на інші несправності.";
+
+const ORDER_TERMS_FALLBACK =
+  "1. Замовлення виконується у погоджений термін.\n" +
+  "2. Аванс за індивідуальне замовлення не повертається у разі відмови.\n" +
+  "3. Товар зберігається до 14 днів після надходження.";
 
 export interface WarrantyTextParams {
   type: ReceiptType;
@@ -93,6 +100,10 @@ export function composeWarrantyText(params: WarrantyTextParams): string {
     return ACCEPTANCE_TERMS_FALLBACK;
   }
 
+  if (type === "order") {
+    return templateText || ORDER_TERMS_FALLBACK;
+  }
+
   if (type === "repair_warranty" && usingFallbackTemplate) {
     return `Термін гарантії: ${warrantyMonths || 0} міс.\n\n${REPAIR_WARRANTY_FALLBACK}`;
   }
@@ -102,12 +113,15 @@ export function composeWarrantyText(params: WarrantyTextParams): string {
 
 /** Heading above the warranty block. */
 export function getWarrantyHeading(type: ReceiptType): string {
-  return type === "repair_acceptance" ? "УМОВИ РЕМОНТУ" : "ГАРАНТІЙНІ ЗОБОВ'ЯЗАННЯ";
+  if (type === "repair_acceptance") return "УМОВИ РЕМОНТУ";
+  if (type === "order") return "УМОВИ ЗАМОВЛЕННЯ";
+  return "ГАРАНТІЙНІ ЗОБОВ'ЯЗАННЯ";
 }
 
 /** Signature lines, in print order. Sales are not counter-signed. */
 export function getSignatureLabels(type: ReceiptType): string[] {
   if (type === "repair_acceptance") return ["Здав (підпис)", "Прийняв (підпис)"];
   if (type === "repair_warranty") return ["Отримав (підпис)", "Видав (підпис)"];
+  if (type === "order") return ["Замовник (підпис)", "Оформив (підпис)"];
   return [];
 }

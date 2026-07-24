@@ -8,7 +8,7 @@ import { trackTTN } from "@/lib/services/nova-poshta";
 import NovaPoshtaWidget from "@/components/ui/NovaPoshtaWidget";
 
 import { StatusPill } from "@/components/ui/StatusPill";
-import { labelOf, repairStatusPublic } from "@/lib/domain-labels";
+import { labelOf, repairStatusPublic, orderStatusPublic, orderItemType } from "@/lib/domain-labels";
 
 export default async function TrackingPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -76,7 +76,104 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     .eq("public_token", decodedToken)
     .single();
 
-  if (error || !repair) notFound();
+  // Не ремонт — можливо, це клієнтське замовлення (той самий публічний токен,
+  // але з префіксом 'o'). client_orders не в згенерованих типах — локальний каст.
+  if (error || !repair) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: order } = await (supabase as any)
+      .from("client_orders")
+      .select("*, customers(name, phone)")
+      .eq("public_token", decodedToken)
+      .single();
+
+    if (!order) notFound();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: orderLog } = await (supabase as any)
+      .from("client_order_status_log")
+      .select("*")
+      .eq("order_id", order.id)
+      .eq("is_customer_visible", true)
+      .order("created_at");
+
+    const remaining = Math.max(0, (order.agreed_price ?? 0) - (order.deposit ?? 0));
+
+    return (
+      <div className="min-h-screen bg-warm-bg">
+        <header className="border-b border-warm-border/50 bg-white">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+            <Link href="/shop" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-text-primary">
+              <span className="text-violet"><IconLogo /></span> VV CRM
+            </Link>
+            <Link href="/track" className="text-sm text-violet hover:underline">Інша заявка</Link>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-4 py-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-xl font-semibold tracking-tight text-text-primary text-balance">Замовлення #{order.order_no}</h1>
+            <p className="mt-1 text-sm text-text-secondary">{order.customers?.name}</p>
+          </div>
+
+          <div className="mb-6 rounded-2xl border border-warm-border/60 bg-white p-6">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-text-secondary">Категорія</p>
+                <p className="font-medium text-text-primary">{labelOf(orderItemType, order.item_type).label}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Статус</p>
+                <StatusPill map={orderStatusPublic} value={order.status} />
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-text-secondary">Товар</p>
+                <p className="font-medium text-text-primary">{order.item_name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Узгоджена ціна</p>
+                <p className="font-semibold text-text-primary">{(order.agreed_price ?? 0).toLocaleString()} грн</p>
+              </div>
+              {(order.deposit ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs text-text-secondary">Аванс / Залишок</p>
+                  <p className="font-semibold text-text-primary">
+                    {(order.deposit ?? 0).toLocaleString()} / {remaining.toLocaleString()} грн
+                  </p>
+                </div>
+              )}
+              {order.deadline && (
+                <div>
+                  <p className="text-xs text-text-secondary">Орієнтовний термін</p>
+                  <p className="text-text-primary">{new Date(order.deadline).toLocaleDateString("uk-UA")}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {orderLog && orderLog.length > 0 && (
+            <div className="rounded-2xl border border-warm-border/60 bg-white p-6">
+              <h3 className="mb-4 text-sm font-semibold text-text-primary tracking-tight">Історія статусів</h3>
+              <div className="relative">
+                <div className="absolute left-[7px] top-1 h-[calc(100%-8px)] w-px bg-iris/10" />
+                <div className="space-y-5">
+                  {orderLog.map((log: { id: string; created_at: string; to_status: string; notes?: string | null }) => (
+                    <div key={log.id} className="flex gap-3">
+                      <div className="relative z-10 mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-violet bg-white" />
+                      <div>
+                        <p className="text-xs text-text-secondary">{new Date(log.created_at).toLocaleString("uk-UA")}</p>
+                        <p className="text-sm font-medium text-text-primary">{labelOf(orderStatusPublic, log.to_status).label}</p>
+                        {log.notes && <p className="text-xs text-text-secondary mt-0.5">{log.notes}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   const npStatus = repair.np_ttn ? await trackTTN(repair.np_ttn) : null;
 
