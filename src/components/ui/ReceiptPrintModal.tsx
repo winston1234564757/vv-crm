@@ -164,7 +164,16 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             setShowQr(template.show_qr ?? true);
             setWarrantyText(warrantyTextFor(template.warranty_text, false));
           } else {
-            loadFallbacks();
+            // Тип без збереженого шаблону (напр. "order"): лишаємо РЕАЛЬНІ
+            // реквізити магазину, що вже підтягнулись вище, і застосовуємо лише
+            // шаблонні дефолти. loadFallbacks() тут затирав би назву/адресу/
+            // телефон хардкод-дефолтами — саме тому чек замовлення показував
+            // "VV CRM / Хрещатик 1" замість збережених налаштувань.
+            setTitle(getFallbackTitle(type));
+            setShowSeller(true);
+            setShowBuyer(true);
+            setShowQr(true);
+            setWarrantyText(warrantyTextFor(undefined, true));
           }
         } else {
           loadFallbacks();
@@ -305,7 +314,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 orderNo: data.order_no ?? data.id.substring(0, 8),
                 itemTypeLabel: labelOf(orderItemType, data.item_type).label,
                 itemName: data.item_name ?? "",
-                itemUrl: data.item_url ?? undefined,
                 agreedPrice: data.agreed_price ?? 0,
                 deposit: data.deposit ?? 0,
                 remaining: Math.max(0, (data.agreed_price ?? 0) - (data.deposit ?? 0)),
@@ -517,7 +525,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             <div className="space-y-0.5 text-[9px]">
               <p><strong>Категорія:</strong> {labelOf(orderItemType, data.item_type).label}</p>
               <p><strong>Товар:</strong> {data.item_name}</p>
-              {data.item_url && <p className="break-all"><strong>Посилання:</strong> {data.item_url}</p>}
               {data.deadline && (
                 <p><strong>Термін:</strong> {format(new Date(data.deadline), "dd.MM.yyyy")}</p>
               )}

@@ -96,7 +96,6 @@ export interface ReceiptOrder {
   orderNo: string;
   itemTypeLabel: string;
   itemName: string;
-  itemUrl?: string;
   agreedPrice: number;
   deposit: number;
   remaining: number;
@@ -315,7 +314,6 @@ function composeOrderBody(receipt: ResolvedReceipt, columns: number): Block[] {
 
   blocks.push(...body(`Категорія: ${order.itemTypeLabel}`, columns));
   blocks.push(...body(`Товар: ${order.itemName}`, columns));
-  if (order.itemUrl) blocks.push(...body(`Посилання: ${order.itemUrl}`, columns));
   if (order.deadline) blocks.push(...body(`Термін: ${order.deadline}`, columns));
   blocks.push(...body(`Статус: ${order.statusLabel}`, columns));
 
