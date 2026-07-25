@@ -217,23 +217,6 @@ export function ReceiptPreview({
 
         <div className="border-t border-dashed border-gray-400 my-2" />
 
-        {/* Signatures */}
-        {(activePreviewTemplate === "repair_acceptance" || activePreviewTemplate === "repair_warranty") && (
-          <>
-            <div className="pt-1 grid grid-cols-2 gap-4 text-center text-[7px] text-black">
-              <div>
-                <p>{activePreviewTemplate === "repair_acceptance" ? "Здав (підпис)" : "Отримав (підпис)"}</p>
-                <p className="mt-3 font-bold">___________</p>
-              </div>
-              <div>
-                <p>{activePreviewTemplate === "repair_acceptance" ? "Прийняв (підпис)" : "Видав (підпис)"}</p>
-                <p className="mt-3 font-bold">___________</p>
-              </div>
-            </div>
-            <div className="border-t border-dashed border-gray-400 my-2" />
-          </>
-        )}
-
         {/* Footer info & QR */}
         <div className="flex flex-col items-center justify-center text-center pt-1 space-y-1.5">
           {((activePreviewTemplate === "sale" && saleShowQr) ||

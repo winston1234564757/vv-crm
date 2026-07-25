@@ -127,11 +127,10 @@ describe("receipt composition", () => {
       expect(out).toContain("Не заряджається");
     });
 
-    it("prints two signature rules", () => {
+    it("prints no signature rules per current requirements", () => {
       const out = lines(acceptance);
-      expect(out).toContain("Здав (підпис)");
-      expect(out).toContain("Прийняв (підпис)");
-      expect(out.filter((l) => /^_+$/.test(l))).toHaveLength(2);
+      expect(out.some((l) => l.includes("підпис"))).toBe(false);
+      expect(out.filter((l) => /^_+$/.test(l))).toHaveLength(0);
     });
 
     it("shows no money — nothing has been paid yet", () => {

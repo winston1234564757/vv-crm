@@ -118,10 +118,7 @@ export function getWarrantyHeading(type: ReceiptType): string {
   return "ГАРАНТІЙНІ ЗОБОВ'ЯЗАННЯ";
 }
 
-/** Signature lines, in print order. Sales are not counter-signed. */
+/** Signature lines, in print order. Disabled per requirements. */
 export function getSignatureLabels(type: ReceiptType): string[] {
-  if (type === "repair_acceptance") return ["Здав (підпис)", "Прийняв (підпис)"];
-  if (type === "repair_warranty") return ["Отримав (підпис)", "Видав (підпис)"];
-  if (type === "order") return ["Замовник (підпис)", "Оформив (підпис)"];
   return [];
 }

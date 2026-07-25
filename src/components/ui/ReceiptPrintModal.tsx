@@ -588,25 +588,6 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         </>
       )}
 
-      {/* Signatures */}
-      {(type === "repair_acceptance" || type === "repair_warranty" || type === "order") && (
-        <>
-          <div className="receipt-divider" />
-          {/* Stacked, not two columns: at 48 mm a two-up grid leaves ~20 mm per
-              cell, which is narrower than the label "Прийняв (підпис)" itself. */}
-          <div className="pt-1 space-y-2.5 text-[9px] text-black">
-            <div>
-              <p>{type === "repair_acceptance" ? "Здав (підпис)" : type === "order" ? "Замовник (підпис)" : "Отримав (підпис)"}</p>
-              <p className="mt-3 font-bold">______________________</p>
-            </div>
-            <div>
-              <p>{type === "repair_acceptance" ? "Прийняв (підпис)" : type === "order" ? "Оформив (підпис)" : "Видав (підпис)"}</p>
-              <p className="mt-3 font-bold">______________________</p>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* QR Code and Footer */}
       <div className="flex flex-col items-center justify-center text-center pt-2 space-y-1.5">
         {showQr && qrDataUrl && (
