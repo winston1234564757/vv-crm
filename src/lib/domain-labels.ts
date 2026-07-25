@@ -67,7 +67,7 @@ export const repairStatusPublic: LabelMap = {
   in_progress: { label: "Ремонтується", tone: "accent" },
   awaiting_parts: { label: "Очікування запчастин", tone: "danger" },
   ready: { label: "Готовий до видачі", tone: "success" },
-  completed: { label: "Виконано", tone: "success" },
+  completed: { label: "Виконано (чекає видачі)", tone: "success" },
   handed_over: { label: "Видано клієнту", tone: "neutral" },
   cancelled: { label: "Скасовано", tone: "danger" },
 };

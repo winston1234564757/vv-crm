@@ -48,7 +48,7 @@ const GROUP_OF: Record<RepairStatus, RepairGroup> = {
   in_progress: "active",
   awaiting_parts: "active",
   ready: "ready",
-  completed: "done",
+  completed: "ready",
   handed_over: "done",
   cancelled: "cancelled",
 };
@@ -57,7 +57,7 @@ export function repairGroup(status: string): RepairGroup {
   return GROUP_OF[status as RepairStatus] ?? "active";
 }
 
-/** A repair nobody is working on any more. */
+/** A repair nobody is working on any more and has been handed over or cancelled. */
 export function isTerminal(status: string): boolean {
   const g = repairGroup(status);
   return g === "done" || g === "cancelled";
@@ -71,15 +71,15 @@ export interface NextStep {
 
 /**
  * The single forward move offered on a row. `awaiting_parts` goes back to
- * `in_progress` because that is what finishing a parts wait means. Terminal
- * statuses offer nothing — the workflow is over.
+ * `in_progress` because that is what finishing a parts wait means.
  */
 const NEXT_STEP: Partial<Record<RepairStatus, NextStep>> = {
   received: { target: "diagnostics", label: "На діагностику" },
   diagnostics: { target: "in_progress", label: "В роботу" },
   in_progress: { target: "ready", label: "Готовий" },
   awaiting_parts: { target: "in_progress", label: "В роботу" },
-  ready: { target: "handed_over", label: "Видати" },
+  ready: { target: "completed", label: "Виконано" },
+  completed: { target: "handed_over", label: "Видати клієнту" },
 };
 
 export function nextStep(status: string): NextStep | null {

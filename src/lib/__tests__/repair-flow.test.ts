@@ -34,12 +34,12 @@ describe("repairGroup", () => {
     expect(repairGroup("awaiting_parts")).toBe("active");
   });
 
-  it("keeps ready separate from done — it is the pickup queue", () => {
+  it("keeps ready and completed in ready group — they are the pickup queue", () => {
     expect(repairGroup("ready")).toBe("ready");
+    expect(repairGroup("completed")).toBe("ready");
   });
 
-  it("groups completed and handed_over as done", () => {
-    expect(repairGroup("completed")).toBe("done");
+  it("groups handed_over as done", () => {
     expect(repairGroup("handed_over")).toBe("done");
   });
 
@@ -51,8 +51,8 @@ describe("repairGroup", () => {
 describe("isTerminal", () => {
   it("is true only for done and cancelled", () => {
     expect(isTerminal("handed_over")).toBe(true);
-    expect(isTerminal("completed")).toBe(true);
     expect(isTerminal("cancelled")).toBe(true);
+    expect(isTerminal("completed")).toBe(false);
     expect(isTerminal("ready")).toBe(false);
     expect(isTerminal("in_progress")).toBe(false);
   });
@@ -63,7 +63,8 @@ describe("nextStep", () => {
     expect(nextStep("received")?.target).toBe("diagnostics");
     expect(nextStep("diagnostics")?.target).toBe("in_progress");
     expect(nextStep("in_progress")?.target).toBe("ready");
-    expect(nextStep("ready")?.target).toBe("handed_over");
+    expect(nextStep("ready")?.target).toBe("completed");
+    expect(nextStep("completed")?.target).toBe("handed_over");
   });
 
   it("returns a repair waiting on parts to work, not to diagnostics", () => {
@@ -71,7 +72,6 @@ describe("nextStep", () => {
   });
 
   it("offers nothing once the repair is over", () => {
-    expect(nextStep("completed")).toBeNull();
     expect(nextStep("handed_over")).toBeNull();
     expect(nextStep("cancelled")).toBeNull();
   });
