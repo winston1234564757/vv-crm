@@ -10,8 +10,9 @@ import {
 } from "./icons";
 import { createClient } from "@/lib/supabase/client";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
-import { addPartToRepairAction, removePartFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
+import { addPartToRepairAction, removePartFromRepairAction, addServiceToRepairAction, removeServiceFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
 import { InlineError } from "@/components/ui/InlineError";
+import { parseError } from "@/lib/utils/errors";
 import AICopilotDrawer from "@/components/ai/AICopilotDrawer";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +47,21 @@ interface AvailablePart {
   compatible_with: string | null;
   cost_price: number;
   stock: number;
+}
+
+interface AllocatedService {
+  id: string;
+  service_id: string | null;
+  name: string;
+  price: number;
+  cost: number;
+  quantity: number;
+}
+
+interface AvailableService {
+  id: string;
+  name: string;
+  price: number;
 }
 
 type RepairDetailViewProps = {
@@ -175,6 +191,17 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
   const [partUnitCost, setPartUnitCost] = useState(0);
   const [isSubmittingPart, setIsSubmittingPart] = useState(false);
 
+  // States for services/labor
+  const [allocatedServices, setAllocatedServices] = useState<AllocatedService[]>([]);
+  const [availableServices, setAvailableServices] = useState<AvailableService[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [servicesError, setServicesError] = useState("");
+
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [serviceNameInput, setServiceNameInput] = useState("");
+  const [servicePriceInput, setServicePriceInput] = useState(0);
+  const [isSubmittingService, setIsSubmittingService] = useState(false);
+
   // States for interactive print modal
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [printType, setPrintType] = useState<"repair_acceptance" | "repair_warranty">("repair_acceptance");
@@ -241,10 +268,122 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
     }
   }
 
+  async function loadServices() {
+    setLoadingServices(true);
+    setServicesError("");
+    try {
+      const supabase = createClient();
+      
+      // 1. Load allocated services for this repair
+      const { data: allocData, error: allocErr } = await supabase
+        .from("repair_services")
+        .select("id, service_id, name, price, cost, quantity")
+        .eq("repair_id", repair.id)
+        .order("created_at", { ascending: true });
+
+      if (allocErr) {
+        console.warn("repair_services table query notice:", allocErr.message);
+        setAllocatedServices([]);
+        if (allocErr.code === "42P01") {
+          setServicesError("Таблиця repair_services відсутня в БД. Виконайте SQL міграцію в Supabase Dashboard.");
+        }
+      } else {
+        setAllocatedServices(allocData || []);
+      }
+
+      // 2. Load available service catalog
+      const { data: catalogData, error: catalogErr } = await supabase
+        .from("services")
+        .select("id, name, price")
+        .order("name", { ascending: true });
+
+      if (catalogErr) {
+        console.error("Error loading services catalog:", catalogErr);
+        if (!allocErr || allocErr.code !== "42P01") {
+          setServicesError(catalogErr.message || "Не вдалося завантажити послуги з довідника");
+        }
+      } else {
+        setAvailableServices(catalogData || []);
+      }
+    } catch (err) {
+      console.error("Error loading repair services:", err);
+      setServicesError(parseError(err));
+    } finally {
+      setLoadingServices(false);
+    }
+  }
+
   useEffect(() => {
     loadLogs();
     loadParts();
+    loadServices();
   }, [repair.id]);
+
+  function handleSelectServiceChange(serviceId: string) {
+    setSelectedServiceId(serviceId);
+    if (!serviceId) {
+      setServiceNameInput("");
+      setServicePriceInput(0);
+    } else {
+      const found = availableServices.find((s) => s.id === serviceId);
+      if (found) {
+        setServiceNameInput(found.name);
+        setServicePriceInput(found.price);
+      }
+    }
+  }
+
+  async function handleAddService(e: React.FormEvent) {
+    e.preventDefault();
+    if (!serviceNameInput.trim()) {
+      setServicesError("Введіть назву послуги");
+      return;
+    }
+
+    setIsSubmittingService(true);
+    setServicesError("");
+    try {
+      const formData = new FormData();
+      formData.append("repairId", repair.id);
+      if (selectedServiceId) {
+        formData.append("serviceId", selectedServiceId);
+      }
+      formData.append("name", serviceNameInput.trim());
+      formData.append("price", String(servicePriceInput));
+      formData.append("quantity", "1");
+
+      const res = await addServiceToRepairAction(null, formData);
+      if (!res.success) {
+        setServicesError(res.error || "Не вдалося додати послугу");
+      } else {
+        setSelectedServiceId("");
+        setServiceNameInput("");
+        setServicePriceInput(0);
+        await loadServices();
+      }
+    } catch (err) {
+      console.error("Error adding service to repair:", err);
+      setServicesError("Сталася помилка при додаванні послуги");
+    } finally {
+      setIsSubmittingService(false);
+    }
+  }
+
+  async function handleRemoveService(repairServiceId: string) {
+    if (!confirm("Видалити цю послугу з ремонту?")) return;
+    setServicesError("");
+    try {
+      const res = await removeServiceFromRepairAction(repairServiceId);
+      if (!res.success) {
+        setServicesError(res.error || "Не вдалося вилучити послугу");
+      } else {
+        await loadServices();
+      }
+    } catch (err) {
+      console.error("Error removing service from repair:", err);
+      setServicesError("Помилка при вилученні послуги");
+    }
+  }
 
   function handlePrint(type: "acceptance" | "warranty") {
     setPrintType(type === "acceptance" ? "repair_acceptance" : "repair_warranty");
@@ -753,6 +892,118 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                   className="w-full btn-press flex items-center justify-center rounded-xl bg-violet py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingPart ? "..." : "Додати"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Services & Labor Card */}
+        <div className="card p-5 space-y-4 md:col-span-2">
+          <div className="flex items-center justify-between border-b border-warm-border pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-violet">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </span>
+              <h3 className="font-semibold text-sm text-text-primary tracking-tight">Послуги та надані роботи</h3>
+            </div>
+            {servicesError && <p className="text-xs text-rose font-medium">{servicesError}</p>}
+          </div>
+
+          <div className="space-y-4 text-xs">
+            {/* List of allocated services */}
+            {loadingServices ? (
+              <div className="flex items-center justify-center py-4 text-violet">
+                <IconSpinner className="animate-spin" />
+              </div>
+            ) : allocatedServices.length === 0 ? (
+              <p className="text-xs text-text-secondary text-center py-2">Немає доданих послуг до цього ремонту</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-warm-border/50 text-text-secondary font-medium">
+                      <th className="pb-2">Назва послуги / роботи</th>
+                      <th className="pb-2 text-center">Кількість</th>
+                      <th className="pb-2 text-right">Ціна (₴)</th>
+                      <th className="pb-2 text-right">Сума (₴)</th>
+                      <th className="pb-2 text-right">Дія</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allocatedServices.map((s) => (
+                      <tr key={s.id} className="border-b border-warm-border/30 last:border-0 text-text-primary">
+                        <td className="py-2.5 font-medium">{s.name}</td>
+                        <td className="py-2.5 text-center font-mono font-semibold">{s.quantity}</td>
+                        <td className="py-2.5 text-right font-mono">{s.price.toLocaleString()} ₴</td>
+                        <td className="py-2.5 text-right font-mono font-bold">{(s.price * s.quantity).toLocaleString()} ₴</td>
+                        <td className="py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveService(s.id)}
+                            className="btn-press rounded-lg p-1 text-rose hover:bg-rose/10 cursor-pointer"
+                            title="Вилучити послугу"
+                          >
+                            <IconClose size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Inline Add Service Form */}
+            <form onSubmit={handleAddService} className="pt-4 border-t border-warm-border/50 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-4">
+                <label className="mb-1 block text-[10px] font-bold text-text-secondary">Обрати з довідника послуг</label>
+                <select
+                  value={selectedServiceId}
+                  onChange={(e) => handleSelectServiceChange(e.target.value)}
+                  className="w-full rounded-xl border border-iris/20 bg-transparent px-3 py-2 text-xs text-text-primary outline-none focus:border-violet"
+                >
+                  <option value="">-- Інша / Власна послуга --</option>
+                  {availableServices.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — {s.price} ₴
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-4">
+                <label className="mb-1 block text-[10px] font-bold text-text-secondary">Назва послуги / роботи</label>
+                <input
+                  type="text"
+                  placeholder="напр. Прошивка, Розблокування"
+                  value={serviceNameInput}
+                  onChange={(e) => setServiceNameInput(e.target.value)}
+                  className="w-full rounded-xl border border-iris/20 bg-transparent px-3 py-2 text-xs text-text-primary outline-none focus:border-violet"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-[10px] font-bold text-text-secondary">Ціна (₴)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={servicePriceInput}
+                  onChange={(e) => setServicePriceInput(Number(e.target.value))}
+                  className="w-full rounded-xl border border-iris/20 bg-transparent px-3 py-2 text-xs text-text-primary outline-none focus:border-violet text-right font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingService || !serviceNameInput.trim()}
+                  className="w-full btn-press flex items-center justify-center rounded-xl bg-violet py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingService ? "..." : "Додати"}
                 </button>
               </div>
             </form>

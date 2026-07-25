@@ -648,6 +648,73 @@ export async function removePartFromRepairAction(repairPartId: string): Promise<
   }
 }
 
+const addServiceSchema = z.object({
+  repairId: z.string().uuid(),
+  serviceId: z.string().uuid().nullable().optional(),
+  name: z.string().min(1, "Вкажіть назву послуги"),
+  price: z.coerce.number().min(0, "Ціна має бути >= 0"),
+  cost: z.coerce.number().min(0).default(0),
+  quantity: z.coerce.number().int().min(1).default(1),
+});
+
+export async function addServiceToRepairAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
+  try {
+    const rawData = {
+      repairId: formData.get("repairId"),
+      serviceId: formData.get("serviceId") ? String(formData.get("serviceId")) : null,
+      name: formData.get("name"),
+      price: formData.get("price"),
+      cost: formData.get("cost") || 0,
+      quantity: formData.get("quantity") || 1,
+    };
+
+    const parsed = addServiceSchema.parse(rawData);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+
+    const { error: insertErr } = await supabase
+      .from("repair_services")
+      .insert({
+        repair_id: parsed.repairId,
+        service_id: parsed.serviceId,
+        name: parsed.name,
+        price: parsed.price,
+        cost: parsed.cost,
+        quantity: parsed.quantity,
+      });
+
+    if (insertErr) throw insertErr;
+
+    revalidatePath("/admin/repairs");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+export async function removeServiceFromRepairAction(repairServiceId: string): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
+
+    const { error: delErr } = await supabase
+      .from("repair_services")
+      .delete()
+      .eq("id", repairServiceId);
+
+    if (delErr) throw delErr;
+
+    revalidatePath("/admin/repairs");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
 export async function deleteRepair(id: string): Promise<ActionState> {
   try {
     await requireRole(["owner", "manager"]);
