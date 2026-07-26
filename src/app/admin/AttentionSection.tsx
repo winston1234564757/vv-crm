@@ -33,7 +33,11 @@ function stockHref(kind: "accessory" | "part" | undefined) {
 
 /**
  * Renders what `findAttention` found. Empty input renders nothing — a quiet
- * shop gets no "all good" card, just the absence of this section.
+ * shop gets no "all good" card, just the absence of this section. The parent
+ * skips the whole bento cell in that case, so the grid gets no hole.
+ *
+ * Groups are plain bordered blocks, not cards: this component now lives
+ * inside a `BentoCell`, and the cell already is the card (DESIGN.md §4.1).
  *
  * A repair row opens the same detail/edit drawer the Ремонти page uses,
  * fetched fresh by id (the attention list only carries enough to render the
@@ -77,12 +81,11 @@ export function AttentionSection({ groups }: { groups: AttentionGroup[] }) {
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted">Потребує уваги</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
         {groups.map((group) => (
-          <div key={group.code} className="card p-5">
-            <div className="mb-3 flex items-center justify-between gap-2">
+          <div key={group.code}>
+            <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-ink">{group.label}</h3>
               <Badge tone={GROUP_TONES[group.code]}>{group.total}</Badge>
             </div>
@@ -140,6 +143,6 @@ export function AttentionSection({ groups }: { groups: AttentionGroup[] }) {
             />
           ))}
       </Drawer>
-    </section>
+    </>
   );
 }

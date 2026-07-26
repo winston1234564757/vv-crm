@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchGemini, GeminiRateLimitError, safeParseJSON } from "@/lib/utils/gemini";
 import { buildInsightsPrompt } from "@/lib/ai-prompts";
 import { getDashboardMoney } from "@/lib/data-dashboard";
-import { getAttentionData } from "@/lib/data-attention";
+import { getOperationsData } from "@/lib/data-operations";
 import { findAttention } from "@/lib/attention";
 import { getSettings } from "@/lib/data-settings";
 import { RANGE_LABELS, CATEGORY_LABELS, isRangePreset, type RangePreset } from "@/lib/profit";
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
 
   const preset: RangePreset = isRangePreset(body.range) ? body.range : "today";
 
-  const [money, attention, settings] = await Promise.all([
+  const [money, operations, settings] = await Promise.all([
     getDashboardMoney(preset, user.id),
-    getAttentionData(),
+    getOperationsData(),
     getSettings(),
   ]);
 
-  const groups = findAttention(attention, new Date());
+  const groups = findAttention(operations.attention, new Date());
 
   const prompt = buildInsightsPrompt({
     rangeLabel: RANGE_LABELS[preset],

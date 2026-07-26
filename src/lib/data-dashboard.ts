@@ -27,6 +27,9 @@ import {
 
 export { PARTNER_SHARE };
 
+/** Скільки останніх чеків показуємо в картці «Продажі сьогодні». */
+const TODAY_RECEIPTS_SHOWN = 3;
+
 export interface OwnerShare {
   id: string;
   name: string;
@@ -92,6 +95,16 @@ export interface DashboardMoney {
   series: DayPoint[];
   /** Весь вибраний період по днях. Дні без даних присутні з нулями. */
   daily: DayPoint[];
+  /**
+   * Чеки за сьогодні. Виводяться з того самого датасету, тож окремого запиту
+   * не коштують, а виторг тут той самий, що в hero — це один розрахунок.
+   */
+  todaySales: {
+    count: number;
+    revenue: number;
+    /** Найновіші першими, обрізано до `TODAY_RECEIPTS_SHOWN`. */
+    receipts: { id: string; at: string; amount: number }[];
+  };
   /**
    * Частка співвласника — 50% чистого прибутку (маржа − витрати) за
    * фіксованими вікнами. Може бути від'ємною.
@@ -370,6 +383,13 @@ export async function getDashboardMoney(
     })),
   ];
 
+  const todayReceipts = ds.sales
+    .filter((s) => {
+      const t = new Date(s.created_at).getTime();
+      return t >= todayRange.start.getTime() && t < todayRange.end.getTime();
+    })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
   const partnerLedger = buildLedger({
     // Чистими від епохи: денний ряд уже покриває саме це вікно.
     totalNet: daily.reduce((s, d) => s + d.net, 0),
@@ -395,6 +415,15 @@ export async function getDashboardMoney(
     comparison: day ? null : comparisonFor(ds, preset, now, epoch),
     series,
     daily,
+    todaySales: {
+      count: todayReceipts.length,
+      revenue: today.profit.revenue,
+      receipts: todayReceipts.slice(0, TODAY_RECEIPTS_SHOWN).map((s) => ({
+        id: s.id,
+        at: s.created_at,
+        amount: s.total_amount,
+      })),
+    },
     partnerShare,
     partnerLedger,
     sources,

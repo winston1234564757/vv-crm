@@ -34,6 +34,21 @@
   --color-accent-ink: oklch(40% 0.09 194);
   --color-on-accent: oklch(100% 0 0);
 
+  /* ----- Inverse surface (v3) -----
+     Рівно ОДНА інвертована плита на екран — hero дашборду. Це не темна тема:
+     решта сторінки лишається світлою, а плита існує, щоб головна цифра дня
+     тримала око без жодного градієнта чи скла. Своя пара ink/muted потрібна
+     тому, що --color-ink на такому фоні зникає, а --color-accent (L 51%) дає
+     на ньому ~2.5:1 і для тексту непридатний — звідси -accent-on-inverse. */
+  --color-inverse-surface: oklch(23% 0.012 250);
+  --color-inverse-elevated: oklch(28% 0.012 250);
+  --color-inverse-border: oklch(33% 0.012 250);
+  --color-inverse-ink: oklch(97% 0.003 240);
+  --color-inverse-muted: oklch(74% 0.012 250);
+  --color-accent-on-inverse: oklch(76% 0.12 194);
+  --color-success-on-inverse: oklch(74% 0.14 162);
+  --color-danger-on-inverse: oklch(72% 0.15 26);
+
   /* ----- Semantic ----- */
   --color-success: oklch(52% 0.13 162);
   --color-success-subtle: oklch(52% 0.13 162 / 0.12);

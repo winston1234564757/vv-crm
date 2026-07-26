@@ -1,19 +1,25 @@
-"use client";
-
-import { useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CurrentTime } from "@/components/CurrentTime";
+import { BentoCell } from "@/components/ui/BentoCell";
 import { AddSaleButton } from "./AddSaleButton";
 import { AddRepairButton } from "./repairs/AddRepairButton";
 import { AddOrderButton } from "./AddOrderButton";
+import { RangeTabs } from "./RangeTabs";
+import { HeroToday } from "./HeroToday";
+import { RepairQueueCard } from "./RepairQueueCard";
+import { TodaySalesCard } from "./TodaySalesCard";
+import { PickupCard } from "./PickupCard";
+import { OrdersCard } from "./OrdersCard";
+import { MoneyBreakdownCard } from "./MoneyBreakdownCard";
+import { ShareCard } from "./ShareCard";
 import { AttentionSection } from "./AttentionSection";
-import { MoneySection } from "./MoneySection";
-import { DailyShareNavigator } from "./DailyShareNavigator";
 import { InsightsSection } from "./InsightsSection";
-import { findAttention, type AttentionRepair, type AttentionStockItem } from "@/lib/attention";
+import type { AttentionGroup } from "@/lib/attention";
 import type { DashboardMoney } from "@/lib/data-dashboard";
+import type { OperationsData } from "@/lib/data-operations";
 import type { SalesTargets } from "@/lib/data-settings";
 import type { RangePreset } from "@/lib/profit";
+import { dayLabel } from "@/lib/utils/day";
 import { cn } from "@/lib/utils/cn";
 
 const btnPrimary =
@@ -21,25 +27,34 @@ const btnPrimary =
 
 interface DashboardClientProps {
   preset: RangePreset;
-  /** Обраний минулий день (`YYYY-MM-DD`) на вкладці «Сьогодні», або null. */
   selectedDay: string | null;
-  attention: { repairs: AttentionRepair[]; stock: AttentionStockItem[] };
+  attention: AttentionGroup[];
   money: DashboardMoney;
+  operations: OperationsData;
   targets: SalesTargets;
 }
 
 /**
- * The whole dashboard, down from twelve widgets and four role branches to
- * two questions: what needs the owner today (`AttentionSection`), and how
- * much was really earned (`MoneySection`). Role is no longer read at all —
- * see `page.tsx` — so there is nothing here to branch on.
+ * Бенто-сітка дашборду (DESIGN.md §4.1): 12 колонок на `lg`, 6 на `md`, один
+ * стовпчик нижче. Асиметрія несе ієрархію — інвертований hero на дві третини
+ * ширини тримає око, черга ремонтів стоїть поруч вузькою колонкою.
  *
- * `findAttention` runs here, client-side, on the raw `{ repairs, stock }` the
- * server fetched — same pattern as the header's own `today` string below,
- * which has always been computed at render time rather than passed down.
+ * Компонент серверний, попри історичну назву. Клієнтського тут лишилось
+ * рівно те, що справді інтерактивне: `RangeTabs`, драєри в `AttentionSection`,
+ * `InsightsSection`, кнопки додавання й зняття частки. `findAttention`
+ * переїхав на сервер, у `page.tsx`.
+ *
+ * Порядок у DOM — це і є порядок на мобілці: спершу гроші дня, далі робота,
+ * потім розклад і аналіз.
  */
-export function DashboardClient({ preset, selectedDay, attention, money, targets }: DashboardClientProps) {
-  const groups = useMemo(() => findAttention(attention, new Date()), [attention]);
+export function DashboardClient({
+  preset,
+  selectedDay,
+  attention,
+  money,
+  operations,
+  targets,
+}: DashboardClientProps) {
   const today = new Date().toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
@@ -47,7 +62,7 @@ export function DashboardClient({ preset, selectedDay, attention, money, targets
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Панель керування"
         subtitle={
@@ -69,9 +84,47 @@ export function DashboardClient({ preset, selectedDay, attention, money, targets
         }
       />
 
-      <AttentionSection groups={groups} />
-      <MoneySection preset={preset} selectedDay={selectedDay} money={money} targets={targets} />
-      <DailyShareNavigator daily={money.daily} />
+      <RangeTabs preset={preset} />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+        <HeroToday
+          preset={preset}
+          profit={money.profit}
+          comparison={money.comparison}
+          series={money.series}
+          dayLabel={selectedDay ? dayLabel(selectedDay) : "Сьогодні"}
+        />
+
+        <RepairQueueCard queue={operations.queue} total={operations.queueTotal} />
+
+        <TodaySalesCard today={money.todaySales} />
+        <PickupCard
+          rows={operations.pickup.rows}
+          total={operations.pickup.total}
+          debt={operations.pickup.debt}
+        />
+        <OrdersCard
+          rows={operations.orders.rows}
+          total={operations.orders.total}
+          arrived={operations.orders.arrived}
+          ready={operations.orders.ready}
+          overdue={operations.orders.overdue}
+        />
+
+        <MoneyBreakdownCard preset={preset} money={money} targets={targets} />
+        <ShareCard
+          ledger={money.partnerLedger}
+          sources={money.sources}
+          monthShare={money.partnerShare.month.share}
+        />
+
+        {attention.length > 0 && (
+          <BentoCell span={12} title="Потребує уваги">
+            <AttentionSection groups={attention} />
+          </BentoCell>
+        )}
+      </div>
+
       <InsightsSection preset={preset} />
     </div>
   );

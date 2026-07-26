@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/data-settings";
-import { getAttentionData } from "@/lib/data-attention";
+import { getOperationsData } from "@/lib/data-operations";
 import { getDashboardMoney } from "@/lib/data-dashboard";
+import { findAttention } from "@/lib/attention";
 import { isRangePreset, type RangePreset } from "@/lib/profit";
 import { isDayKey, dayKey } from "@/lib/utils/day";
 import { DashboardClient } from "./DashboardClient";
@@ -29,11 +30,15 @@ export default async function AdminDashboard({
   const selectedDay =
     preset === "today" && isDayKey(day) && day < todayKey ? day : null;
 
-  const [settings, attention, money] = await Promise.all([
+  const [settings, operations, money] = await Promise.all([
     getSettings(),
-    getAttentionData(),
+    getOperationsData(),
     getDashboardMoney(preset, user.id, selectedDay),
   ]);
+
+  // `findAttention` — чиста функція, тож рахуємо її тут, а не в браузері:
+  // на клієнт їде вже готовий список, а не всі рядки ремонтів і складу.
+  const attention = findAttention(operations.attention, new Date());
 
   return (
     <DashboardClient
@@ -41,6 +46,7 @@ export default async function AdminDashboard({
       selectedDay={selectedDay}
       attention={attention}
       money={money}
+      operations={operations}
       targets={settings.sales_targets}
     />
   );
