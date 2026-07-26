@@ -114,10 +114,22 @@ export function HeroToday({
         <div className="flex-1" />
       )}
 
+      {/*
+        Підказка різна для миші й пальця: «наведи» на телефоні наводити нічим,
+        а «торкнись» на десктопі збиває з пантелику. Один рядок замість двох —
+        на 390px попередній варіант переносився і з'їдав висоту графіка.
+      */}
       <p className="text-[11px] text-inverse-muted">
-        {chart.length >= 3
-          ? `прибуток за ${chart.length} ${pluralUk(chart.length, "день", "дні", "днів")} · наведи для деталей, клікни щоб відкрити день`
-          : "графік з’явиться, коли назбирається три дні"}
+        {chart.length >= 3 ? (
+          <>
+            прибуток за {chart.length} {pluralUk(chart.length, "день", "дні", "днів")}
+            <span className="mx-1.5 text-inverse-border">·</span>
+            <span className="md:hidden">торкнись графіка</span>
+            <span className="hidden md:inline">наведи, клікни — відкриє день</span>
+          </>
+        ) : (
+          "графік з’явиться, коли назбирається три дні"
+        )}
       </p>
     </BentoCell>
   );

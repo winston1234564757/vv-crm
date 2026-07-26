@@ -1,4 +1,4 @@
-import { BentoCell, BentoLink } from "@/components/ui/BentoCell";
+import { BentoCell, BentoLink, CardStat } from "@/components/ui/BentoCell";
 import { cn } from "@/lib/utils/cn";
 import { uah } from "@/lib/utils/money";
 import { pluralUk } from "@/lib/utils/plural";
@@ -26,43 +26,42 @@ export function PickupCard({
       title="Видати клієнту"
       action={<BentoLink href="/admin/repairs?seg=ready">до видачі</BentoLink>}
     >
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
-        <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">
-          {total}
-        </span>
-        <span className="text-xs text-muted">
-          {pluralUk(total, "готовий", "готові", "готових")}
-        </span>
+      <CardStat value={total} unit={pluralUk(total, "готовий", "готові", "готових")}>
         {debt > 0 && (
           <span className="text-xs text-muted">
             борг <span className="font-semibold tabular text-danger">{uah(debt)}</span>
           </span>
         )}
-      </div>
+      </CardStat>
 
       {total === 0 ? (
-        <p className="text-xs text-muted">Немає чого видавати — усі готові апарати забрали.</p>
+        <p className="text-xs leading-relaxed text-muted">
+          Немає чого видавати. Щойно ремонт перейде в «Готовий», клієнт і сума боргу з&apos;являться
+          тут.
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border">
           {rows.map((r) => (
-            <li key={r.id} className="flex items-baseline justify-between gap-2 text-xs">
+            <li key={r.id} className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
               <span className="min-w-0">
-                <span className="block truncate text-ink">{r.device}</span>
+                <span className="block truncate text-[13px] text-ink">{r.device}</span>
                 <span className="block truncate text-[11px] text-muted">
                   {r.customer}
                   <span className="mx-1.5 text-faint">·</span>
-                  <span className={cn("tabular", r.days >= 3 && "text-warning")}>
+                  <span className={cn("tabular", r.days >= 3 && "font-medium text-warning")}>
                     {r.days} {pluralUk(r.days, "день", "дні", "днів")}
                   </span>
                 </span>
               </span>
               {r.debt > 0 && (
-                <span className="shrink-0 font-medium tabular text-danger">{uah(r.debt)}</span>
+                <span className="shrink-0 text-[13px] font-semibold tabular text-danger">
+                  {uah(r.debt)}
+                </span>
               )}
             </li>
           ))}
           {total > rows.length && (
-            <li className="text-[11px] text-faint">і ще {total - rows.length}</li>
+            <li className="pt-2 text-[11px] text-faint">і ще {total - rows.length}</li>
           )}
         </ul>
       )}

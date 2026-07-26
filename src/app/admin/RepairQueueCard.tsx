@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BentoCell, BentoLink } from "@/components/ui/BentoCell";
+import { BentoCell, BentoLink, CardStat } from "@/components/ui/BentoCell";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
 import { repairGroup } from "@/lib/repair-flow";
@@ -46,18 +46,12 @@ export function RepairQueueCard({
       title="Черга ремонтів"
       action={<BentoLink href="/admin/repairs">усі ремонти</BentoLink>}
     >
-      <p className="mb-4">
-        <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">
-          {total}
-        </span>{" "}
-        <span className="text-xs text-muted">
-          {pluralUk(total, "апарат", "апарати", "апаратів")} у роботі
-        </span>
-      </p>
+      <CardStat value={total} unit={`${pluralUk(total, "апарат", "апарати", "апаратів")} у роботі`} />
 
       {total === 0 ? (
-        <p className="text-xs text-muted">
-          Черга порожня — усе видано. Нові ремонти з&apos;являться тут одразу після прийому.
+        <p className="text-xs leading-relaxed text-muted">
+          Черга порожня — усе видано. Прийнятий апарат з&apos;явиться тут одразу і піде вниз по
+          кроках, доки не потрапить у «Видати клієнту».
         </p>
       ) : (
         <ul className="space-y-2">

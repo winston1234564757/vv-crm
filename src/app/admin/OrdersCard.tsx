@@ -1,4 +1,4 @@
-import { BentoCell, BentoLink } from "@/components/ui/BentoCell";
+import { BentoCell, BentoLink, CardStat } from "@/components/ui/BentoCell";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
 import { orderStatus as orderStatusLabels } from "@/lib/domain-labels";
@@ -29,11 +29,7 @@ export function OrdersCard({
       title="Замовлення"
       action={<BentoLink href="/admin/orders">усі замовлення</BentoLink>}
     >
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">
-          {total}
-        </span>
-        <span className="text-xs text-muted">в роботі</span>
+      <CardStat value={total} unit="в роботі">
         {arrived > 0 && (
           <span className="text-xs text-muted">
             приїхало <span className="font-semibold tabular text-accent-ink">{arrived}</span>
@@ -49,25 +45,26 @@ export function OrdersCard({
             прострочено <span className="font-semibold tabular text-danger">{overdue}</span>
           </span>
         )}
-      </div>
+      </CardStat>
 
       {total === 0 ? (
-        <p className="text-xs text-muted">
-          Відкритих замовлень немає. Замовлене під клієнта з&apos;явиться тут.
+        <p className="text-xs leading-relaxed text-muted">
+          Відкритих замовлень немає. Те, що замовляєш під клієнта, стоятиме тут із дедлайном, доки
+          не видаси.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border">
           {rows.map((o) => (
-            <li key={o.id} className="flex items-baseline justify-between gap-2 text-xs">
+            <li key={o.id} className="flex items-center justify-between gap-3 py-2 first:pt-0">
               <span className="min-w-0">
-                <span className="block truncate text-ink">
+                <span className="block truncate text-[13px] text-ink">
                   <span className="tabular text-muted">{o.no}</span> {o.customer}
                 </span>
                 {o.deadline && (
                   <span
                     className={cn(
                       "block truncate text-[11px] capitalize",
-                      o.overdue ? "text-danger" : "text-muted",
+                      o.overdue ? "font-medium text-danger" : "text-muted",
                     )}
                   >
                     {o.overdue ? "мав бути " : "до "}
@@ -81,7 +78,7 @@ export function OrdersCard({
             </li>
           ))}
           {total > rows.length && (
-            <li className="text-[11px] text-faint">і ще {total - rows.length}</li>
+            <li className="pt-2 text-[11px] text-faint">і ще {total - rows.length}</li>
           )}
         </ul>
       )}

@@ -1,4 +1,4 @@
-import { BentoCell, BentoLink } from "@/components/ui/BentoCell";
+import { BentoCell, BentoLink, CardStat } from "@/components/ui/BentoCell";
 import { uah } from "@/lib/utils/money";
 import { pluralUk } from "@/lib/utils/plural";
 import type { DashboardMoney } from "@/lib/data-dashboard";
@@ -23,28 +23,31 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
       title="Продажі сьогодні"
       action={<BentoLink href="/admin/sales">усі продажі</BentoLink>}
     >
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
-        <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">
-          {today.count}
-        </span>
-        <span className="text-xs text-muted">{pluralUk(today.count, "чек", "чеки", "чеків")}</span>
-        <span className="text-xs text-muted">
-          на <span className="font-semibold tabular text-ink">{uah(today.revenue)}</span>
-        </span>
-      </div>
+      <CardStat value={today.count} unit={pluralUk(today.count, "чек", "чеки", "чеків")}>
+        {today.count > 0 && (
+          <span className="text-xs text-muted">
+            на <span className="font-semibold tabular text-ink">{uah(today.revenue)}</span>
+          </span>
+        )}
+      </CardStat>
 
       {today.count === 0 ? (
-        <p className="text-xs text-muted">Сьогодні ще нічого не пробили.</p>
+        <p className="text-xs leading-relaxed text-muted">
+          Сьогодні ще нічого не пробили. Кожен чек з&apos;явиться тут із часом і сумою — свіжий
+          зверху.
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border">
           {today.receipts.map((r) => (
-            <li key={r.id} className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="tabular text-muted">{time(r.at)}</span>
-              <span className="font-medium tabular text-ink">{uah(r.amount)}</span>
+            <li key={r.id} className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
+              <span className="text-[13px] tabular text-muted">{time(r.at)}</span>
+              <span className="text-[13px] font-semibold tabular text-ink">{uah(r.amount)}</span>
             </li>
           ))}
           {today.count > today.receipts.length && (
-            <li className="text-[11px] text-faint">і ще {today.count - today.receipts.length}</li>
+            <li className="pt-2 text-[11px] text-faint">
+              і ще {today.count - today.receipts.length}
+            </li>
           )}
         </ul>
       )}

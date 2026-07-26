@@ -1,9 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CurrentTime } from "@/components/CurrentTime";
 import { BentoCell } from "@/components/ui/BentoCell";
-import { AddSaleButton } from "./AddSaleButton";
-import { AddRepairButton } from "./repairs/AddRepairButton";
-import { AddOrderButton } from "./AddOrderButton";
+import { DashboardActions } from "./DashboardActions";
 import { RangeTabs } from "./RangeTabs";
 import { HeroToday } from "./HeroToday";
 import { RepairQueueCard } from "./RepairQueueCard";
@@ -20,10 +18,6 @@ import type { OperationsData } from "@/lib/data-operations";
 import type { SalesTargets } from "@/lib/data-settings";
 import type { RangePreset } from "@/lib/profit";
 import { dayLabel } from "@/lib/utils/day";
-import { cn } from "@/lib/utils/cn";
-
-const btnPrimary =
-  "btn-press inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] h-10 px-4 text-sm font-medium bg-accent text-on-accent hover:bg-accent-hover transition-colors";
 
 interface DashboardClientProps {
   preset: RangePreset;
@@ -71,17 +65,7 @@ export function DashboardClient({
             <CurrentTime />
           </span>
         }
-        actions={
-          <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-            <AddSaleButton className={cn(btnPrimary, "flex-1 md:flex-none")} />
-            <AddRepairButton variant="secondary" className="flex-1 md:flex-none">
-              Прийняти в ремонт
-            </AddRepairButton>
-            <AddOrderButton variant="secondary" className="flex-1 md:flex-none">
-              Замовлення
-            </AddOrderButton>
-          </div>
-        }
+        actions={<DashboardActions />}
       />
 
       <RangeTabs preset={preset} />

@@ -55,12 +55,12 @@ export function BentoCell({
       )}
     >
       {(title || action) && (
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
           {title && (
             <h2
               className={cn(
-                "text-xs font-semibold",
-                inverse ? "text-inverse-muted" : "text-muted",
+                "truncate text-sm font-semibold",
+                inverse ? "text-inverse-muted" : "text-ink",
               )}
             >
               {title}
@@ -71,6 +71,39 @@ export function BentoCell({
       )}
       {children}
     </section>
+  );
+}
+
+/**
+ * Провідна цифра картки.
+ *
+ * Одна форма на всі клітинки: число дисплейним шрифтом, одиниця й додаткові
+ * факти — дрібним muted поруч, по спільній базовій лінії. Раніше кожна картка
+ * набирала це по-своєму, і ряд із трьох карток читався як три різні віджети,
+ * зібрані докупи.
+ *
+ * Це навмисно НЕ «великий показник + підпис + три дрібні стати» — той шаблон
+ * і є SaaS-кліше. Тут цифра одна на картку, а решта фактів лежить в одному
+ * рядку поруч, як продовження речення.
+ */
+export function CardStat({
+  value,
+  unit,
+  children,
+}: {
+  value: ReactNode;
+  unit: string;
+  /** Додаткові факти в тому ж рядку: борг, сума, кількість прострочених. */
+  children?: ReactNode;
+}) {
+  return (
+    <p className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span className="font-display text-[2rem] font-semibold leading-none tabular tracking-tight text-ink">
+        {value}
+      </span>
+      <span className="text-xs text-muted">{unit}</span>
+      {children}
+    </p>
   );
 }
 

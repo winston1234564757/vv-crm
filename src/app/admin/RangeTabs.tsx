@@ -39,11 +39,17 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
   }
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", isPending && "opacity-60")}>
+    <div className={cn("flex items-center gap-2", isPending && "opacity-60")}>
+      {/*
+        Горизонтальний скрол, а не перенос: на 390px «Цей місяць» і «Минулий
+        місяць» ламались кожен на два рядки, і смуга з п'яти вкладок займала
+        три поверхи. `whitespace-nowrap` + `shrink-0` тримають один рядок,
+        решта від'їжджає пальцем.
+      */}
       <div
         role="tablist"
         aria-label="Період"
-        className="flex items-center gap-1 rounded-[var(--radius-md)] bg-hover p-1"
+        className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-[var(--radius-md)] bg-hover p-1 [scrollbar-width:none] md:flex-none [&::-webkit-scrollbar]:hidden"
       >
         {RANGE_PRESETS.map((p) => (
           <button
@@ -53,7 +59,7 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
             aria-selected={p === preset}
             onClick={() => select(p)}
             className={cn(
-              "rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors",
+              "shrink-0 whitespace-nowrap rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors",
               p === preset ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
             )}
           >
@@ -66,13 +72,15 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
         type="button"
         onClick={refresh}
         disabled={isPending}
-        className="btn-press rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none"
+        className="btn-press shrink-0 whitespace-nowrap rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none"
       >
         {isPending ? "Оновлюю…" : "Оновити"}
       </button>
 
       {refreshedAt && !isPending && (
-        <span className="text-[11px] tabular text-faint">о {refreshedAt}</span>
+        <span className="hidden shrink-0 text-[11px] tabular text-faint sm:inline">
+          о {refreshedAt}
+        </span>
       )}
     </div>
   );
