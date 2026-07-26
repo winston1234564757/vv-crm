@@ -22,7 +22,6 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
       span={4}
       title="Продажі сьогодні"
       action={<BentoLink href="/admin/sales">усі продажі</BentoLink>}
-      className="justify-between"
     >
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
         <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">

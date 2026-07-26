@@ -25,7 +25,6 @@ export function PickupCard({
       span={4}
       title="Видати клієнту"
       action={<BentoLink href="/admin/repairs?seg=ready">до видачі</BentoLink>}
-      className="justify-between"
     >
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
         <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">

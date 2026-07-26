@@ -45,7 +45,6 @@ export function RepairQueueCard({
       span={4}
       title="Черга ремонтів"
       action={<BentoLink href="/admin/repairs">усі ремонти</BentoLink>}
-      className="justify-between"
     >
       <p className="mb-4">
         <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">

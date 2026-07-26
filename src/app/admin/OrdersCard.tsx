@@ -28,7 +28,6 @@ export function OrdersCard({
       span={4}
       title="Замовлення"
       action={<BentoLink href="/admin/orders">усі замовлення</BentoLink>}
-      className="justify-between"
     >
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-display text-3xl font-semibold tabular tracking-tight text-ink">
