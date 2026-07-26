@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BentoCell } from "@/components/ui/BentoCell";
 import { cn } from "@/lib/utils/cn";
 import { uah } from "@/lib/utils/money";
-import { pluralUk } from "@/lib/utils/plural";
 import { CATEGORY_LABELS, PROFIT_CATEGORIES, RANGE_LABELS, type RangePreset } from "@/lib/profit";
 import type { DashboardMoney } from "@/lib/data-dashboard";
 import type { SalesTargets } from "@/lib/data-settings";
@@ -113,15 +112,6 @@ export function MoneyBreakdownCard({
           Чистими:{" "}
           <span className={cn("font-medium tabular", monthNet >= 0 ? "text-success" : "text-danger")}>
             {uah(monthNet)}
-          </span>
-        </span>
-        <span className="text-muted">
-          Каса: <span className="font-medium tabular text-ink">{uah(money.cashTotal)}</span>
-        </span>
-        <span className="text-muted">
-          Запас OPEX:{" "}
-          <span className="font-medium tabular text-ink">
-            {money.runwayDays} {pluralUk(money.runwayDays, "день", "дні", "днів")}
           </span>
         </span>
         <Link

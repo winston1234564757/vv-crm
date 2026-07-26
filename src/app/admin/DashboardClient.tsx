@@ -9,6 +9,7 @@ import { TodaySalesCard } from "./TodaySalesCard";
 import { PickupCard } from "./PickupCard";
 import { OrdersCard } from "./OrdersCard";
 import { MoneyBreakdownCard } from "./MoneyBreakdownCard";
+import { CashCard } from "./CashCard";
 import { ShareCard } from "./ShareCard";
 import { AttentionSection } from "./AttentionSection";
 import { InsightsSection } from "./InsightsSection";
@@ -40,6 +41,10 @@ interface DashboardClientProps {
  *
  * Порядок у DOM — це і є порядок на мобілці: спершу гроші дня, далі робота,
  * потім розклад і аналіз.
+ *
+ * Ряди складаються по 12: hero+черга · три операційні · розклад+каса ·
+ * частка+увага. Спани статичні (`BentoCell`), тож будь-яка зміна цього
+ * набору вимагає перерахувати ряд руками — сітка сама дірку не закриє.
  */
 export function DashboardClient({
   preset,
@@ -96,6 +101,17 @@ export function DashboardClient({
         />
 
         <MoneyBreakdownCard preset={preset} money={money} targets={targets} />
+        <CashCard
+          cashTotal={money.cashTotal}
+          runwayDays={money.runwayDays}
+          dailyOpex={money.dailyOpex}
+        />
+
+        {/*
+          Частка йде перед увагою, а не після: увага рендериться лише коли їй
+          є що сказати, і при тихому магазині картка частки має лишитись у
+          своєму ряду зліва, а не поїхати в порожній рядок сама.
+        */}
         <ShareCard
           ledger={money.partnerLedger}
           sources={money.sources}
@@ -103,7 +119,7 @@ export function DashboardClient({
         />
 
         {attention.length > 0 && (
-          <BentoCell span={12} title="Потребує уваги">
+          <BentoCell span={8} title="Потребує уваги">
             <AttentionSection groups={attention} />
           </BentoCell>
         )}
