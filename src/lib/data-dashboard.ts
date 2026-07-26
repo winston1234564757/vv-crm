@@ -2,21 +2,72 @@ import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { getSettings } from "./data-settings";
 import {
-  computeProfit,
+  comparisonFor,
+  dailySeries,
+  datasetWindowStart,
   dayRange,
   floorAtEpoch,
   resolveRange,
+  sliceExpenses,
+  sliceProfit,
+  SERIES_DAYS,
+  LEDGER_MAX_DAYS,
+  type Comparison,
+  type DatedExpense,
+  type DatedRepair,
+  type DatedSale,
+  type DayPoint,
+  type ProfitDataset,
   type ProfitDeviceCost,
   type ProfitResult,
-  type ProfitSale,
   type ProfitSaleItem,
   type RangePreset,
+  PARTNER_SHARE,
 } from "./profit";
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+export { PARTNER_SHARE };
 
-/** Частка співвласника в чистому прибутку. Фіксовано 50%, не налаштовується. */
-export const PARTNER_SHARE = 0.5;
+export interface OwnerShare {
+  id: string;
+  name: string;
+  /** Це рядок поточного користувача — UI підсвічує його. */
+  isMe: boolean;
+  withdrawn: number;
+  /** Нараховано − вилучено. Від'ємне означає, що власник узяв наперед. */
+  available: number;
+}
+
+export interface WithdrawalEntry {
+  id: string;
+  at: string;
+  amount: number;
+  ownerName: string;
+  /** Назва каси чи сейфа, з якого взяли. */
+  source: string;
+}
+
+export interface PartnerLedger {
+  /** Чистий прибуток від епохи — база нарахування. */
+  totalNet: number;
+  /** 50% від нього. Однакова для обох власників. */
+  accruedPerOwner: number;
+  /** Обидва власники, поточний користувач першим. */
+  owners: OwnerShare[];
+  /** Історія зняттів, найновіші першими. */
+  withdrawals: WithdrawalEntry[];
+  /** Скільки грошей узагалі завели в сейф ЧП. Довідково. */
+  totalDistributed: number;
+  safeBalance: number;
+  /** Готівка, з якої частку фізично можна взяти: каси + сейфи. */
+  cashOnHand: number;
+  /** Сумарно належне обом перевищує наявну готівку. */
+  exceedsCash: boolean;
+  /**
+   * Вибірка не дотяглася до епохи (магазин працює довше за `LEDGER_MAX_DAYS`),
+   * тож «нараховано» занижене й UI має про це сказати.
+   */
+  approximate: boolean;
+}
 
 export interface DashboardMoney {
   profit: ProfitResult;
@@ -33,6 +84,15 @@ export interface DashboardMoney {
   /** Витрати за поточний місяць — незалежно від обраного пресету. Для футера. */
   monthExpenses: number;
   /**
+   * База порівняння для обраного пресету, або `null` коли бази бракує —
+   * тоді UI не малює дельту взагалі. Див. `comparisonFor`.
+   */
+  comparison: Comparison | null;
+  /** Останні `SERIES_DAYS` днів під графік. Коротший, якщо епоха ближча. */
+  series: DayPoint[];
+  /** Весь вибраний період по днях. Дні без даних присутні з нулями. */
+  daily: DayPoint[];
+  /**
    * Частка співвласника — 50% чистого прибутку (маржа − витрати) за
    * фіксованими вікнами. Може бути від'ємною.
    */
@@ -41,123 +101,129 @@ export interface DashboardMoney {
     week: { net: number; share: number };
     month: { net: number; share: number };
   };
-  /**
-   * Накопичувальний рахунок прибутку поточного власника.
-   * Нараховано = 50% усіх розподілів у сейф ЧП;
-   * Знято = сума переказів з сейфа ЧП, зроблених цим користувачем;
-   * Залишок = нараховано − знято.
-   */
-  partnerLedger: {
-    totalDistributed: number;
-    myWithdrawn: number;
-    myAccrued: number;
-    myAvailable: number;
-    safeBalance: number;
-  };
+  partnerLedger: PartnerLedger;
   sources: { id: string; name: string; type: "safe" | "cash_register"; balance: number }[];
 }
 
 /**
- * Прибуток за довільне вікно [start, end). Дзеркалить `getFinanceReport` у
- * `data-finance.ts` (Task 2) один в один: той самий фільтр по `sales.created_at`,
- * ті самі зовнішні завершені ремонти по `repairs.completed_at`, той самий
- * фолбек собівартості пристрою. Розходження тут — це розходження між
- * дашбордом і Фінансами, а звірку між ними перевіряє §8 спеки.
+ * Дашборду треба одні й ті самі гроші в шести розрізах. Раніше кожен розріз
+ * ходив у базу окремо: `profitForRange` викликалась до чотирьох разів по
+ * два-три запити, стільки ж разів рахувались витрати, а `getDailyShares`
+ * поверх усього сканував продажі/ремонти/витрати від епохи без верхньої межі —
+ * запит, який росте лінійно, скільки б магазин не працював.
  *
- * `start`/`end` мають бути вже опущені до фінансової епохи викликачем
- * (`floorAtEpoch`) — ця функція про епоху нічого не знає, вона лише коротить
- * запит, коли вікно порожнє (`start >= end`), замість того щоб бити Supabase
- * діапазоном навпаки.
+ * Тепер рядки тягнуться один раз за вікно `datasetWindowStart`, а всі розрізи
+ * ріжуться з них у пам'яті через `lib/profit`. Три послідовні стадії замість
+ * ~18 роунд-тріпів, і рушій прибутку лишається рівно один — денний ряд під
+ * графіком не може розійтися з KPI над ним.
  */
-async function profitForRange(
-  supabase: Supabase,
+async function loadDataset(
+  supabase: Awaited<ReturnType<typeof createClient>>,
   start: Date,
   end: Date,
-): Promise<ProfitResult> {
-  if (start >= end) return computeProfit([], new Map(), []);
-
+): Promise<{
+  dataset: ProfitDataset;
+  cashRegisters: { id: string; name: string; balance: number }[];
+}> {
   const startStr = start.toISOString();
   const endStr = end.toISOString();
+  const empty = start >= end;
 
-  const [salesRes, repairsRes] = await Promise.all([
-    supabase
-      .from("sales")
-      .select("discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)")
-      .gte("created_at", startStr)
-      .lt("created_at", endStr),
-    supabase
-      .from("repairs")
-      .select("price, cost, external_sc_cost")
-      .is("inventory_device_id", null)
-      .in("status", ["completed", "handed_over"])
-      .gte("completed_at", startStr)
-      .lt("completed_at", endStr),
+  const [salesRes, repairsRes, expensesRes, cashRes] = await Promise.all([
+    empty
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("sales")
+          .select(
+            "id, created_at, total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)",
+          )
+          .gte("created_at", startStr)
+          .lt("created_at", endStr),
+    empty
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("repairs")
+          .select("completed_at, price, cost, external_sc_cost")
+          .is("inventory_device_id", null)
+          .in("status", ["completed", "handed_over"])
+          .gte("completed_at", startStr)
+          .lt("completed_at", endStr),
+    empty
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("expenses")
+          .select("created_at, amount, category_id, paid_from_safe_id")
+          .gte("created_at", startStr)
+          .lt("created_at", endStr),
+    supabase.from("cash_registers").select("balance, id, name"),
   ]);
 
-  const salesData = salesRes.data ?? [];
+  const salesData = supabaseCast<
+    {
+      id: string;
+      created_at: string;
+      total_amount: number;
+      discount: number | null;
+      sale_items: ProfitSaleItem[] | null;
+    }[]
+  >(salesRes.data ?? []);
 
-  const deviceIds: string[] = [];
+  // Собівартість пристрою — `cost_price + repair_cost`, а не `unit_cost` чека,
+  // тож мапу треба добрати окремим запитом. Він залежить від списку продажів,
+  // тому єдиний, що не влазить у Promise.all вище.
+  const deviceIds = new Set<string>();
   for (const sale of salesData) {
-    const items = supabaseCast<{ item_type: string; item_id: string }[]>(sale.sale_items ?? []);
-    for (const item of items) {
-      if (item.item_type === "device" && item.item_id) deviceIds.push(item.item_id);
+    for (const item of sale.sale_items ?? []) {
+      if (item.item_type === "device" && item.item_id) deviceIds.add(item.item_id);
     }
   }
 
-  const deviceCostsMap = new Map<string, ProfitDeviceCost>();
-  if (deviceIds.length > 0) {
-    const { data: devicesCosts } = await supabase
+  const devices = new Map<string, ProfitDeviceCost>();
+  if (deviceIds.size > 0) {
+    const { data } = await supabase
       .from("devices")
       .select("id, cost_price, repair_cost")
-      .in("id", deviceIds);
-    for (const d of devicesCosts ?? []) {
-      deviceCostsMap.set(d.id, { cost_price: d.cost_price, repair_cost: d.repair_cost });
+      .in("id", [...deviceIds]);
+    for (const d of data ?? []) {
+      devices.set(d.id, { cost_price: d.cost_price, repair_cost: d.repair_cost });
     }
   }
 
-  const profitSales: ProfitSale[] = salesData.map((sale) => ({
-    discount: sale.discount,
-    items: supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
+  const sales: DatedSale[] = salesData.map((s) => ({
+    id: s.id,
+    created_at: s.created_at,
+    total_amount: s.total_amount,
+    discount: s.discount,
+    items: s.sale_items ?? [],
   }));
 
-  return computeProfit(profitSales, deviceCostsMap, repairsRes.data ?? []);
-}
+  const repairs: DatedRepair[] = (repairsRes.data ?? [])
+    .filter((r): r is typeof r & { completed_at: string } => !!r.completed_at)
+    .map((r) => ({
+      completed_at: r.completed_at,
+      price: r.price,
+      cost: r.cost,
+      external_sc_cost: r.external_sc_cost,
+    }));
 
-/**
- * Сума операційних витрат за вікно [start, end): той самий `expenses.created_at`,
- * з двома винятками:
- *   1. `capitalCategoryId` — разові вкладення на відкриття (не OPEX).
- *   2. `netProfitSafeId`   — вилучення прибутку власниками. Гроші з
- *      net_profit-сейфа вже є частиною розподіленого чистого прибутку;
- *      записувати їх ще раз як витрату — подвійний рахунок, який спотворює P&L.
- */
-async function expensesForRange(
-  supabase: Supabase,
-  start: Date,
-  end: Date,
-  capitalCategoryId: string | null,
-  netProfitSafeId: string | null,
-): Promise<number> {
-  if (start >= end) return 0;
+  const expenses: DatedExpense[] = (expensesRes.data ?? []).map((e) => ({
+    created_at: e.created_at,
+    amount: e.amount,
+    category_id: e.category_id,
+    paid_from_safe_id: e.paid_from_safe_id,
+  }));
 
-  const { data } = await supabase
-    .from("expenses")
-    .select("amount, category_id, paid_from_safe_id")
-    .gte("created_at", start.toISOString())
-    .lt("created_at", end.toISOString());
-
-  return (data ?? [])
-    .filter((e) => e.category_id !== capitalCategoryId)
-    .filter((e) => e.paid_from_safe_id !== netProfitSafeId)
-    .reduce((s, e) => s + e.amount, 0);
+  return {
+    dataset: { sales, repairs, expenses, devices, windowStart: start },
+    cashRegisters: cashRes.data ?? [],
+  };
 }
 
 /**
  * @param day необов'язковий ключ `YYYY-MM-DD` — коли заданий, головні цифри
  *   (`profit`/`expenses`) рахуються за цей конкретний день замість вікна
  *   пресету. Використовується денною навігацією на вкладці «Сьогодні». Решта
- *   (todayProfit, monthProfit, partnerShare, ledger) завжди прив'язані до
- *   `now`, тож день-оверрайд вимикає reuse-скорочення нижче.
+ *   (todayProfit, monthProfit, partnerShare, ledger) завжди прив'язані до `now`.
  */
 export async function getDashboardMoney(
   preset: RangePreset,
@@ -170,103 +236,118 @@ export async function getDashboardMoney(
   const epoch = settings.finance_epoch;
   const capitalCategoryId = settings.capital_category_id;
 
-  const dayWin = day ? dayRange(day) : null;
-  const range = dayWin ?? resolveRange(preset, now);
-  const todayRange = resolveRange("today", now);
-  const weekRange = resolveRange("7d", now);
-  const monthRange = resolveRange("month", now);
-
-  // День-оверрайд зсуває головне вікно з вікна пресету, тож фіксовані
-  // сьогодні/тиждень/місяць більше не збігаються з ним — рахуємо їх окремо.
-  const reuseToday = !dayWin && preset === "today";
-  const reuseWeek = !dayWin && preset === "7d";
-  const reuseMonth = !dayWin && preset === "month";
-
-  const floored = floorAtEpoch(range.start, range.end, epoch);
-  const todayFloored = floorAtEpoch(todayRange.start, todayRange.end, epoch);
-  const weekFloored = floorAtEpoch(weekRange.start, weekRange.end, epoch);
-  const monthFloored = floorAtEpoch(monthRange.start, monthRange.end, epoch);
-
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  // Step 1: Отримаємо сейфи першими — це маленький запит (у нас завжди ≤ 5 рядків).
-  // `netProfitSafeId` необхідний для: (a) фільтрації витрат з P&L,
-  // (b) OPEX run-rate без вилучень, (c) запитів Partner Ledger.
+  // Стадія 1: сейфи. Маленький запит (≤5 рядків), але `netProfitSafeId` з
+  // нього потрібен трьом наступним розрахункам — фільтру витрат, OPEX
+  // run-rate і леджеру, — тож він мусить бути першим.
   const safesRes = await supabase.from("safes").select("balance, type, id, name");
   const netProfitSafe = (safesRes.data ?? []).find((s) => s.type === "net_profit");
   const netProfitSafeId = netProfitSafe?.id ?? null;
   const netProfitSafeBalance = netProfitSafe?.balance ?? 0;
 
-  // Step 2: Усі паралельні запити (netProfitSafeId вже відомий)
-  const [
-    profit,
-    todayProfitResult,
-    weekProfitResult,
-    monthProfitResult,
-    expenses,
-    todayExpensesResult,
-    weekExpensesResult,
-    monthExpensesResult,
-    cashRegistersRes,
-    opexExpensesRes,
-    npInflowsRes,
-    myWithdrawalsRes,
-  ] = await Promise.all([
-    profitForRange(supabase, floored.start, floored.end),
-    reuseToday ? Promise.resolve(null) : profitForRange(supabase, todayFloored.start, todayFloored.end),
-    reuseWeek ? Promise.resolve(null) : profitForRange(supabase, weekFloored.start, weekFloored.end),
-    reuseMonth ? Promise.resolve(null) : profitForRange(supabase, monthFloored.start, monthFloored.end),
-    expensesForRange(supabase, floored.start, floored.end, capitalCategoryId, netProfitSafeId),
-    reuseToday
-      ? Promise.resolve(null)
-      : expensesForRange(supabase, todayFloored.start, todayFloored.end, capitalCategoryId, netProfitSafeId),
-    reuseWeek
-      ? Promise.resolve(null)
-      : expensesForRange(supabase, weekFloored.start, weekFloored.end, capitalCategoryId, netProfitSafeId),
-    reuseMonth
-      ? Promise.resolve(null)
-      : expensesForRange(supabase, monthFloored.start, monthFloored.end, capitalCategoryId, netProfitSafeId),
-    supabase.from("cash_registers").select("balance, id, name"),
-    // OPEX run-rate: останні 30 днів, без вилучень прибутку власника
-    supabase.from("expenses").select("amount, paid_from_safe_id").gte("created_at", thirtyDaysAgo.toISOString()),
-    // Partner Ledger: загальна сума розподілів у сейф ЧП (за всі часи)
+  // Вікно вибірки: найраніше з усього, що дашборд збирається спитати. Пресети
+  // і бази порівняння дає `datasetWindowStart`, але леджер тягне глибше —
+  // «нараховано» це 50% чистого прибутку від самої епохи, тож вибірка мусить
+  // дотягтися до неї. Верхня межа — завтрашня північ, щоб «сьогодні» влізло
+  // цілком.
+  //
+  // `LEDGER_MAX_DAYS` — стеля, за якою вибірка перестає рости: 400 днів
+  // продажів цього магазину це кілька тисяч рядків, далі час відповіді почне
+  // псуватись і правильною відповіддю стане денна rollup-таблиця, а не ще
+  // ширший запит. Коли стеля спрацювала, леджер позначається `approximate`.
+  const todayRange = resolveRange("today", now);
+  const capStart = new Date(todayRange.start);
+  capStart.setDate(capStart.getDate() - LEDGER_MAX_DAYS);
+
+  const epochDate = epoch ? new Date(epoch) : null;
+  const epochValid = epochDate && !Number.isNaN(epochDate.getTime()) ? epochDate : null;
+  const ledgerApproximate = !!epochValid && epochValid.getTime() < capStart.getTime();
+  const ledgerStart = epochValid
+    ? new Date(Math.max(epochValid.getTime(), capStart.getTime()))
+    : capStart;
+
+  const rawStart = new Date(
+    Math.min(datasetWindowStart(preset, now).getTime(), ledgerStart.getTime()),
+  );
+  const window = floorAtEpoch(rawStart, todayRange.end, epoch);
+
+  // Стадія 2 і 3: датасет (одна паралельна пачка + добір собівартостей) разом
+  // із транзакціями та власниками для леджера, яким датасет не потрібен.
+  //
+  // Вилучення частки тягнемо ПО ВСІХ власниках, не лише по поточному: обидва
+  // мають бачити, хто скільки і коли взяв. Фільтр `to_type=external` плюс
+  // «або з сейфа ЧП, або помічене як distribution» — це і є те, що вміє
+  // писати `withdraw_owner_share`, яка приймає джерелом і сейф, і касу.
+  const withdrawalFilter = supabase
+    .from("transactions")
+    .select("id, created_at, amount, from_id, from_type, reference_type, created_by")
+    .eq("to_type", "external");
+
+  const [loaded, npInflowsRes, withdrawalsRes, ownersRes] = await Promise.all([
+    loadDataset(supabase, window.start, window.end),
     netProfitSafeId
-      ? supabase.from("transactions").select("amount").eq("to_type", "safe").eq("to_id", netProfitSafeId).eq("reference_type", "distribution")
-      : Promise.resolve({ data: [] as { amount: number }[] }),
-    // Partner Ledger: вилучення прибутку поточним користувачем (за всі часи)
-    userId
       ? supabase
           .from("transactions")
-          .select("amount, from_id, reference_type")
-          .eq("created_by", userId)
-          .eq("to_type", "external")
-      : Promise.resolve({ data: [] as { amount: number; from_id: string | null; reference_type: string | null }[] }),
+          .select("amount")
+          .eq("to_type", "safe")
+          .eq("to_id", netProfitSafeId)
+          .eq("reference_type", "distribution")
+      : Promise.resolve({ data: [] as { amount: number }[] }),
+    netProfitSafeId
+      ? withdrawalFilter.or(
+          `reference_type.eq.distribution,from_id.eq.${netProfitSafeId}`,
+        )
+      : withdrawalFilter.eq("reference_type", "distribution"),
+    supabase.from("profiles").select("id, full_name").eq("role", "owner"),
   ]);
 
-  const todayProfit = reuseToday ? profit.profit : todayProfitResult!.profit;
-  const weekProfit = reuseWeek ? profit.profit : weekProfitResult!.profit;
-  const monthProfit = reuseMonth ? profit.profit : monthProfitResult!.profit;
+  const ds = loaded.dataset;
 
-  const todayExpenses = reuseToday ? expenses : todayExpensesResult!;
-  const weekExpenses = reuseWeek ? expenses : weekExpensesResult!;
-  const monthExpenses = reuseMonth ? expenses : monthExpensesResult!;
-
-  const todayNet = todayProfit - todayExpenses;
-  const weekNet = weekProfit - weekExpenses;
-  const monthNet = monthProfit - monthExpenses;
-  const partnerShare = {
-    today: { net: todayNet, share: Math.round(todayNet * PARTNER_SHARE) },
-    week: { net: weekNet, share: Math.round(weekNet * PARTNER_SHARE) },
-    month: { net: monthNet, share: Math.round(monthNet * PARTNER_SHARE) },
+  const sliceMoney = (start: Date, end: Date) => {
+    const w = floorAtEpoch(start, end, epoch);
+    return {
+      profit: sliceProfit(ds, w.start, w.end),
+      expenses: sliceExpenses(ds, w.start, w.end, capitalCategoryId, netProfitSafeId),
+    };
   };
 
+  const mainRange = day ? dayRange(day) : resolveRange(preset, now);
+  const main = sliceMoney(mainRange.start, mainRange.end);
+  const today = sliceMoney(todayRange.start, todayRange.end);
+  const week = sliceMoney(resolveRange("7d", now).start, resolveRange("7d", now).end);
+  const monthRange = resolveRange("month", now);
+  const month = sliceMoney(monthRange.start, monthRange.end);
+
+  const net = (s: { profit: ProfitResult; expenses: number }) => s.profit.profit - s.expenses;
+  const partnerShare = {
+    today: { net: net(today), share: Math.round(net(today) * PARTNER_SHARE) },
+    week: { net: net(week), share: Math.round(net(week) * PARTNER_SHARE) },
+    month: { net: net(month), share: Math.round(net(month) * PARTNER_SHARE) },
+  };
+
+  // Денний ряд по всьому вікну; графік бере з нього хвіст. Дні до епохи в
+  // датасет не потрапили, тож ряд коротшає сам — окремої обрізки не треба.
+  const daily = dailySeries(ds, window.start, window.end, {
+    capitalCategoryId,
+    netProfitSafeId,
+  });
+  const series = daily.slice(-SERIES_DAYS);
+
   const cashTotal =
-    (cashRegistersRes.data ?? []).reduce((s, c) => s + c.balance, 0) +
+    loaded.cashRegisters.reduce((s, c) => s + c.balance, 0) +
     (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
 
-  // OPEX run-rate: без вилучень прибутку, без капіталу, без одноразових бурстів (> 50k)
-  const regularOpexTotal = (opexExpensesRes.data ?? [])
+  // OPEX run-rate: 30 повних календарних днів із датасету, без вилучень
+  // прибутку і без одноразових бурстів (> 50k). Раніше це було ковзне вікно
+  // «зараз мінус 30×24 год»; календарні дні узгоджуються з рештою розрахунків
+  // і на оцінці, яка все одно має підлогу 500 ₴/день, різниці не дають.
+  const opexFrom = new Date(todayRange.start);
+  opexFrom.setDate(opexFrom.getDate() - 29);
+  const opexWindow = floorAtEpoch(opexFrom, todayRange.end, epoch);
+  const regularOpexTotal = ds.expenses
+    .filter((e) => {
+      const t = new Date(e.created_at).getTime();
+      return t >= opexWindow.start.getTime() && t < opexWindow.end.getTime();
+    })
     .filter((e) => e.amount < 50000 && e.paid_from_safe_id !== netProfitSafeId)
     .reduce((s, e) => s + e.amount, 0);
   const dailyOpex = Math.max(Math.round(regularOpexTotal / 30), 500);
@@ -274,44 +355,137 @@ export async function getDashboardMoney(
   const opexSafeBalance = (safesRes.data ?? []).find((s) => s.type === "opex")?.balance ?? 0;
   const runwayDays = Math.round(opexSafeBalance / dailyOpex);
 
-  // Partner Ledger — накопичувальний рахунок власника
-  const totalDistributed = ((npInflowsRes as { data: { amount: number }[] | null }).data ?? []).reduce((s, t) => s + t.amount, 0);
-
-  // Вилучення прибутку поточним користувачем (з сейфу ЧП або як розподіл)
-  const rawWithdrawals = (myWithdrawalsRes as { data: { amount: number; from_id: string | null; reference_type: string | null }[] | null }).data ?? [];
-  const myWithdrawn = rawWithdrawals
-    .filter((t) => (netProfitSafeId && t.from_id === netProfitSafeId) || t.reference_type === "distribution")
-    .reduce((s, t) => s + t.amount, 0);
-
-  // Моя частка згенерованого чистого прибутку за місяць (50%)
-  const myAccrued = Math.round(monthNet * PARTNER_SHARE);
-  // Залишок доступний до вилучення: Нараховано 50% − Вилучено мною
-  const myAvailable = myAccrued - myWithdrawn;
-
   const sources = [
-    ...(safesRes.data ?? []).map((s) => ({ id: s.id, name: s.name, type: "safe" as const, balance: s.balance })),
-    ...(cashRegistersRes.data ?? []).map((c) => ({ id: c.id, name: c.name, type: "cash_register" as const, balance: c.balance })),
+    ...(safesRes.data ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: "safe" as const,
+      balance: s.balance,
+    })),
+    ...loaded.cashRegisters.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: "cash_register" as const,
+      balance: c.balance,
+    })),
   ];
 
+  const partnerLedger = buildLedger({
+    // Чистими від епохи: денний ряд уже покриває саме це вікно.
+    totalNet: daily.reduce((s, d) => s + d.net, 0),
+    npInflows: (npInflowsRes as { data: { amount: number }[] | null }).data ?? [],
+    withdrawals: (withdrawalsRes as { data: WithdrawalRow[] | null }).data ?? [],
+    owners: ownersRes.data ?? [],
+    sourceNames: new Map(sources.map((s) => [s.id, s.name])),
+    userId,
+    safeBalance: netProfitSafeBalance,
+    cashOnHand: cashTotal,
+    approximate: ledgerApproximate,
+  });
+
   return {
-    profit,
-    expenses,
+    profit: main.profit,
+    expenses: main.expenses,
     cashTotal,
     runwayDays,
     dailyOpex,
-    monthProfit,
-    todayProfit,
-    monthExpenses,
+    monthProfit: month.profit.profit,
+    todayProfit: today.profit.profit,
+    monthExpenses: month.expenses,
+    comparison: day ? null : comparisonFor(ds, preset, now, epoch),
+    series,
+    daily,
     partnerShare,
-    partnerLedger: {
-      totalDistributed,
-      myWithdrawn,
-      myAccrued,
-      myAvailable,
-      safeBalance: netProfitSafeBalance,
-    },
+    partnerLedger,
     sources,
   };
 }
 
+interface WithdrawalRow {
+  id: string;
+  created_at: string;
+  amount: number;
+  from_id: string | null;
+  from_type: string | null;
+  reference_type: string | null;
+  created_by: string | null;
+}
 
+/**
+ * Спільний рахунок часток обох власників.
+ *
+ * Нарахування — 50% чистого прибутку ВІД ЕПОХИ, тобто зароблене, а не роздане.
+ * Спершу тут стояло «50% від того, що завели в сейф ЧП», але `withdraw_owner_share`
+ * приймає джерелом і касу теж: частку регулярно беруть повз сейф, і тоді
+ * вилучення списувались із бази, яка їх ніколи не отримувала — залишок ішов у
+ * мінус при цілком здоровому бізнесі. Скільки з належного реально лежить у
+ * касах, каже окреме поле `cashOnHand`: два чесні числа замість одного
+ * напівправдивого.
+ *
+ * Ще раніша версія рахувала нарахування за поточний МІСЯЦЬ, а вилучення за весь
+ * час — першого числа залишок обвалювався сам собою.
+ *
+ * Модель припускає рівно двох власників із рівними частками (`PARTNER_SHARE`
+ * = 0.5). Третій співвласник зламає арифметику, і це навмисно: краще явна
+ * поломка, ніж тихо занижена частка.
+ */
+function buildLedger(input: {
+  totalNet: number;
+  npInflows: { amount: number }[];
+  withdrawals: WithdrawalRow[];
+  owners: { id: string; full_name: string | null }[];
+  sourceNames: Map<string, string>;
+  userId?: string;
+  safeBalance: number;
+  cashOnHand: number;
+  approximate: boolean;
+}): PartnerLedger {
+  const accruedPerOwner = Math.round(input.totalNet * PARTNER_SHARE);
+
+  const withdrawnBy = new Map<string, number>();
+  for (const t of input.withdrawals) {
+    const key = t.created_by ?? "unknown";
+    withdrawnBy.set(key, (withdrawnBy.get(key) ?? 0) + t.amount);
+  }
+
+  const nameOf = (id: string | null) =>
+    input.owners.find((o) => o.id === id)?.full_name ?? "Невідомо";
+
+  const owners: OwnerShare[] = input.owners
+    .map((o) => {
+      const withdrawn = withdrawnBy.get(o.id) ?? 0;
+      return {
+        id: o.id,
+        name: o.full_name ?? "Без імені",
+        isMe: o.id === input.userId,
+        withdrawn,
+        available: accruedPerOwner - withdrawn,
+      };
+    })
+    // Свій рядок першим — далі за іменем, щоб порядок не стрибав між рендерами.
+    .sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.name.localeCompare(b.name, "uk"));
+
+  const withdrawals: WithdrawalEntry[] = [...input.withdrawals]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((t) => ({
+      id: t.id,
+      at: t.created_at,
+      amount: t.amount,
+      ownerName: nameOf(t.created_by),
+      source: (t.from_id && input.sourceNames.get(t.from_id)) || "—",
+    }));
+
+  const totalDue = owners.reduce((s, o) => s + Math.max(0, o.available), 0);
+
+  return {
+    totalNet: input.totalNet,
+    accruedPerOwner,
+    owners,
+    withdrawals,
+    totalDistributed: input.npInflows.reduce((s, t) => s + t.amount, 0),
+    safeBalance: input.safeBalance,
+    cashOnHand: input.cashOnHand,
+    exceedsCash: totalDue > input.cashOnHand,
+    approximate: input.approximate,
+  };
+}

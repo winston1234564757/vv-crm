@@ -4,9 +4,20 @@ import {
   computeProfit,
   margin,
   resolveRange,
+  previousRange,
+  datasetWindowStart,
+  sliceProfit,
+  sliceExpenses,
+  dailySeries,
+  comparisonFor,
+  deltaPct,
   type ProfitSale,
   type ProfitSaleItem,
   type ProfitDeviceCost,
+  type ProfitDataset,
+  type DatedSale,
+  type DatedRepair,
+  type DatedExpense,
 } from "../profit";
 
 const DEV = new Map<string, ProfitDeviceCost>([
@@ -365,5 +376,224 @@ describe("resolveRange", () => {
     const { start, end } = resolveRange("prev", new Date("2026-01-09T12:00:00"));
     expect(start.toISOString()).toBe(new Date("2025-12-01T00:00:00").toISOString());
     expect(end.toISOString()).toBe(new Date("2026-01-01T00:00:00").toISOString());
+  });
+});
+
+// ─── Датасет і зрізи ────────────────────────────────────────────────────────
+
+/** Чек із міткою часу. `total_amount` тут декоративний — гроші рахує рушій. */
+function dSale(created_at: string, items: ProfitSaleItem[], discount: number | null = 0): DatedSale {
+  return { id: created_at, created_at, total_amount: 0, discount, items };
+}
+
+function dRepair(completed_at: string, price: number, cost: number): DatedRepair {
+  return { completed_at, price, cost, external_sc_cost: 0 };
+}
+
+function dExpense(
+  created_at: string,
+  amount: number,
+  over: Partial<DatedExpense> = {},
+): DatedExpense {
+  return { created_at, amount, category_id: null, paid_from_safe_id: null, ...over };
+}
+
+function dataset(over: Partial<ProfitDataset> = {}): ProfitDataset {
+  return {
+    sales: [],
+    repairs: [],
+    expenses: [],
+    devices: DEV,
+    windowStart: new Date("2026-01-01T00:00:00"),
+    ...over,
+  };
+}
+
+describe("sliceProfit", () => {
+  const ds = dataset({
+    sales: [
+      dSale("2026-07-20T10:00:00", [item({ total_price: 100, unit_cost: 30 })]),
+      dSale("2026-07-21T10:00:00", [item({ total_price: 200, unit_cost: 50 })]),
+      dSale("2026-07-22T10:00:00", [item({ total_price: 400, unit_cost: 90 })]),
+    ],
+    repairs: [dRepair("2026-07-21T15:00:00", 500, 120)],
+  });
+
+  it("takes the window half-open: start included, end excluded", () => {
+    const r = sliceProfit(ds, new Date("2026-07-21T00:00:00"), new Date("2026-07-22T00:00:00"));
+    // Лише чек 21-го (200) плюс ремонт 21-го (500). 22-ге вже за межею.
+    expect(r.revenue).toBe(700);
+    expect(r.cost).toBe(170);
+  });
+
+  it("returns zeros for an inverted window instead of hitting the data", () => {
+    const r = sliceProfit(ds, new Date("2026-07-22T00:00:00"), new Date("2026-07-20T00:00:00"));
+    expect(r.revenue).toBe(0);
+    expect(r.profit).toBe(0);
+  });
+
+  it("routes a device through the same cost_price + repair_cost rule", () => {
+    const one = dataset({
+      sales: [
+        dSale("2026-07-20T10:00:00", [
+          item({ item_type: "device", item_id: "tecno-8p", total_price: 2000, unit_cost: 600 }),
+        ]),
+      ],
+    });
+    const r = sliceProfit(one, new Date("2026-07-20T00:00:00"), new Date("2026-07-21T00:00:00"));
+    expect(r.cost).toBe(1550);
+    expect(r.profit).toBe(450);
+  });
+});
+
+describe("sliceExpenses", () => {
+  const ds = dataset({
+    expenses: [
+      dExpense("2026-07-20T10:00:00", 300),
+      dExpense("2026-07-20T11:00:00", 5000, { category_id: "capital" }),
+      dExpense("2026-07-20T12:00:00", 900, { paid_from_safe_id: "np-safe" }),
+      dExpense("2026-07-25T10:00:00", 400),
+    ],
+  });
+  const from = new Date("2026-07-20T00:00:00");
+  const to = new Date("2026-07-21T00:00:00");
+
+  it("drops capital spend and owner withdrawals", () => {
+    expect(sliceExpenses(ds, from, to, "capital", "np-safe")).toBe(300);
+  });
+
+  it("keeps uncategorised spend when no capital category is configured", () => {
+    // Регресія: `e.category_id !== capitalCategoryId` при обох null відсікало
+    // витрату без категорії — вона тихо зникала з P&L.
+    const noCategory = dataset({ expenses: [dExpense("2026-07-20T10:00:00", 300)] });
+    expect(sliceExpenses(noCategory, from, to, null, null)).toBe(300);
+  });
+});
+
+describe("dailySeries", () => {
+  const ds = dataset({
+    sales: [
+      dSale("2026-07-20T10:00:00", [item({ total_price: 100, unit_cost: 30 })]),
+      dSale("2026-07-22T10:00:00", [item({ total_price: 400, unit_cost: 90 })]),
+    ],
+    repairs: [dRepair("2026-07-22T15:00:00", 500, 120)],
+    expenses: [dExpense("2026-07-21T10:00:00", 250)],
+  });
+  const opts = { capitalCategoryId: null, netProfitSafeId: null };
+  const from = new Date("2026-07-20T00:00:00");
+  const to = new Date("2026-07-23T00:00:00");
+
+  it("emits a point for every calendar day, including the empty one", () => {
+    const s = dailySeries(ds, from, to, opts);
+    expect(s.map((p) => p.day)).toEqual(["2026-07-20", "2026-07-21", "2026-07-22"]);
+  });
+
+  it("reports a day with no sales as zero revenue, not as a gap", () => {
+    const s = dailySeries(ds, from, to, opts);
+    expect(s[1]).toMatchObject({ day: "2026-07-21", revenue: 0, profit: 0, expenses: 250, net: -250 });
+  });
+
+  it("sums to exactly what sliceProfit reports for the same window", () => {
+    // Головний інваріант: графік не має права розійтися з KPI над ним.
+    const s = dailySeries(ds, from, to, opts);
+    const whole = sliceProfit(ds, from, to);
+    expect(s.reduce((n, p) => n + p.revenue, 0)).toBe(whole.revenue);
+    expect(s.reduce((n, p) => n + p.cost, 0)).toBe(whole.cost);
+    expect(s.reduce((n, p) => n + p.profit, 0)).toBe(whole.profit);
+  });
+
+  it("returns nothing for an inverted window", () => {
+    expect(dailySeries(ds, to, from, opts)).toEqual([]);
+  });
+});
+
+describe("previousRange", () => {
+  const now = new Date("2026-07-21T14:30:00");
+
+  it("baselines today against the seven days before it, not yesterday alone", () => {
+    const { start, end } = previousRange("today", now);
+    expect(start.toISOString()).toBe(new Date("2026-07-14T00:00:00").toISOString());
+    expect(end.toISOString()).toBe(new Date("2026-07-21T00:00:00").toISOString());
+  });
+
+  it("puts the 7d window against the seven days before it", () => {
+    const { start, end } = previousRange("7d", now);
+    expect(start.toISOString()).toBe(new Date("2026-07-08T00:00:00").toISOString());
+    expect(end.toISOString()).toBe(new Date("2026-07-15T00:00:00").toISOString());
+  });
+
+  it("compares month-to-date against the same day count last month", () => {
+    const { start, end } = previousRange("month", now);
+    expect(start.toISOString()).toBe(new Date("2026-06-01T00:00:00").toISOString());
+    expect(end.toISOString()).toBe(new Date("2026-06-22T00:00:00").toISOString());
+  });
+
+  it("clamps to the end of a shorter previous month", () => {
+    // 31 березня: лютий 2026 має 28 днів, вікно не має заповзати в березень.
+    const { end } = previousRange("month", new Date("2026-03-31T12:00:00"));
+    expect(end.toISOString()).toBe(new Date("2026-03-01T00:00:00").toISOString());
+  });
+});
+
+describe("datasetWindowStart", () => {
+  it("reaches back far enough to cover the prev-month baseline", () => {
+    // Найгірший випадок: 31 січня, пресет `prev` порівнюється з листопадом.
+    const now = new Date("2026-01-31T18:00:00");
+    const start = datasetWindowStart("prev", now);
+    expect(start.getTime()).toBeLessThanOrEqual(previousRange("prev", now).start.getTime());
+  });
+
+  it("covers the daily series even on the today preset", () => {
+    const now = new Date("2026-07-21T14:30:00");
+    const start = datasetWindowStart("today", now);
+    expect(start.toISOString()).toBe(new Date("2026-06-22T00:00:00").toISOString());
+  });
+});
+
+describe("comparisonFor", () => {
+  const now = new Date("2026-07-21T14:30:00");
+  /** Сім рівних днів по 100 ₴ виторгу перед 21-м. */
+  const week = dataset({
+    sales: Array.from({ length: 7 }, (_, i) =>
+      dSale(`2026-07-${String(14 + i).padStart(2, "0")}T10:00:00`, [
+        item({ total_price: 100, unit_cost: 40 }),
+      ]),
+    ),
+  });
+
+  it("averages the baseline days for today", () => {
+    const c = comparisonFor(week, "today", now, null);
+    expect(c).toMatchObject({ revenue: 100, profit: 60, label: "до середнього дня" });
+  });
+
+  it("stays silent when there is under three days of history", () => {
+    const thin = dataset({
+      sales: [dSale("2026-07-20T10:00:00", [item({ total_price: 100 })])],
+    });
+    // Епоха 19-го лишає в базі два дні — замало, щоб середнє щось означало.
+    expect(comparisonFor(thin, "today", now, "2026-07-19T00:00:00")).toBeNull();
+  });
+
+  it("stays silent when the baseline window is entirely before the epoch", () => {
+    expect(comparisonFor(week, "today", now, "2026-07-21T00:00:00")).toBeNull();
+  });
+
+  it("stays silent on a zero-revenue baseline instead of inventing growth", () => {
+    expect(comparisonFor(dataset(), "7d", now, null)).toBeNull();
+  });
+});
+
+describe("deltaPct", () => {
+  it("reads a rise off the baseline", () => {
+    expect(deltaPct(118, 100)).toBe(18);
+  });
+
+  it("has no answer against a zero baseline", () => {
+    expect(deltaPct(500, 0)).toBeNull();
+  });
+
+  it("uses the baseline magnitude so a loss shrinking reads as growth", () => {
+    // База −200, стало −100: це рух угору на 50%, а не вниз.
+    expect(deltaPct(-100, -200)).toBe(50);
   });
 });

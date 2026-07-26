@@ -3,25 +3,24 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { dayKey, addDays, dayLabel } from "@/lib/utils/day";
-import type { DailyShare } from "@/lib/data-daily-share";
+import { PARTNER_SHARE, type DayPoint } from "@/lib/profit";
 
 function fmt(n: number): string {
   return `${n.toLocaleString("uk-UA")} ₴`;
 }
 
 /**
- * Календарна навігація по чистій частці співвласника за день. Уся розбивка
- * приходить із сервера одним масивом (`getDailyShares`), тож перемикання днів
- * миттєве — без запитів. Дні без даних показують нуль. Поле дати дозволяє
- * стрибнути в будь-який день, стрілки — крок на день.
+ * Календарна навігація по чистій частці співвласника за день. Розбивка
+ * приходить із сервера готовим денним рядом, тож перемикання днів миттєве —
+ * без запитів. Дні без даних показують нуль. Поле дати дозволяє стрибнути в
+ * будь-який день, стрілки — крок на день.
  */
-export function DailyShareNavigator({ daily }: { daily: DailyShare[] }) {
-  const byDate = useMemo(() => new Map(daily.map((d) => [d.date, d])), [daily]);
+export function DailyShareNavigator({ daily }: { daily: DayPoint[] }) {
+  const byDate = useMemo(() => new Map(daily.map((d) => [d.day, d])), [daily]);
   const [selected, setSelected] = useState<string>(() => dayKey(new Date()));
 
-  const row = byDate.get(selected);
-  const net = row?.net ?? 0;
-  const share = row?.share ?? 0;
+  const net = byDate.get(selected)?.net ?? 0;
+  const share = Math.round(net * PARTNER_SHARE);
 
   return (
     <section className="card p-5">

@@ -12,6 +12,8 @@
  * без бази і його можна викликати і з сервера, і з клієнта.
  */
 
+import { addDays, dayKey } from "./utils/day";
+
 export type ProfitCategory = "device" | "accessory" | "part" | "service" | "repair";
 
 /** Порядок фіксований: таблиця не має перестрибувати між діапазонами. */
@@ -319,4 +321,341 @@ export function resolveRange(
         end: new Date(now.getFullYear(), now.getMonth(), 1),
       };
   }
+}
+
+/** Скільки попередніх днів усереднюємо в базу для пресету «сьогодні». */
+export const BASELINE_DAYS = 7;
+
+/** Довжина денного ряду під графік прибутку. */
+export const SERIES_DAYS = 30;
+
+/**
+ * Глибина вибірки для леджера часток. «Нараховано» — це 50% чистого прибутку
+ * від фінансової епохи, тож рядки треба тягнути від неї; ця стеля не дає
+ * запиту рости вічно. Коли магазин її переросте, правильна відповідь — денна
+ * rollup-таблиця, а не ширше вікно; доти леджер чесно каже `approximate`.
+ */
+export const LEDGER_MAX_DAYS = 400;
+
+/**
+ * База порівняння для пресету.
+ *
+ * Для «сьогодні» це НЕ вчора: магазин робить 5–15 чеків на день, один
+ * проданий апарат за 15 000 ₴ дає «+280%», а наступного дня «−70%». Така
+ * дельта — шум, який швидко вчишся ігнорувати. Базою беремо сім попередніх
+ * повних днів, а `comparisonFor` ділить їх на кількість днів — виходить
+ * «середній день», який одна велика продажа вже не перекидає.
+ *
+ * Для решти пресетів — рівний попередній відрізок. `month` порівнюється не з
+ * повним минулим місяцем, а з тією самою кількістю його днів: 5 липня проти
+ * повного червня виглядало б катастрофою щомісяця.
+ */
+export function previousRange(
+  preset: RangePreset,
+  now: Date,
+): { start: Date; end: Date } {
+  const back = (from: Date, days: number) => {
+    const d = new Date(from);
+    d.setDate(d.getDate() - days);
+    return d;
+  };
+
+  const cur = resolveRange(preset, now);
+
+  switch (preset) {
+    case "today":
+      return { start: back(cur.start, BASELINE_DAYS), end: cur.start };
+    case "7d":
+      return { start: back(cur.start, 7), end: cur.start };
+    case "30d":
+      return { start: back(cur.start, 30), end: cur.start };
+    case "month": {
+      // Стільки ж днів минулого місяця, скільки вже минуло цього. Якщо
+      // минулий місяць коротший (31 березня → лютий), упираємось у його край.
+      const daysElapsed = now.getDate();
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const naiveEnd = new Date(now.getFullYear(), now.getMonth() - 1, 1 + daysElapsed);
+      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start, end: naiveEnd < prevMonthEnd ? naiveEnd : prevMonthEnd };
+    }
+    case "prev":
+      return {
+        start: new Date(now.getFullYear(), now.getMonth() - 2, 1),
+        end: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      };
+  }
+}
+
+// ─── Датасет: одна вибірка, багато зрізів ───────────────────────────────────
+
+/**
+ * Дашборду треба одне й те саме число в шести розрізах (пресет, сьогодні,
+ * тиждень, місяць, база порівняння, денний ряд для графіка). Раніше кожен
+ * розріз ходив у базу окремо — до чотирнадцяти роунд-тріпів на рендер, плюс
+ * `getDailyShares` сканував усе від епохи без верхньої межі.
+ *
+ * Замість цього тягнемо рядки один раз за найширше потрібне вікно і ріжемо їх
+ * у пам'яті. Рушій прибутку лишається один — усі зрізи врешті делегують у
+ * `computeProfit`, тож графік не може розійтися з KPI над ним.
+ */
+
+export interface DatedSale extends ProfitSale {
+  id: string;
+  created_at: string;
+  /** Збережений підсумок чека. Для списку чеків; гроші рахує рушій, не це поле. */
+  total_amount: number;
+}
+
+export interface DatedRepair extends ProfitRepair {
+  completed_at: string;
+}
+
+export interface DatedExpense {
+  amount: number;
+  created_at: string;
+  category_id: string | null;
+  paid_from_safe_id: string | null;
+}
+
+export interface ProfitDataset {
+  sales: DatedSale[];
+  repairs: DatedRepair[];
+  expenses: DatedExpense[];
+  devices: Map<string, ProfitDeviceCost>;
+  /**
+   * Нижня межа вибірки. Зріз, що починається раніше за неї, поверне нулі —
+   * і це буде мовчазна брехня, а не порожній період. Викликач зобов'язаний
+   * рахувати вікно через `datasetWindowStart`, який покриває всі зрізи, що
+   * дашборд збирається просити.
+   */
+  windowStart: Date;
+}
+
+/**
+ * Найраніша дата, яку дашборд може спитати за цього пресету — нижня межа
+ * всіх вікон разом: сам пресет, його база порівняння, фіксовані
+ * сьогодні/тиждень/місяць та ряд під графік.
+ *
+ * Рахується, а не задається константою: найдальше сягає `prev` наприкінці
+ * довгого місяця (31 січня → 1 листопада, 92 дні), і будь-яка кругла
+ * константа тут або зайва, або тихо ріже базу порівняння раз на рік.
+ */
+export function datasetWindowStart(preset: RangePreset, now: Date): Date {
+  const seriesStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  seriesStart.setDate(seriesStart.getDate() - (SERIES_DAYS - 1));
+
+  const starts = [
+    resolveRange(preset, now).start,
+    previousRange(preset, now).start,
+    resolveRange("today", now).start,
+    resolveRange("7d", now).start,
+    resolveRange("month", now).start,
+    seriesStart,
+  ];
+
+  return new Date(Math.min(...starts.map((d) => d.getTime())));
+}
+
+function inWindow(iso: string | null | undefined, start: Date, end: Date): boolean {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  return t >= start.getTime() && t < end.getTime();
+}
+
+/** Прибуток за довільне вікно `[start, end)` з уже вибраного датасету. */
+export function sliceProfit(ds: ProfitDataset, start: Date, end: Date): ProfitResult {
+  if (start >= end) return computeProfit([], ds.devices, []);
+  return computeProfit(
+    ds.sales.filter((s) => inWindow(s.created_at, start, end)),
+    ds.devices,
+    ds.repairs.filter((r) => inWindow(r.completed_at, start, end)),
+  );
+}
+
+/**
+ * Операційні витрати за вікно, з двома винятками — тими самими, що були в
+ * `expensesForRange`:
+ *   1. капітальна категорія — разові вкладення на відкриття, не OPEX;
+ *   2. сейф чистого прибутку — вилучення власників уже враховані як
+ *      розподілений прибуток, вдруге вони подвоїли б витрати.
+ *
+ * Обидва винятки спрацьовують лише коли відповідний id справді заданий:
+ * порівняння `null !== null` відсікало витрати без категорії, коли
+ * `capital_category_id` у налаштуваннях не виставлений.
+ */
+export function sliceExpenses(
+  ds: ProfitDataset,
+  start: Date,
+  end: Date,
+  capitalCategoryId: string | null,
+  netProfitSafeId: string | null,
+): number {
+  if (start >= end) return 0;
+  return ds.expenses
+    .filter((e) => inWindow(e.created_at, start, end))
+    .filter((e) => !(capitalCategoryId && e.category_id === capitalCategoryId))
+    .filter((e) => !(netProfitSafeId && e.paid_from_safe_id === netProfitSafeId))
+    .reduce((s, e) => s + num(e.amount), 0);
+}
+
+export interface DayPoint {
+  /** Локальна дата, `YYYY-MM-DD`. */
+  day: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  /** Операційні витрати дня. */
+  expenses: number;
+  /** Чистими за день: `profit − expenses`. Може бути від'ємним. */
+  net: number;
+}
+
+/**
+ * Денний ряд за `[from, to)` — по точці на КОЖЕН календарний день, включно з
+ * тими, де нічого не продали. День без продажів справді дав нуль виторгу, і
+ * графік має показати нуль, а не розрив: розрив читається як «дані загубились».
+ *
+ * Дні групуються тим самим локальним ключем, що й денна навігація в UI
+ * (`utils/day.ts`), а кожен день рахується `computeProfit` — тому сума днів за
+ * місяць збігається з місячним числом за побудовою, а не за домовленістю.
+ */
+export function dailySeries(
+  ds: ProfitDataset,
+  from: Date,
+  to: Date,
+  opts: { capitalCategoryId: string | null; netProfitSafeId: string | null },
+): DayPoint[] {
+  if (from >= to) return [];
+
+  const salesByDay = new Map<string, DatedSale[]>();
+  for (const s of ds.sales) {
+    if (!inWindow(s.created_at, from, to)) continue;
+    const key = dayKey(new Date(s.created_at));
+    const arr = salesByDay.get(key);
+    if (arr) arr.push(s);
+    else salesByDay.set(key, [s]);
+  }
+
+  const repairsByDay = new Map<string, DatedRepair[]>();
+  for (const r of ds.repairs) {
+    if (!inWindow(r.completed_at, from, to)) continue;
+    const key = dayKey(new Date(r.completed_at));
+    const arr = repairsByDay.get(key);
+    if (arr) arr.push(r);
+    else repairsByDay.set(key, [r]);
+  }
+
+  const expensesByDay = new Map<string, number>();
+  for (const e of ds.expenses) {
+    if (!inWindow(e.created_at, from, to)) continue;
+    if (opts.capitalCategoryId && e.category_id === opts.capitalCategoryId) continue;
+    if (opts.netProfitSafeId && e.paid_from_safe_id === opts.netProfitSafeId) continue;
+    const key = dayKey(new Date(e.created_at));
+    expensesByDay.set(key, (expensesByDay.get(key) ?? 0) + num(e.amount));
+  }
+
+  const out: DayPoint[] = [];
+  const lastKey = dayKey(new Date(to.getTime() - 1));
+  for (let key = dayKey(from); key <= lastKey; key = addDays(key, 1)) {
+    const p = computeProfit(
+      salesByDay.get(key) ?? [],
+      ds.devices,
+      repairsByDay.get(key) ?? [],
+    );
+    const expenses = expensesByDay.get(key) ?? 0;
+    out.push({
+      day: key,
+      revenue: p.revenue,
+      cost: p.cost,
+      profit: p.profit,
+      margin: p.margin,
+      expenses,
+      net: p.profit - expenses,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Частка співвласника в чистому прибутку. Фіксовано 50%, не налаштовується.
+ *
+ * Живе тут, а не в `data-dashboard`, бо її читають і клієнтські компоненти —
+ * а той модуль тягне за собою серверний Supabase-клієнт із `next/headers`.
+ */
+export const PARTNER_SHARE = 0.5;
+
+export interface Comparison {
+  /** Готовий підпис бази: «до середнього дня», «до минулих 7 днів». */
+  label: string;
+  revenue: number;
+  profit: number;
+  margin: number;
+}
+
+const COMPARISON_LABELS: Record<Exclude<RangePreset, "today">, string> = {
+  "7d": "до минулих 7 днів",
+  "30d": "до минулих 30 днів",
+  month: "до того ж періоду минулого місяця",
+  prev: "до позаминулого місяця",
+};
+
+/** Кількість календарних днів у `[start, end)`. */
+function countDays(start: Date, end: Date): number {
+  let n = 0;
+  const lastKey = dayKey(new Date(end.getTime() - 1));
+  for (let key = dayKey(start); key <= lastKey; key = addDays(key, 1)) n++;
+  return n;
+}
+
+/**
+ * База порівняння за той самий датасет. `null` означає «бази немає» — UI тоді
+ * не малює дельту взагалі, замість того щоб показати «+100%» проти нуля.
+ *
+ * Для «сьогодні» результат ділиться на кількість днів бази і стає середнім
+ * днем. Менш ніж на трьох днях історії середнє нічого не означає, тож
+ * повертаємо `null`: перший тиждень роботи магазину дашборд просто мовчить
+ * про тренд, а не вигадує його.
+ */
+export function comparisonFor(
+  ds: ProfitDataset,
+  preset: RangePreset,
+  now: Date,
+  epochIso: string | null,
+): Comparison | null {
+  const prev = previousRange(preset, now);
+  const { start, end, empty } = floorAtEpoch(prev.start, prev.end, epochIso);
+  if (empty) return null;
+
+  const res = sliceProfit(ds, start, end);
+
+  if (preset !== "today") {
+    if (res.revenue === 0) return null;
+    return {
+      label: COMPARISON_LABELS[preset],
+      revenue: res.revenue,
+      profit: res.profit,
+      margin: res.margin,
+    };
+  }
+
+  const days = countDays(start, end);
+  if (days < 3 || res.revenue === 0) return null;
+  return {
+    label: "до середнього дня",
+    revenue: Math.round(res.revenue / days),
+    profit: Math.round(res.profit / days),
+    margin: res.margin,
+  };
+}
+
+/**
+ * Відносна зміна у відсотках, або `null` коли базa нульова. Ділення на нуль
+ * тут не «нескінченний ріст», а відсутність бази — саме тому не 0 і не 100.
+ */
+export function deltaPct(value: number, base: number): number | null {
+  if (!base) return null;
+  return Math.round(((value - base) / Math.abs(base)) * 100);
 }

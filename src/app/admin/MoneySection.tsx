@@ -10,9 +10,10 @@ import {
   RANGE_LABELS,
   CATEGORY_LABELS,
   PROFIT_CATEGORIES,
+  LEDGER_MAX_DAYS,
   type RangePreset,
 } from "@/lib/profit";
-import type { DashboardMoney } from "@/lib/data-dashboard";
+import type { DashboardMoney, PartnerLedger } from "@/lib/data-dashboard";
 import type { SalesTargets } from "@/lib/data-settings";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
@@ -280,9 +281,12 @@ export function MoneySection({
         <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-muted">Моя частка · 50% чистого</p>
-            {money.partnerLedger && (
+            {money.partnerLedger.owners.find((o) => o.isMe) && (
               <span className="text-[11px] font-medium text-accent">
-                Доступно до зняття: <span className="font-bold">{fmt(money.partnerLedger.myAvailable)}</span>
+                Доступно до зняття:{" "}
+                <span className="font-bold">
+                  {fmt(money.partnerLedger.owners.find((o) => o.isMe)!.available)}
+                </span>
               </span>
             )}
           </div>
@@ -296,38 +300,138 @@ export function MoneySection({
             виглядає глибоко мінусовим, а тихий день — навпаки високим; місяць — стабільніша цифра.
           </p>
 
-          {money.partnerLedger && (
-            <div className="mt-3 rounded-[var(--radius-md)] bg-hover/50 p-3 text-xs space-y-1.5">
-              <div className="flex justify-between items-center text-muted">
-                <span>Всього розподілено з каси в сейф ЧП:</span>
-                <span className="font-medium text-ink tabular">{fmt(money.partnerLedger.totalDistributed)}</span>
-              </div>
-              <div className="flex justify-between items-center text-muted">
-                <span>Моя накопичена частка (50%):</span>
-                <span className="font-medium text-ink tabular">{fmt(money.partnerLedger.myAccrued)}</span>
-              </div>
-              <div className="flex justify-between items-center text-muted">
-                <span>Вилучено мною раніше:</span>
-                <span className="font-medium text-danger tabular">-{fmt(money.partnerLedger.myWithdrawn)}</span>
-              </div>
-              <div className="flex justify-between items-center font-medium pt-1 border-t border-border/50 text-ink">
-                <span>Залишок моєї частки (доступно):</span>
-                <span className={cn("font-bold tabular text-sm", money.partnerLedger.myAvailable >= 0 ? "text-success" : "text-danger")}>
-                  {fmt(money.partnerLedger.myAvailable)}
-                </span>
-              </div>
-              <div className="pt-2 flex justify-end">
-                <WithdrawShareButton
-                  safes={money.sources.filter((s) => s.type === "safe")}
-                  cashRegisters={money.sources.filter((s) => s.type === "cash_register")}
-                  label="💵 Зняти свою частку"
-                />
-              </div>
-            </div>
-          )}
+          <OwnerLedger ledger={money.partnerLedger} sources={money.sources} />
         </div>
       </div>
     </section>
+  );
+}
+
+/** Пошта як ім'я нечитабельна в таблиці — лишаємо частину до «@». */
+function shortName(name: string): string {
+  return name.split("@")[0];
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Скільки зняттів показуємо, перш ніж згорнути решту в підпис. */
+const WITHDRAWALS_SHOWN = 5;
+
+/**
+ * Спільний рахунок обох власників: скільки кожному нараховано, скільки він
+ * уже взяв і що лишилось. Обидва бачать однакову картину — з цим блоком
+ * питання «а ти скільки брав» перестає бути усною домовленістю.
+ *
+ * Нараховано однакове для обох (50/50), тому виноситься над таблицею, а не
+ * дублюється в кожному рядку.
+ */
+function OwnerLedger({
+  ledger,
+  sources,
+}: {
+  ledger: PartnerLedger;
+  sources: DashboardMoney["sources"];
+}) {
+  const shown = ledger.withdrawals.slice(0, WITHDRAWALS_SHOWN);
+  const hidden = ledger.withdrawals.length - shown.length;
+
+  return (
+    <div className="mt-3 space-y-3 rounded-[var(--radius-md)] bg-hover/50 p-3 text-xs">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-muted">
+          Чистими від початку обліку:{" "}
+          <span className={cn("font-medium tabular", ledger.totalNet >= 0 ? "text-ink" : "text-danger")}>
+            {fmt(ledger.totalNet)}
+          </span>
+        </span>
+        <span className="text-muted">
+          Нараховано кожному (50%):{" "}
+          <span className="font-medium text-ink tabular">{fmt(ledger.accruedPerOwner)}</span>
+        </span>
+      </div>
+
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b border-border/60 text-[11px] font-medium text-muted">
+            <th className="pb-1.5 font-medium">Власник</th>
+            <th className="pb-1.5 text-right font-medium">Знято</th>
+            <th className="pb-1.5 text-right font-medium">Залишок</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/40">
+          {ledger.owners.map((o) => (
+            <tr key={o.id}>
+              <td className="py-1.5">
+                <span className={cn(o.isMe ? "font-semibold text-ink" : "text-muted")}>
+                  {shortName(o.name)}
+                </span>
+                {o.isMe && <span className="ml-1.5 text-[10px] text-accent-ink">це ти</span>}
+              </td>
+              <td className="py-1.5 text-right tabular text-muted">{fmt(o.withdrawn)}</td>
+              <td
+                className={cn(
+                  "py-1.5 text-right font-semibold tabular",
+                  o.available >= 0 ? "text-success" : "text-danger",
+                )}
+              >
+                {fmt(o.available)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {ledger.exceedsCash && (
+        <p className="text-[11px] text-warning">
+          У касах і сейфах разом {fmt(ledger.cashOnHand)} — менше, ніж належить обом. Зняти все
+          одразу не вийде.
+        </p>
+      )}
+      {ledger.approximate && (
+        <p className="text-[11px] text-muted">
+          Нарахування рахується за останні {Math.round(LEDGER_MAX_DAYS / 30)} місяців — те, що
+          заробили раніше, сюди не входить.
+        </p>
+      )}
+
+      {shown.length > 0 && (
+        <div className="space-y-1 border-t border-border/60 pt-2">
+          <p className="text-[11px] font-medium text-muted">Історія зняттів</p>
+          {shown.map((w) => (
+            <div key={w.id} className="flex items-baseline justify-between gap-2 text-[11px]">
+              <span className="min-w-0 truncate text-muted">
+                <span className="tabular">{shortDate(w.at)}</span>
+                <span className="mx-1.5 text-faint">·</span>
+                {shortName(w.ownerName)}
+                <span className="mx-1.5 text-faint">·</span>
+                {w.source}
+              </span>
+              <span className="shrink-0 font-medium tabular text-danger">−{fmt(w.amount)}</span>
+            </div>
+          ))}
+          {hidden > 0 && (
+            <p className="text-[11px] text-faint">
+              і ще {hidden} {pluralUk(hidden, "зняття", "зняття", "зняттів")} раніше
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end pt-1">
+        <WithdrawShareButton
+          safes={sources.filter((s) => s.type === "safe")}
+          cashRegisters={sources.filter((s) => s.type === "cash_register")}
+          label="💵 Зняти свою частку"
+        />
+      </div>
+    </div>
   );
 }
 
