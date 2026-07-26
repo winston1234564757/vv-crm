@@ -6,6 +6,8 @@ import {
   resolveRange,
   previousRange,
   datasetWindowStart,
+  chartWindow,
+  RANGE_PRESETS,
   sliceProfit,
   sliceExpenses,
   dailySeries,
@@ -543,10 +545,46 @@ describe("datasetWindowStart", () => {
     expect(start.getTime()).toBeLessThanOrEqual(previousRange("prev", now).start.getTime());
   });
 
-  it("covers the daily series even on the today preset", () => {
+  it("stops at the earliest window actually needed, not a round number", () => {
+    // 21 липня, пресет «сьогодні»: найдальше сягає початок місяця (1 липня),
+    // бо `monthProfit` рахується завжди. Графіку тут треба лише два тижні,
+    // тож вибірка більше не тягне зайвий місяць «про запас».
     const now = new Date("2026-07-21T14:30:00");
-    const start = datasetWindowStart("today", now);
-    expect(start.toISOString()).toBe(new Date("2026-06-22T00:00:00").toISOString());
+    expect(datasetWindowStart("today", now).toISOString()).toBe(
+      new Date("2026-07-01T00:00:00").toISOString(),
+    );
+  });
+});
+
+describe("chartWindow", () => {
+  const now = new Date("2026-07-21T14:30:00");
+
+  it("gives today two weeks of context instead of a single point", () => {
+    const { start, end } = chartWindow("today", now);
+    expect(start.toISOString()).toBe(new Date("2026-07-08T00:00:00").toISOString());
+    expect(end.toISOString()).toBe(new Date("2026-07-22T00:00:00").toISOString());
+  });
+
+  it("follows the selected period for every other preset", () => {
+    // Регресія: графік показував незмінні останні 30 днів, тож перемикання
+    // «Цей місяць» / «Минулий місяць» на нього не впливало взагалі.
+    for (const preset of ["7d", "30d", "month", "prev"] as const) {
+      expect(chartWindow(preset, now)).toEqual(resolveRange(preset, now));
+    }
+  });
+
+  it("ends a picked day's window on that day, not on today", () => {
+    const { start, end } = chartWindow("today", now, "2026-07-15");
+    expect(start.toISOString()).toBe(new Date("2026-07-02T00:00:00").toISOString());
+    expect(end.toISOString()).toBe(new Date("2026-07-16T00:00:00").toISOString());
+  });
+
+  it("stays inside the fetched dataset for every preset", () => {
+    for (const preset of RANGE_PRESETS) {
+      expect(datasetWindowStart(preset, now).getTime()).toBeLessThanOrEqual(
+        chartWindow(preset, now).start.getTime(),
+      );
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
 import {
   comparisonFor,
@@ -10,7 +11,7 @@ import {
   resolveRange,
   sliceExpenses,
   sliceProfit,
-  SERIES_DAYS,
+  chartWindow,
   LEDGER_MAX_DAYS,
   type Comparison,
   type DatedExpense,
@@ -91,7 +92,10 @@ export interface DashboardMoney {
    * тоді UI не малює дельту взагалі. Див. `comparisonFor`.
    */
   comparison: Comparison | null;
-  /** Останні `SERIES_DAYS` днів під графік. Коротший, якщо епоха ближча. */
+  /**
+   * Ряд під графік за вікном обраного періоду (`chartWindow`). Коротший, якщо
+   * епоха ближча за початок вікна.
+   */
   series: DayPoint[];
   /** Весь вибраний період по днях. Дні без даних присутні з нулями. */
   daily: DayPoint[];
@@ -279,7 +283,7 @@ export async function getDashboardMoney(
     : capStart;
 
   const rawStart = new Date(
-    Math.min(datasetWindowStart(preset, now).getTime(), ledgerStart.getTime()),
+    Math.min(datasetWindowStart(preset, now, day).getTime(), ledgerStart.getTime()),
   );
   const window = floorAtEpoch(rawStart, todayRange.end, epoch);
 
@@ -337,13 +341,21 @@ export async function getDashboardMoney(
     month: { net: net(month), share: Math.round(net(month) * PARTNER_SHARE) },
   };
 
-  // Денний ряд по всьому вікну; графік бере з нього хвіст. Дні до епохи в
-  // датасет не потрапили, тож ряд коротшає сам — окремої обрізки не треба.
+  // Денний ряд по всьому вікну — з нього живе леджер. Дні до епохи в датасет
+  // не потрапили, тож ряд коротшає сам, окремої обрізки не треба.
   const daily = dailySeries(ds, window.start, window.end, {
     capitalCategoryId,
     netProfitSafeId,
   });
-  const series = daily.slice(-SERIES_DAYS);
+
+  // Графік показує вікно ОБРАНОГО періоду, а не незмінні останні тридцять днів.
+  // Ріжемо вже порахований `daily` за ключами днів: другий прохід по датасету
+  // дав би ті самі числа, лише повільніше.
+  const rawChart = chartWindow(preset, now, day);
+  const chartWin = floorAtEpoch(rawChart.start, rawChart.end, epoch);
+  const fromKey = dayKey(chartWin.start);
+  const toKey = dayKey(new Date(chartWin.end.getTime() - 1));
+  const series = chartWin.empty ? [] : daily.filter((p) => p.day >= fromKey && p.day <= toKey);
 
   const cashTotal =
     loaded.cashRegisters.reduce((s, c) => s + c.balance, 0) +

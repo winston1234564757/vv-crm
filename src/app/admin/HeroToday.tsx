@@ -6,8 +6,8 @@ import { pluralUk } from "@/lib/utils/plural";
 import { deltaPct, RANGE_LABELS, type Comparison, type DayPoint, type RangePreset } from "@/lib/profit";
 import type { ProfitResult } from "@/lib/profit";
 
-/** Скільки днів показує графік у hero. */
-const HERO_DAYS = 14;
+/** Мінімум точок, за якого лінія ще читається як лінія, а не як крапка. */
+const MIN_POINTS = 3;
 
 /**
  * Головна цифра екрана на єдиній інвертованій плиті (DESIGN.md §2.1).
@@ -39,7 +39,9 @@ export function HeroToday({
   const empty = profit.revenue === 0;
   const revenueDelta = comparison && !empty ? deltaPct(profit.revenue, comparison.revenue) : null;
   const marginDelta = comparison && !empty ? profit.margin - comparison.margin : null;
-  const chart = series.slice(-HERO_DAYS);
+  // Вікно графіка визначає сервер (`chartWindow`) — воно йде за обраним
+  // періодом, тож тут ряд уже потрібної довжини й різати його нічим.
+  const chart = series;
 
   return (
     <BentoCell span={8} tone="inverse" className="min-h-[19rem] gap-4">
@@ -106,7 +108,7 @@ export function HeroToday({
         )}
       </div>
 
-      {chart.length >= 3 ? (
+      {chart.length >= MIN_POINTS ? (
         <div className="-mx-2 min-h-[8rem] flex-1">
           <ProfitChart series={chart} />
         </div>
@@ -120,7 +122,7 @@ export function HeroToday({
         на 390px попередній варіант переносився і з'їдав висоту графіка.
       */}
       <p className="text-[11px] text-inverse-muted">
-        {chart.length >= 3 ? (
+        {chart.length >= MIN_POINTS ? (
           <>
             прибуток за {chart.length} {pluralUk(chart.length, "день", "дні", "днів")}
             <span className="mx-1.5 text-inverse-border">·</span>

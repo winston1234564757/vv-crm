@@ -326,8 +326,11 @@ export function resolveRange(
 /** Скільки попередніх днів усереднюємо в базу для пресету «сьогодні». */
 export const BASELINE_DAYS = 7;
 
-/** Довжина денного ряду під графік прибутку. */
-export const SERIES_DAYS = 30;
+/**
+ * Довжина ряду під графік, коли обраний період — один день. Сам по собі день
+ * це одна точка, тобто не графік; показуємо два тижні контексту навколо нього.
+ */
+export const TREND_DAYS = 14;
 
 /**
  * Глибина вибірки для леджера часток. «Нараховано» — це 50% чистого прибутку
@@ -440,20 +443,51 @@ export interface ProfitDataset {
  * довгого місяця (31 січня → 1 листопада, 92 дні), і будь-яка кругла
  * константа тут або зайва, або тихо ріже базу порівняння раз на рік.
  */
-export function datasetWindowStart(preset: RangePreset, now: Date): Date {
-  const seriesStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  seriesStart.setDate(seriesStart.getDate() - (SERIES_DAYS - 1));
-
+export function datasetWindowStart(
+  preset: RangePreset,
+  now: Date,
+  day?: string | null,
+): Date {
   const starts = [
     resolveRange(preset, now).start,
     previousRange(preset, now).start,
     resolveRange("today", now).start,
     resolveRange("7d", now).start,
     resolveRange("month", now).start,
-    seriesStart,
+    chartWindow(preset, now, day).start,
   ];
 
   return new Date(Math.min(...starts.map((d) => d.getTime())));
+}
+
+/**
+ * Вікно графіка для обраного періоду.
+ *
+ * Графік має показувати те саме, що й цифри над ним: перемикаєш «Цей місяць» —
+ * бачиш дні цього місяця, а не незмінні останні тридцять. Виняток один —
+ * «Сьогодні» (і конкретний обраний день): один день це одна точка, тож замість
+ * неї малюємо `TREND_DAYS` днів, що закінчуються цим днем. Тоді графік
+ * відповідає на «як цей день виглядає на тлі решти», а не на «скільки саме
+ * сьогодні», — це вже написано великими цифрами поруч.
+ */
+export function chartWindow(
+  preset: RangePreset,
+  now: Date,
+  day?: string | null,
+): { start: Date; end: Date } {
+  if (day) {
+    const d = dayRange(day);
+    const start = new Date(d.start);
+    start.setDate(start.getDate() - (TREND_DAYS - 1));
+    return { start, end: d.end };
+  }
+
+  const range = resolveRange(preset, now);
+  if (preset !== "today") return range;
+
+  const start = new Date(range.start);
+  start.setDate(start.getDate() - (TREND_DAYS - 1));
+  return { start, end: range.end };
 }
 
 function inWindow(iso: string | null | undefined, start: Date, end: Date): boolean {

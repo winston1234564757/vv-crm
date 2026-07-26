@@ -96,6 +96,21 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
             <stop offset="0%" stopColor="var(--color-accent-on-inverse)" stopOpacity={0.35} />
             <stop offset="100%" stopColor="var(--color-accent-on-inverse)" stopOpacity={0} />
           </linearGradient>
+
+          {/*
+            Неон — просте розмиття, без `feFlood`: воно накладається на копію
+            лінії, яка вже намальована потрібним кольором, тож підбирати колір
+            усередині фільтра не треба. Це навмисно, а не спрощення — CSS-змінні
+            у presentation-атрибутах фільтрів (`flood-color`) резолвляться не в
+            усіх браузерах, і сяйво тихо ставало б чорним.
+
+            Не `drop-shadow` на всій області: тоді світилася б і градієнтна
+            заливка, і замість чистого сяйва по лінії плита набувала б
+            каламутного ореолу.
+          */}
+          <filter id="profit-neon" x="-10%" y="-25%" width="120%" height="150%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
         </defs>
 
         <CartesianGrid
@@ -121,6 +136,23 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
           dot={false}
           activeDot={false}
           isAnimationActive={false}
+        />
+        {/*
+          Сяйво окремим шаром під різкою лінією: та сама серія без заливки,
+          товщою і крізь фільтр. Порядок у recharts = порядок малювання, тож
+          різка лінія лягає зверху й лишається чіткою.
+        */}
+        <Line
+          type="monotone"
+          dataKey="profit"
+          stroke="var(--color-accent-on-inverse)"
+          strokeWidth={3}
+          strokeLinecap="round"
+          dot={false}
+          activeDot={false}
+          isAnimationActive={false}
+          style={{ filter: "url(#profit-neon)" }}
+          legendType="none"
         />
         <Area
           type="monotone"

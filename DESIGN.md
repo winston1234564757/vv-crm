@@ -79,7 +79,11 @@ One dark plate is allowed per screen, and only to carry that screen's single mos
 
 **Bento.** A dashboard may lay its cards out on a 12-column grid at `lg` (6 at `md`, one column below that) with cells of unequal width — that asymmetry is what carries emphasis, and it replaces reaching for decoration. A bento cell **is** the card: nothing inside it may be another card. Grouping inside a cell is done with a `border-t` rule or a `bg-hover` panel, never a second bordered, shadowed surface. Spans are static utility classes; Tailwind cannot see an interpolated `col-span-${n}`.
 
-**Chart fills.** A vertical gradient from the series colour to transparent, under a line or area mark, is allowed. It is how an area chart reads its own baseline, not ornament. Everything else stands: no gradients on panels, buttons, badges or text; no glow, no glass, no backdrop-blur.
+**Chart fills.** A vertical gradient from the series colour to transparent, under a line or area mark, is allowed. It is how an area chart reads its own baseline, not ornament.
+
+**Chart glow — inverse plate only.** A blurred copy of the series line may sit under the crisp one, giving the stroke a soft halo. Permitted **only** on a line drawn on the inverse plate, where the light bleed is what separates the mark from a near-black field. The filter is a plain `feGaussianBlur` over a line already stroked in the series colour — do not set `flood-color` from a CSS custom property, which several browsers fail to resolve inside filter primitives, turning the halo black.
+
+Everything else stands: no gradients on panels, buttons, badges or text; no glow on any light surface, no glass, no backdrop-blur.
 
 ## 5. Components
 
@@ -110,7 +114,7 @@ One dark plate is allowed per screen, and only to carry that screen's single mos
 
 ### Don't
 - Don't reintroduce warm-cream backgrounds or violet-on-ivory.
-- Don't use glassmorphism, backdrop-blur, glow orbs, or gradient fills anywhere except under a chart line (§4.1).
+- Don't use glassmorphism, backdrop-blur or glow orbs. Gradient fills and stroke glow are confined to chart marks, and the glow to the inverse plate (§4.1).
 - Don't put more than one inverse plate on a screen, or use `--color-ink` / plain `--color-accent` on it (§2.1).
 - Don't use side-stripe accent borders or gradient text.
 - Don't use display/serif fonts in labels, buttons or data.
