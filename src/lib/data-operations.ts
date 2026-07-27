@@ -28,7 +28,6 @@ export const QUEUE_STATUSES: RepairStatus[] = [
   "in_progress",
   "awaiting_parts",
   "ready",
-  "completed",
 ];
 
 export interface QueueBucket {
@@ -78,7 +77,8 @@ export interface OperationsData {
   attention: { repairs: AttentionRepair[]; stock: AttentionStockItem[] };
 }
 
-const PICKUP_STATUSES = new Set<RepairStatus>(["ready", "completed"]);
+/** Черга на видачу — рівно один статус: пристрій готовий, клієнт не забрав. */
+const PICKUP_STATUSES = new Set<RepairStatus>(["ready"]);
 
 /** Статуси, у яких замовлення ще чекає дії. `new` теж рахуємо активним. */
 const OPEN_ORDER_STATUSES = ["new", "ordered", "arrived", "ready"] satisfies OrderStatus[];

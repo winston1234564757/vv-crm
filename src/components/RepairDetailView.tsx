@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import {
   labelOf,
   repairStatus as domainRepairStatus,
+  repairStatusLog,
   paymentStatus as domainPaymentStatus,
 } from "@/lib/domain-labels";
 
@@ -1073,10 +1074,13 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                     <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-border-strong" />
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <StatusPill map={domainRepairStatus} value={log.to_status} />
+                        {/* Стрічка — це історія, у ній трапляється скасований
+                            статус «Виконано». Тому окрема мапа з архівним
+                            ключем, а не та, з якої будується випадайка. */}
+                        <StatusPill map={repairStatusLog} value={log.to_status} />
                         {log.from_status && (
                           <span className="text-[10px] text-text-muted">
-                            із &ldquo;{labelOf(domainRepairStatus, log.from_status).label}&rdquo;
+                            із &ldquo;{labelOf(repairStatusLog, log.from_status).label}&rdquo;
                           </span>
                         )}
                       </div>

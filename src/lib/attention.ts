@@ -31,7 +31,8 @@ const OPEN_REPAIR_STATUSES = new Set([
   "ready",
 ]);
 
-const DELIVERED_STATUSES = new Set(["completed", "handed_over"]);
+/** Архівний `completed` лишається тут: старі рядки справді віддані клієнтам. */
+const DELIVERED_STATUSES = new Set(["handed_over", "completed"]);
 
 export interface AttentionRepair {
   id: string;

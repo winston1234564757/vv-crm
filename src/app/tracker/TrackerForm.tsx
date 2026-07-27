@@ -16,20 +16,24 @@ const Clock = ({ className }: { className?: string }) => <svg xmlns="http://www.
 const PackageCheck = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m16 16 2 2 4-4"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>;
 
 
+/* Кроки збігаються зі статусами ремонту. Останній крок — `handed_over`: раніше
+   тут стояв `completed` з підписом «Видано», хоча на сторінці /track той самий
+   статус підписувався «Виконано (чекає видачі)». Клієнт бачив два протилежні
+   слова про один стан свого ремонту. */
 const STATUS_STEPS = [
   { id: 'received', label: 'Прийнято', icon: PackageSearch },
   { id: 'diagnostics', label: 'Діагностика', icon: Search },
   { id: 'in_progress', label: 'В процесі', icon: Wrench },
   { id: 'awaiting_parts', label: 'Очікуємо деталі', icon: Clock },
   { id: 'ready', label: 'Готово', icon: CheckCircle2 },
-  { id: 'completed', label: 'Видано', icon: PackageCheck },
+  { id: 'handed_over', label: 'Видано', icon: PackageCheck },
 ];
 
 function getStatusIndex(status: string) {
   if (['cancelled'].includes(status)) return -1;
-  const index = STATUS_STEPS.findIndex(s => s.id === status);
-  if (status === 'handed_over') return STATUS_STEPS.length - 1; // map handed_over to completed
-  return index;
+  // Архівний `completed` — це теж завершений ремонт, останній крок.
+  if (status === 'completed') return STATUS_STEPS.length - 1;
+  return STATUS_STEPS.findIndex(s => s.id === status);
 }
 
 function RepairCard({ repair }: { repair: TrackerRepair }) {

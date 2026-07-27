@@ -2,6 +2,7 @@ import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
+import { EARNED_REPAIR_STATUSES } from "./repair-flow";
 import {
   comparisonFor,
   dailySeries,
@@ -162,7 +163,7 @@ async function loadDataset(
           .from("repairs")
           .select("completed_at, price, cost, external_sc_cost")
           .is("inventory_device_id", null)
-          .in("status", ["completed", "handed_over"])
+          .in("status", [...EARNED_REPAIR_STATUSES])
           .gte("completed_at", startStr)
           .lt("completed_at", endStr),
     empty

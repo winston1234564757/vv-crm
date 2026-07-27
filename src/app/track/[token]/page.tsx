@@ -266,7 +266,8 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
               <p className="text-xs text-text-secondary">Орієнтовна дата</p>
               <p className="text-text-primary">{new Date(repair.estimated_completion).toLocaleDateString("uk-UA")}</p>
             </div>}
-            {repair.warranty_months > 0 && (repair.status === "completed" || repair.status === "handed_over") && (
+            {/* `completed` — архівний статус старих ремонтів, теж завершених. */}
+            {repair.warranty_months > 0 && (repair.status === "handed_over" || repair.status === "completed") && (
               <div>
                 <p className="text-xs text-text-secondary">Гарантія на ремонт</p>
                 <p className="font-semibold text-emerald">{repair.warranty_months} міс.</p>

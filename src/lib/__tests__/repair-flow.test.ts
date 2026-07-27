@@ -15,7 +15,6 @@ const ALL_STATUSES: RepairStatus[] = [
   "in_progress",
   "awaiting_parts",
   "ready",
-  "completed",
   "handed_over",
   "cancelled",
 ];
@@ -34,13 +33,19 @@ describe("repairGroup", () => {
     expect(repairGroup("awaiting_parts")).toBe("active");
   });
 
-  it("keeps ready and completed in ready group — they are the pickup queue", () => {
+  it("keeps ready as the pickup queue — fixed, not yet collected", () => {
     expect(repairGroup("ready")).toBe("ready");
-    expect(repairGroup("completed")).toBe("ready");
   });
 
   it("groups handed_over as done", () => {
     expect(repairGroup("handed_over")).toBe("done");
+  });
+
+  it("treats the retired completed as done, not as work in progress", () => {
+    // Живих рядків із ним не лишилось, але дефолт «active» затягнув би будь-який
+    // недомігрований рядок назад у роботу — а він давно закритий.
+    expect(repairGroup("completed")).toBe("done");
+    expect(isTerminal("completed")).toBe(true);
   });
 
   it("falls back to active for an unknown status rather than hiding it", () => {
@@ -52,7 +57,6 @@ describe("isTerminal", () => {
   it("is true only for done and cancelled", () => {
     expect(isTerminal("handed_over")).toBe(true);
     expect(isTerminal("cancelled")).toBe(true);
-    expect(isTerminal("completed")).toBe(false);
     expect(isTerminal("ready")).toBe(false);
     expect(isTerminal("in_progress")).toBe(false);
   });
@@ -63,8 +67,8 @@ describe("nextStep", () => {
     expect(nextStep("received")?.target).toBe("diagnostics");
     expect(nextStep("diagnostics")?.target).toBe("in_progress");
     expect(nextStep("in_progress")?.target).toBe("ready");
-    expect(nextStep("ready")?.target).toBe("completed");
-    expect(nextStep("completed")?.target).toBe("handed_over");
+    // Готовий → Видано напряму: проміжного кроку між ними більше немає.
+    expect(nextStep("ready")?.target).toBe("handed_over");
   });
 
   it("returns a repair waiting on parts to work, not to diagnostics", () => {

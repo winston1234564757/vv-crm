@@ -10,19 +10,23 @@ import type { BadgeTone } from "@/components/ui/Badge";
  * and nothing else. The board is gone; this keeps the part that was working.
  */
 
+/**
+ * `completed` тут немає навмисно. Він означав те саме, що `ready`, і через це
+ * кожен модуль читав його по-своєму — від «ще чекає видачі» до «вже видано».
+ * Робота або триває, або пристрій готовий і чекає клієнта, або клієнт забрав.
+ */
 export type RepairStatus =
   | "received"
   | "diagnostics"
   | "in_progress"
   | "awaiting_parts"
   | "ready"
-  | "completed"
   | "handed_over"
   | "cancelled";
 
 /**
- * Lifecycle groups, used as page segments. Eight statuses is too many to be
- * segments; the exact status stays available as a filter.
+ * Lifecycle groups, used as page segments. Сім статусів — це забагато для
+ * сегментів; точний статус лишається фільтром.
  */
 export type RepairGroup = "active" | "ready" | "done" | "cancelled";
 
@@ -48,12 +52,17 @@ const GROUP_OF: Record<RepairStatus, RepairGroup> = {
   in_progress: "active",
   awaiting_parts: "active",
   ready: "ready",
-  completed: "ready",
   handed_over: "done",
   cancelled: "cancelled",
 };
 
+/**
+ * Архівний `completed` рахується завершеним, а не активним. Живих рядків із ним
+ * не лишилось, але дефолт «active» затягнув би будь-який недомігрований рядок
+ * назад у роботу — а він давно закритий.
+ */
 export function repairGroup(status: string): RepairGroup {
+  if (status === "completed") return "done";
   return GROUP_OF[status as RepairStatus] ?? "active";
 }
 
@@ -62,6 +71,15 @@ export function isTerminal(status: string): boolean {
   const g = repairGroup(status);
   return g === "done" || g === "cancelled";
 }
+
+/**
+ * Статуси, у яких ремонт вважається заробленим — гроші за нього рахуються.
+ *
+ * Живе тут, а не окремими масивами в дашборді й аналітиці: саме через дві
+ * незалежні копії цього списку `completed` колись і почав означати різне в
+ * різних місцях. `completed` — архівний, лишається для старих рядків.
+ */
+export const EARNED_REPAIR_STATUSES = ["handed_over", "completed"] as const;
 
 export interface NextStep {
   target: RepairStatus;
@@ -72,14 +90,16 @@ export interface NextStep {
 /**
  * The single forward move offered on a row. `awaiting_parts` goes back to
  * `in_progress` because that is what finishing a parts wait means.
+ *
+ * Від «Готовий» одразу до «Видано»: проміжного кроку між ними більше немає, і
+ * зайвий клік був єдиним, що він додавав.
  */
 const NEXT_STEP: Partial<Record<RepairStatus, NextStep>> = {
   received: { target: "diagnostics", label: "На діагностику" },
   diagnostics: { target: "in_progress", label: "В роботу" },
   in_progress: { target: "ready", label: "Готовий" },
   awaiting_parts: { target: "in_progress", label: "В роботу" },
-  ready: { target: "completed", label: "Виконано" },
-  completed: { target: "handed_over", label: "Видати клієнту" },
+  ready: { target: "handed_over", label: "Видати клієнту" },
 };
 
 export function nextStep(status: string): NextStep | null {

@@ -1,4 +1,5 @@
 import { createClient } from "./supabase/server";
+import { EARNED_REPAIR_STATUSES } from "./repair-flow";
 import type { ModelAnalyticsItem, StockoutItem, HeatmapRow } from "@/components/dashboard/widget-types";
 
 // Duplicated (not shared) from data-dashboard.ts on purpose — see Task 7 report.
@@ -93,7 +94,7 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
     // Partner Sales (B2B channel)
     supabase.from("sales").select("total_amount, partner_id").gte("created_at", thirtyDaysAgo),
     // Partner Repairs (B2B channel)
-    supabase.from("repairs").select("price, partner_id").in("status", ["completed", "handed_over"]).gte("created_at", thirtyDaysAgo),
+    supabase.from("repairs").select("price, partner_id").in("status", [...EARNED_REPAIR_STATUSES]).gte("created_at", thirtyDaysAgo),
     // Sales Velocity Matrix / Cross-sell / Refurbishment margin sale prices
     supabase.from("sale_items").select("item_id, item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
     // Customer Retention Rate (Sales 90d)

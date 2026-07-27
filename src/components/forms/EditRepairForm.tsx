@@ -6,6 +6,7 @@ import NovaPoshtaWidget from "@/components/ui/NovaPoshtaWidget";
 import { IconEye, IconEyeOff, IconDelete, IconPlus, IconSpinner } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { optionsOf, repairStatus } from "@/lib/domain-labels";
 
 interface RepairData {
   id: string;
@@ -33,15 +34,15 @@ interface RepairData {
   is_warranty?: boolean | null;
 }
 
-const STATUS_OPTIONS = [
-  { value: "received", label: "Прийнято" },
-  { value: "diagnostics", label: "Діагностика" },
-  { value: "in_progress", label: "В роботі" },
-  { value: "awaiting_parts", label: "Чекає деталі" },
-  { value: "completed", label: "Виконано" },
-  { value: "handed_over", label: "Видано клієнту" },
-  { value: "cancelled", label: "Скасовано" },
-];
+/**
+ * Береться зі спільного словника, а не переписується руками.
+ *
+ * Власний список тут і був коренем плутанини зі статусами: у ньому не було
+ * «Готовий» узагалі, зате було «Виконано». Тому найчастішим переходом у журналі
+ * став `в роботі → виконано` — майстер обирав єдиний варіант, схожий на
+ * «зроблено», і черга на видачу лишалась порожньою.
+ */
+const STATUS_OPTIONS = optionsOf(repairStatus);
 
 const NODE_LABELS: Record<string, string> = {
   display: "Дисплей", battery: "Акумулятор", charging_port: "Порт зарядки",

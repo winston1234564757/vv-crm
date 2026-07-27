@@ -2,6 +2,7 @@ import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { getSettings } from "./data-settings";
 import { computeProfit, floorAtEpoch, resolveRange, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem, type RangePreset } from "./profit";
+import { EARNED_REPAIR_STATUSES } from "./repair-flow";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -120,7 +121,7 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
       .from("repairs")
       .select("price, cost, external_sc_cost")
       .is("inventory_device_id", null)
-      .in("status", ["completed", "handed_over"])
+      .in("status", [...EARNED_REPAIR_STATUSES])
       .gte("completed_at", startStr)
       .lt("completed_at", endStr),
     supabase.from("safes").select("id, type"),

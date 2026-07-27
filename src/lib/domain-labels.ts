@@ -42,6 +42,9 @@ export function labelOf(map: LabelMap, value: string | null | undefined): LabelS
  * what the data actually contains (`repairs.status` and `repair_status_log.
  * to_status`) plus `diagnostics`, which the status dropdown can write.
  *
+ * `ready` — пристрій зроблено, клієнт ще не забрав. `handed_over` — забрав.
+ * Третього стану між ними немає: див. `LEGACY_REPAIR_STATUS` нижче.
+ *
  * NOTE: `src/app/track/[token]/page.tsx` and `src/lib/services/telegram.ts`
  * were keyed on a completely different set — `pending` / `diagnosing` /
  * `waiting_parts` / `repairing` — which the database has never produced. Those
@@ -55,21 +58,41 @@ export const repairStatus: LabelMap = {
   in_progress: { label: "В роботі", tone: "accent" },
   awaiting_parts: { label: "Чекає деталі", tone: "danger" },
   ready: { label: "Готовий", tone: "success" },
-  completed: { label: "Виконано", tone: "success" },
   handed_over: { label: "Видано", tone: "neutral" },
   cancelled: { label: "Скасовано", tone: "danger" },
 };
 
-/** Customer-facing wording for the public tracker and Telegram. Same keys. */
+/**
+ * Статус, якого більше не можна поставити.
+ *
+ * `completed` означав те саме, що `ready` — «зроблено, чекає клієнта», — і саме
+ * тому кожен модуль трактував його по-своєму: `attention` вважав виданим,
+ * `data-repairs` закритим, дашборд брав з нього виторг, а сам робочий цикл
+ * тримав у черзі на видачу. Живі рядки переведені у `handed_over`, але журнал
+ * переходів — це історія, і переписувати її було б брехнею. Тому ключ лишається
+ * там, де рендериться історія, і зникає звідти, де статус обирають.
+ */
+const LEGACY_REPAIR_STATUS: LabelMap = {
+  completed: { label: "Виконано (архівний)", tone: "neutral" },
+};
+
+/** Для стрічки переходів: `optionsOf` сюди не заглядає, тож у списки не потрапить. */
+export const repairStatusLog: LabelMap = { ...repairStatus, ...LEGACY_REPAIR_STATUS };
+
+/**
+ * Customer-facing wording for the public tracker and Telegram. Архівний ключ
+ * теж тут: клієнт бачить історію свого ремонту, і «completed» сирим рядком у
+ * ній — гірше за застарілу, але зрозумілу назву.
+ */
 export const repairStatusPublic: LabelMap = {
   received: { label: "Прийнято в ремонт", tone: "info" },
   diagnostics: { label: "Діагностика", tone: "warning" },
   in_progress: { label: "Ремонтується", tone: "accent" },
   awaiting_parts: { label: "Очікування запчастин", tone: "danger" },
   ready: { label: "Готовий до видачі", tone: "success" },
-  completed: { label: "Виконано (чекає видачі)", tone: "success" },
   handed_over: { label: "Видано клієнту", tone: "neutral" },
   cancelled: { label: "Скасовано", tone: "danger" },
+  completed: { label: "Виконано", tone: "success" },
 };
 
 /** `repairs.source` — enum `repair_source`. */

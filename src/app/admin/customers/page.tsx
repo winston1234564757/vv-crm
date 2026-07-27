@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { getCustomers } from "@/lib/data-customers";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
+import { EARNED_REPAIR_STATUSES } from "@/lib/repair-flow";
 import { IconPlus } from "@/components/icons";
 import { CustomersTable } from "./table";
 import { AddCustomerButton } from "./AddCustomerButton";
@@ -23,7 +24,7 @@ export default async function CustomersPage() {
     const salesCount = clientSales.length;
 
     const clientRepairs = repairs.filter(
-      (r) => r.customer_id === c.id && ["completed", "handed_over"].includes(r.status)
+      (r) => r.customer_id === c.id && (EARNED_REPAIR_STATUSES as readonly string[]).includes(r.status)
     );
     const repairsSpent = clientRepairs.reduce((sum, r) => sum + r.price, 0);
     const repairsCount = clientRepairs.length;

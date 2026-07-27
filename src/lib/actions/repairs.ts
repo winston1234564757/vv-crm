@@ -42,11 +42,17 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
 
   if (fetchErr || !device) return;
 
-  // 2. Мапимо статус ремонту на repair_status пристрою
+  /* 2. Мапимо статус ремонту на repair_status пристрою.
+     Увага: `completed` тут зустрічається у двох різних значеннях. У списках
+     нижче це архівний статус рядка ремонту (живих не лишилось, тримаємо заради
+     старих даних), а в типі `mappedRepairStatus` — окремий словник
+     `devices.repair_status`, який ніхто не скасовував.
+     Складський ремонт закривається вже на `ready`: пристрій полагоджено й він
+     повертається в наявність — видавати його нема кому. */
   let mappedRepairStatus: "pending" | "waiting_parts" | "in_progress" | "completed" = "pending";
   let needsRepair = true;
 
-  if (["completed", "handed_over", "cancelled", "ready"].includes(repairStatus)) {
+  if (["handed_over", "cancelled", "ready", "completed"].includes(repairStatus)) {
     mappedRepairStatus = "completed";
     needsRepair = false;
   } else if (repairStatus === "awaiting_parts") {
@@ -317,14 +323,14 @@ export async function updateRepairStatus(repairId: string, status: string): Prom
 
     const validStatuses = [
       'received', 'diagnostics', 'in_progress', 'awaiting_parts',
-      'ready', 'completed', 'handed_over', 'cancelled'
+      'ready', 'handed_over', 'cancelled'
     ];
     if (!validStatuses.includes(status)) {
       throw new Error("Невалідний статус ремонту");
     }
 
     const updateFields: RepairUpdate = { status };
-    if (status === "completed" || status === "handed_over") {
+    if (status === "handed_over") {
       updateFields.completed_at = new Date().toISOString();
     }
 
@@ -379,7 +385,7 @@ const editRepairSchema = z.object({
   issue: z.string().min(2, "Вкажіть несправність").optional(),
   status: z.enum([
     'received', 'diagnostics', 'in_progress', 'awaiting_parts',
-    'ready', 'completed', 'handed_over', 'cancelled'
+    'ready', 'handed_over', 'cancelled'
   ]),
   price: z.coerce.number().min(0),
   cost: z.coerce.number().min(0),
@@ -446,7 +452,11 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
       technician_notes_internal: parsed.technician_notes_internal,
     };
 
-    if (parsed.status === "completed" || parsed.status === "handed_over") {
+    /* Тільки на видачі. Раніше дата ставилась і на «Виконано», і на «Видано»,
+       тож друга дія затирала першу — а дашборд розкладає прибуток по періодах
+       саме за `completed_at`, і виторг переїжджав у день видачі. Тепер це один
+       момент: коли клієнт забрав. */
+    if (parsed.status === "handed_over") {
       updateFields.completed_at = new Date().toISOString();
     }
 
@@ -516,7 +526,7 @@ export async function bulkUpdateRepairsStatus(ids: string[], status: string): Pr
     if (fetchErr) throw fetchErr;
 
     const updatePayload: RepairUpdate = { status };
-    if (status === "completed" || status === "handed_over") {
+    if (status === "handed_over") {
       updatePayload.completed_at = new Date().toISOString();
     }
 
