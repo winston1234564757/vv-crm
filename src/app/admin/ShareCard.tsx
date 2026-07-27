@@ -30,15 +30,21 @@ const WITHDRAWALS_SHOWN = 4;
  *
  * Нараховано однакове для обох (50/50), тому стоїть над таблицею, а не
  * дублюється в кожному рядку.
+ *
+ * Усі числа над таблицею — з сейфа ЧП, крім «за цей місяць»: це темп
+ * заробітку, а не гроші, які можна взяти. Тому воно і підписане окремо.
  */
 export function ShareCard({
   ledger,
   sources,
+  netProfitSafeId,
   monthShare,
 }: {
   ledger: DashboardMoney["partnerLedger"];
   sources: DashboardMoney["sources"];
-  /** Нараховано кожному за поточний місяць — темп, а не залишок. */
+  /** Єдине джерело зняття — сейф ЧП. */
+  netProfitSafeId: DashboardMoney["netProfitSafeId"];
+  /** Зароблено кожному за поточний місяць — темп, а не залишок. */
   monthShare: number;
 }) {
   const shown = ledger.withdrawals.slice(0, WITHDRAWALS_SHOWN);
@@ -68,18 +74,14 @@ export function ShareCard({
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs">
         <span className="text-muted">
-          Чистими від початку:{" "}
-          <span
-            className={cn("font-medium tabular", ledger.totalNet >= 0 ? "text-ink" : "text-danger")}
-          >
-            {uah(ledger.totalNet)}
-          </span>
+          У сейфі ЧП:{" "}
+          <span className="font-medium tabular text-ink">{uah(ledger.accrualBase)}</span>
         </span>
         <span className="text-muted">
           кожному <span className="font-medium tabular text-ink">{uah(ledger.accruedPerOwner)}</span>
         </span>
         <span className="text-muted">
-          за цей місяць{" "}
+          зароблено за місяць{" "}
           <span className={cn("font-medium tabular", monthShare >= 0 ? "text-ink" : "text-danger")}>
             {uah(monthShare)}
           </span>
@@ -117,18 +119,23 @@ export function ShareCard({
         </tbody>
       </table>
 
-      {ledger.exceedsCash && (
+      {ledger.advances > 0 && (
         <p className="text-[11px] text-warning">
-          У касах і сейфах разом {uah(ledger.cashOnHand)} — менше, ніж належить обом. Зняти все
-          одразу не вийде: прибуток сидить у складі.
+          З них {uah(ledger.advances)} узято ще з каси, повз сейф. Ці гроші нарахування не
+          збільшують — вони враховані як аванс, тому залишок може бути від'ємним, доки розподіл
+          не наздожене.
         </p>
       )}
-      {ledger.approximate && (
-        <p className="text-[11px] text-muted">
-          Нарахування рахується за останні {Math.round(LEDGER_MAX_DAYS / 30)} місяців — заробленого
-          раніше тут немає.
-        </p>
-      )}
+
+      <p className="text-[11px] text-muted">
+        Зароблено чистими{" "}
+        <span className={cn("tabular", ledger.totalNet >= 0 ? "" : "text-danger")}>
+          {uah(ledger.totalNet)}
+        </span>
+        , у сейф заведено <span className="tabular">{uah(ledger.totalDistributed)}</span>. Частка
+        рахується лише з сейфа — решта ще працює в обороті.
+        {ledger.approximate && ` Зароблене — за останні ${Math.round(LEDGER_MAX_DAYS / 30)} місяців.`}
+      </p>
 
       {shown.length > 0 && (
         <div className="space-y-1 border-t border-border pt-3">
@@ -139,8 +146,7 @@ export function ShareCard({
                 <span className="tabular">{shortDate(w.at)}</span>
                 <span className="mx-1.5 text-faint">·</span>
                 {shortName(w.ownerName)}
-                <span className="mx-1.5 text-faint">·</span>
-                {w.source}
+                {w.isAdvance && <span className="ml-1.5 text-warning">аванс</span>}
               </span>
               <span className="shrink-0 font-medium tabular text-danger">−{uah(w.amount)}</span>
             </div>
@@ -155,8 +161,7 @@ export function ShareCard({
 
       <div className="mt-auto flex justify-end pt-1">
         <WithdrawShareButton
-          safes={sources.filter((s) => s.type === "safe")}
-          cashRegisters={sources.filter((s) => s.type === "cash_register")}
+          safes={sources.filter((s) => s.type === "safe" && s.id === netProfitSafeId)}
           label="Зняти свою частку"
         />
       </div>

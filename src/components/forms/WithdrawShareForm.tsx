@@ -7,12 +7,17 @@ import { Input } from "@/components/ui/Input";
 interface SourceItem {
   id: string;
   name: string;
-  type: "safe" | "cash_register";
   balance: number;
 }
 
 const initialState = { success: false, error: "" };
 
+/**
+ * Джерело завжди одне — сейф «Чистий прибуток». Раніше тут був вибір із кас і
+ * сейфів, і частку регулярно брали з каси повз сейф; тоді залишок власника
+ * розходився з тим, що в сейфі реально лежить. Селект лишився на випадок
+ * кількох сейфів ЧП, але за замовчуванням підставляє єдиний.
+ */
 export function WithdrawShareForm({
   sources,
   onSuccess,
@@ -22,7 +27,7 @@ export function WithdrawShareForm({
 }) {
   const [state, action, pending] = useActionState(withdrawOwnerShareAction, initialState);
 
-  const [selectedKey, setSelectedKey] = useState("");
+  const [sourceId, setSourceId] = useState(sources.length === 1 ? sources[0].id : "");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
 
@@ -32,11 +37,18 @@ export function WithdrawShareForm({
     }
   }, [state.success, onSuccess]);
 
-  const [sourceType, sourceId] = selectedKey ? selectedKey.split(":") : ["", ""];
-  const selectedSource = sources.find((s) => s.id === sourceId && s.type === sourceType);
+  const selectedSource = sources.find((s) => s.id === sourceId);
 
   const amountNum = parseFloat(amount) || 0;
   const hasOverdraft = selectedSource ? amountNum > selectedSource.balance : false;
+
+  if (sources.length === 0) {
+    return (
+      <div className="p-5 text-sm text-text-secondary">
+        Сейф «Чистий прибуток» не налаштований — частку знімати нема звідки.
+      </div>
+    );
+  }
 
   return (
     <form action={action} className="space-y-4 p-5">
@@ -46,29 +58,32 @@ export function WithdrawShareForm({
         </div>
       )}
 
-      <input type="hidden" name="source_type" value={sourceType} />
+      <input type="hidden" name="source_type" value="safe" />
       <input type="hidden" name="source_id" value={sourceId} />
 
       <div>
         <label htmlFor="source_select" className="mb-1.5 block text-xs font-medium text-text-secondary">
-          Джерело (Сейф або Каса)
+          Джерело — сейф чистого прибутку
         </label>
         <select
           id="source_select"
           required
-          value={selectedKey}
-          onChange={(e) => setSelectedKey(e.target.value)}
+          value={sourceId}
+          onChange={(e) => setSourceId(e.target.value)}
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
         >
           <option value="" disabled>
-            Оберіть джерело вилучення...
+            Оберіть сейф...
           </option>
           {sources.map((src) => (
-            <option key={`${src.type}:${src.id}`} value={`${src.type}:${src.id}`}>
-              {src.type === "safe" ? "🔒 Сейф" : "💵 Каса"}: {src.name} ({src.balance.toLocaleString("uk-UA")} грн)
+            <option key={src.id} value={src.id}>
+              🔒 {src.name} ({src.balance.toLocaleString("uk-UA")} грн)
             </option>
           ))}
         </select>
+        <p className="mt-1.5 text-[11px] text-text-secondary/70">
+          Частку беруть тільки звідси. Щоб гроші сюди потрапили — спершу розподіліть касу.
+        </p>
       </div>
 
       <Input
@@ -104,7 +119,7 @@ export function WithdrawShareForm({
 
       <button
         type="submit"
-        disabled={pending || hasOverdraft || !selectedKey || !amount}
+        disabled={pending || hasOverdraft || !sourceId || !amount}
         className="btn-press mt-4 w-full rounded-xl bg-emerald py-3.5 text-sm font-medium text-white transition-colors hover:bg-emerald/90 disabled:opacity-50 cursor-pointer"
       >
         {pending ? "Збереження..." : "💵 Виплатити частку прибутку"}

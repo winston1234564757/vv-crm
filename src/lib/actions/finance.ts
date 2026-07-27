@@ -240,9 +240,15 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
   }
 }
 
+// Джерело — тільки сейф ЧП: частка нараховується з нього, тож зняття повз
+// нього розсинхронізувало б залишок власника з реальним балансом сейфа.
+// Те, що це саме сейф ЧП, перевіряє `withdraw_owner_share` — тут відсікаємо
+// лише каси, які приймала стара форма.
 const withdrawSchema = z.object({
-  source_type: z.enum(["safe", "cash_register"]),
-  source_id: z.string().uuid("Оберіть джерело вилучення"),
+  source_type: z.literal("safe", {
+    message: "Частку можна зняти лише з сейфа «Чистий прибуток»",
+  }),
+  source_id: z.string().uuid("Оберіть сейф чистого прибутку"),
   amount: z.coerce.number().min(1, "Сума вилучення має бути більше 0"),
   description: z.string().optional(),
 });

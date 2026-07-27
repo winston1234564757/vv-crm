@@ -7,37 +7,35 @@ import { WithdrawShareForm } from "@/components/forms/WithdrawShareForm";
 interface SourceItem {
   id: string;
   name: string;
-  type: "safe" | "cash_register";
   balance: number;
 }
 
+/**
+ * Джерелом лишився тільки сейф ЧП: частка нараховується з нього, тож і
+ * знімати її повз нього не можна — інакше залишок власника перестане
+ * сходитись із балансом сейфа. Те саме обмеження продубльоване в
+ * `withdraw_owner_share`, тут воно лише для того, щоб UI не пропонував
+ * недозволене.
+ *
+ * Викликач передає вже відфільтрований список (зазвичай один сейф) — цей
+ * компонент не знає, який із сейфів «Чистий прибуток».
+ */
 export function WithdrawShareButton({
   safes = [],
-  cashRegisters = [],
   label = "💵 Зняти частку",
   className,
 }: {
-  safes?: { id: string; name: string; type: string; balance: number }[];
-  cashRegisters?: { id: string; name: string; balance: number }[];
+  safes?: { id: string; name: string; balance: number }[];
   label?: string;
   className?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const sources: SourceItem[] = [
-    ...safes.map((s) => ({
-      id: s.id,
-      name: s.name,
-      type: "safe" as const,
-      balance: s.balance,
-    })),
-    ...cashRegisters.map((c) => ({
-      id: c.id,
-      name: c.name,
-      type: "cash_register" as const,
-      balance: c.balance,
-    })),
-  ];
+  const sources: SourceItem[] = safes.map((s) => ({
+    id: s.id,
+    name: s.name,
+    balance: s.balance,
+  }));
 
   return (
     <>

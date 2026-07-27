@@ -61,7 +61,7 @@ export default async function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
-          <WithdrawShareButton safes={safes} cashRegisters={cashRegisters} />
+          <WithdrawShareButton safes={safes.filter((s) => s.type === "net_profit")} />
           <AddTopUpButton safes={safes} />
           <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />

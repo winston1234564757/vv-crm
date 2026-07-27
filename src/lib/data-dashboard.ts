@@ -47,29 +47,46 @@ export interface WithdrawalEntry {
   at: string;
   amount: number;
   ownerName: string;
-  /** Назва каси чи сейфа, з якого взяли. */
-  source: string;
+  /** Взято повз сейф ЧП — аванс. Див. `advances` у `PartnerLedger`. */
+  isAdvance: boolean;
 }
 
 export interface PartnerLedger {
-  /** Чистий прибуток від епохи — база нарахування. */
-  totalNet: number;
-  /** 50% від нього. Однакова для обох власників. */
+  /**
+   * База нарахування: усе, що зараз лежить у сейфі ЧП, плюс зняте З НЬОГО.
+   * Тобто скільки чистого прибутку взагалі дійшло до сейфа й не витрачено
+   * повз частки. Аванси (`advances`) сюди не входять — вони через сейф не
+   * проходили.
+   */
+  accrualBase: number;
+  /** 50% від бази. Однакова для обох власників. */
   accruedPerOwner: number;
   /** Обидва власники, поточний користувач першим. */
   owners: OwnerShare[];
-  /** Історія зняттів, найновіші першими. */
+  /** Історія зняттів частки, найновіші першими. */
   withdrawals: WithdrawalEntry[];
+  /**
+   * Історичні зняття частки просто з каси, повз сейф ЧП, разом. Такі гроші
+   * ніколи не потрапляли в сейф, тож базу не збільшують, але проти власника
+   * рахуються — це аванс, взятий наперед. Нових бути не може:
+   * `withdraw_owner_share` тепер приймає джерелом лише сейф ЧП.
+   */
+  advances: number;
   /** Скільки грошей узагалі завели в сейф ЧП. Довідково. */
   totalDistributed: number;
+  /**
+   * Скільки лежить у сейфі зараз. Сума залишків обох власників дорівнює
+   * `safeBalance − advances`.
+   */
   safeBalance: number;
-  /** Готівка, з якої частку фізично можна взяти: каси + сейфи. */
-  cashOnHand: number;
-  /** Сумарно належне обом перевищує наявну готівку. */
-  exceedsCash: boolean;
+  /**
+   * Зароблено чистими від епохи. Довідково — показує розрив між заробленим і
+   * тим, що справді розподілили в сейф. У нарахування НЕ входить.
+   */
+  totalNet: number;
   /**
    * Вибірка не дотяглася до епохи (магазин працює довше за `LEDGER_MAX_DAYS`),
-   * тож «нараховано» занижене й UI має про це сказати.
+   * тож `totalNet` занижений. На нарахування не впливає.
    */
   approximate: boolean;
 }
@@ -121,6 +138,8 @@ export interface DashboardMoney {
   };
   partnerLedger: PartnerLedger;
   sources: { id: string; name: string; type: "safe" | "cash_register"; balance: number }[];
+  /** Єдине дозволене джерело зняття частки. `null` — сейфа ЧП немає. */
+  netProfitSafeId: string | null;
 }
 
 /**
@@ -292,13 +311,19 @@ export async function getDashboardMoney(
   // із транзакціями та власниками для леджера, яким датасет не потрібен.
   //
   // Вилучення частки тягнемо ПО ВСІХ власниках, не лише по поточному: обидва
-  // мають бачити, хто скільки і коли взяв. Фільтр `to_type=external` плюс
-  // «або з сейфа ЧП, або помічене як distribution» — це і є те, що вміє
-  // писати `withdraw_owner_share`, яка приймає джерелом і сейф, і касу.
-  const withdrawalFilter = supabase
-    .from("transactions")
-    .select("id, created_at, amount, from_id, from_type, reference_type, created_by")
-    .eq("to_type", "external");
+  // мають бачити, хто скільки і коли взяв.
+  //
+  // Джерел два, і різниця між ними принципова. Зняття з сейфа ЧП — нормальна
+  // форма, вона й зменшила баланс сейфа. Зняття прямо з каси — історичне:
+  // так робили, доки `withdraw_owner_share` приймала касу джерелом. Ці гроші
+  // сейфа не бачили, тож базу не збільшують, але проти власника рахуються.
+  // Розділяє їх `buildLedger`; тут лише витягуємо обидві форми.
+  //
+  // `reference_type=distribution` відсікає витрати, оплачені з сейфа ЧП: вони
+  // теж виходять «назовні», але це не чиясь частка. На базу нарахування вони
+  // все одно впливають — через баланс сейфа, який вони зменшили.
+  const withdrawalCols =
+    "id, created_at, amount, from_id, from_type, reference_type, created_by";
 
   const [loaded, npInflowsRes, withdrawalsRes, ownersRes] = await Promise.all([
     loadDataset(supabase, window.start, window.end),
@@ -311,10 +336,18 @@ export async function getDashboardMoney(
           .eq("reference_type", "distribution")
       : Promise.resolve({ data: [] as { amount: number }[] }),
     netProfitSafeId
-      ? withdrawalFilter.or(
-          `reference_type.eq.distribution,from_id.eq.${netProfitSafeId}`,
-        )
-      : withdrawalFilter.eq("reference_type", "distribution"),
+      ? supabase
+          .from("transactions")
+          .select(withdrawalCols)
+          .eq("to_type", "external")
+          .eq("reference_type", "distribution")
+          .or(`from_type.eq.cash_register,from_id.eq.${netProfitSafeId}`)
+      : supabase
+          .from("transactions")
+          .select(withdrawalCols)
+          .eq("to_type", "external")
+          .eq("reference_type", "distribution")
+          .eq("from_type", "cash_register"),
     supabase.from("profiles").select("id, full_name").eq("role", "owner"),
   ]);
 
@@ -404,15 +437,15 @@ export async function getDashboardMoney(
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const partnerLedger = buildLedger({
-    // Чистими від епохи: денний ряд уже покриває саме це вікно.
+    // Чистими від епохи: денний ряд уже покриває саме це вікно. Довідково —
+    // нарахування рахується з сейфа, а не звідси.
     totalNet: daily.reduce((s, d) => s + d.net, 0),
     npInflows: (npInflowsRes as { data: { amount: number }[] | null }).data ?? [],
     withdrawals: (withdrawalsRes as { data: WithdrawalRow[] | null }).data ?? [],
     owners: ownersRes.data ?? [],
-    sourceNames: new Map(sources.map((s) => [s.id, s.name])),
     userId,
+    netProfitSafeId,
     safeBalance: netProfitSafeBalance,
-    cashOnHand: cashTotal,
     approximate: ledgerApproximate,
   });
 
@@ -440,6 +473,7 @@ export async function getDashboardMoney(
     partnerShare,
     partnerLedger,
     sources,
+    netProfitSafeId,
   };
 }
 
@@ -456,13 +490,28 @@ interface WithdrawalRow {
 /**
  * Спільний рахунок часток обох власників.
  *
- * Нарахування — 50% чистого прибутку ВІД ЕПОХИ, тобто зароблене, а не роздане.
- * Спершу тут стояло «50% від того, що завели в сейф ЧП», але `withdraw_owner_share`
- * приймає джерелом і касу теж: частку регулярно беруть повз сейф, і тоді
- * вилучення списувались із бази, яка їх ніколи не отримувала — залишок ішов у
- * мінус при цілком здоровому бізнесі. Скільки з належного реально лежить у
- * касах, каже окреме поле `cashOnHand`: два чесні числа замість одного
- * напівправдивого.
+ * Нарахування рахується ЛИШЕ з сейфа «Чистий прибуток»: база — те, що зараз у
+ * сейфі, плюс усе, що з нього вже зняли на частки. Зароблене (`totalNet`)
+ * лишається довідковим числом і в нарахування не входить.
+ *
+ * Звідси інваріант, який можна перевірити руками: сума залишків обох власників
+ * дорівнює балансу сейфа. Він тримається тільки тому, що знімати частку можна
+ * виключно з цього сейфа — це вбито в `withdraw_owner_share` (міграція
+ * 20260727160000).
+ *
+ * Виняток — аванси: зняття частки прямо з каси, зроблені до цього обмеження.
+ * Ті гроші сейфа не бачили, тож у базу їх не повертаємо (інакше вона виросла б
+ * на суму, якої в сейфі ніколи не було), але проти власника рахуємо повністю:
+ * він узяв наперед і його залишок від'ємний, доки розподіл не наздожене. З
+ * ними інваріант читається як `сума залишків = баланс сейфа − аванси`.
+ *
+ * Саме через ці зняття повз сейф нарахування якийсь час рахувалось від
+ * заробленого: база «скільки завели в сейф» їх не бачила, і залишок ішов у
+ * мінус при цілком здоровому бізнесі. Тепер вони не ламають модель, а є її
+ * явною частиною — і нових з'явитись не може.
+ *
+ * Витрата, оплачена з сейфа ЧП, зменшує базу обом порівну — і це правильно:
+ * її оплатили спільними грошима, які вже були відкладені як прибуток.
  *
  * Ще раніша версія рахувала нарахування за поточний МІСЯЦЬ, а вилучення за весь
  * час — першого числа залишок обвалювався сам собою.
@@ -476,19 +525,29 @@ function buildLedger(input: {
   npInflows: { amount: number }[];
   withdrawals: WithdrawalRow[];
   owners: { id: string; full_name: string | null }[];
-  sourceNames: Map<string, string>;
   userId?: string;
+  netProfitSafeId: string | null;
   safeBalance: number;
-  cashOnHand: number;
   approximate: boolean;
 }): PartnerLedger {
-  const accruedPerOwner = Math.round(input.totalNet * PARTNER_SHARE);
+  const isAdvance = (t: WithdrawalRow) =>
+    !(t.from_type === "safe" && !!input.netProfitSafeId && t.from_id === input.netProfitSafeId);
 
   const withdrawnBy = new Map<string, number>();
+  let fromSafeTotal = 0;
+  let advances = 0;
   for (const t of input.withdrawals) {
     const key = t.created_by ?? "unknown";
     withdrawnBy.set(key, (withdrawnBy.get(key) ?? 0) + t.amount);
+    if (isAdvance(t)) advances += t.amount;
+    else fromSafeTotal += t.amount;
   }
+
+  // Баланс сейфа — це те, що ЛИШИЛОСЬ після зняттів із нього. Щоб «нараховано»
+  // не зменшувалось від того, що хтось узяв своє, зняте з сейфа повертаємо в
+  // базу. Аванси не повертаємо: вони зменшили касу, а не сейф.
+  const accrualBase = input.safeBalance + fromSafeTotal;
+  const accruedPerOwner = Math.round(accrualBase * PARTNER_SHARE);
 
   const nameOf = (id: string | null) =>
     input.owners.find((o) => o.id === id)?.full_name ?? "Невідомо";
@@ -507,6 +566,8 @@ function buildLedger(input: {
     // Свій рядок першим — далі за іменем, щоб порядок не стрибав між рендерами.
     .sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.name.localeCompare(b.name, "uk"));
 
+  // Назву джерела в рядок не пишемо — досить прапорця «аванс»: усе інше за
+  // визначенням прийшло з сейфа ЧП.
   const withdrawals: WithdrawalEntry[] = [...input.withdrawals]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .map((t) => ({
@@ -514,20 +575,18 @@ function buildLedger(input: {
       at: t.created_at,
       amount: t.amount,
       ownerName: nameOf(t.created_by),
-      source: (t.from_id && input.sourceNames.get(t.from_id)) || "—",
+      isAdvance: isAdvance(t),
     }));
 
-  const totalDue = owners.reduce((s, o) => s + Math.max(0, o.available), 0);
-
   return {
-    totalNet: input.totalNet,
+    accrualBase,
     accruedPerOwner,
     owners,
     withdrawals,
+    advances,
     totalDistributed: input.npInflows.reduce((s, t) => s + t.amount, 0),
     safeBalance: input.safeBalance,
-    cashOnHand: input.cashOnHand,
-    exceedsCash: totalDue > input.cashOnHand,
+    totalNet: input.totalNet,
     approximate: input.approximate,
   };
 }
