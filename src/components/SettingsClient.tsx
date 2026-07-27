@@ -7,6 +7,7 @@ import type { ParsedSettings, ProfileRow } from "@/lib/data-settings";
    server client, and pulling a runtime value from it into this client component
    would drag server-only code into the browser bundle. */
 import { DEFAULT_PRINTER_SETTINGS, type StoredPrinterSettings } from "@/lib/printer";
+import type { SaleItemCategory } from "@/lib/printer/receipt-content";
 import { InlineError } from "@/components/ui/InlineError";
 import { Tabs } from "@/components/ui/Tabs";
 import type { ActionState } from "@/lib/actions/types";
@@ -45,6 +46,18 @@ export default function SettingsClient({
   const [saleShowSeller, setSaleShowSeller] = useState(initialSettings.receipt_settings?.templates?.sale?.show_seller ?? true);
   const [saleShowBuyer, setSaleShowBuyer] = useState(initialSettings.receipt_settings?.templates?.sale?.show_buyer ?? true);
   const [saleWarrantyText, setSaleWarrantyText] = useState(initialSettings.receipt_settings?.templates?.sale?.warranty_text || "");
+  /* Порожній рядок = «свого тексту нема», у чек піде стандартний. Тому тут не
+     підставляються дефолти: інакше збереження зафіксувало б їх як власну
+     редакцію магазину, і оновлення стандартних умов його б уже не торкнулось. */
+  const [saleWarrantyByCategory, setSaleWarrantyByCategory] = useState<Record<SaleItemCategory, string>>(() => {
+    const stored = initialSettings.receipt_settings?.templates?.sale?.warranty_by_category;
+    return {
+      device: stored?.device || "",
+      accessory: stored?.accessory || "",
+      part: stored?.part || "",
+      service: stored?.service || "",
+    };
+  });
   const [saleShowQr, setSaleShowQr] = useState(initialSettings.receipt_settings?.templates?.sale?.show_qr ?? true);
 
   const [repAccTitle, setRepAccTitle] = useState(initialSettings.receipt_settings?.templates?.repair_acceptance?.title || "КВИТАНЦІЯ ПРИЙМАННЯ");
@@ -178,6 +191,8 @@ export default function SettingsClient({
               saleShowQr={saleShowQr}
               setSaleShowQr={setSaleShowQr}
               saleWarrantyText={saleWarrantyText}
+              saleWarrantyByCategory={saleWarrantyByCategory}
+              setSaleWarrantyByCategory={setSaleWarrantyByCategory}
               setSaleWarrantyText={setSaleWarrantyText}
               repAccTitle={repAccTitle}
               setRepAccTitle={setRepAccTitle}

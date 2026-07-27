@@ -126,7 +126,10 @@ export function SaleForm(props: UseSaleFormProps) {
               name: printedItemName,
               quantity: 1,
               unit_price: parseFloat(form.amount),
-              total_price: parseFloat(form.amount)
+              total_price: parseFloat(form.amount),
+              /* Категорія швидкого продажу веде до відповідних гарантійних
+                 умов у чеку — так само, як item_type позиції з POS. */
+              item_type: form.category
             }],
             total_amount: parseFloat(form.amount),
             discount: form.discount,

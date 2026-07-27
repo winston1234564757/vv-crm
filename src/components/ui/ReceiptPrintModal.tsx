@@ -23,6 +23,8 @@ import {
   composeWarrantyText,
   getConditionLabel,
   getFallbackTitle,
+  type SaleItemCategory,
+  type SaleWarrantyByCategory,
 } from "@/lib/printer/receipt-content";
 import { labelOf, orderStatus } from "@/lib/domain-labels";
 
@@ -44,7 +46,16 @@ interface ReceiptPrintModalProps {
     deadline?: string | null;
     order_status?: string;
     // For sale:
-    items?: Array<{ name: string; quantity: number; unit_price: number; total_price: number }>;
+    /* `item_type` вирішує, які гарантійні умови друкувати. Необов'язкове:
+       старий продаж без рядків позицій і швидкий продаж без вибраної категорії
+       його не мають — тоді друкується загальний текст із налаштувань. */
+    items?: Array<{
+      name: string;
+      quantity: number;
+      unit_price: number;
+      total_price: number;
+      item_type?: SaleItemCategory;
+    }>;
     total_amount?: number;
     discount?: number;
     warranty_end?: string | null;
@@ -62,6 +73,12 @@ interface ReceiptPrintModalProps {
     // For warranty receipt — list of parts/services performed:
     repairItems?: Array<{ name: string; quantity: number; unit_price: number }>;
   };
+}
+
+/** Унікальні категорії позицій, у порядку появи; дублі й `undefined` відкидаються. */
+function saleCategoriesOf(items: ReceiptPrintModalProps["data"]["items"]): SaleItemCategory[] {
+  if (!items) return [];
+  return [...new Set(items.map((i) => i.item_type).filter((t): t is SaleItemCategory => !!t))];
 }
 
 /** A repair QR points at the public tracker; a sale QR is just an identifier. */
@@ -160,7 +177,9 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
             setShowSeller(template.show_seller ?? true);
             setShowBuyer(template.show_buyer ?? true);
             setShowQr(template.show_qr ?? true);
-            setWarrantyText(warrantyTextFor(template.warranty_text, false));
+            setWarrantyText(
+              warrantyTextFor(template.warranty_text, false, template.warranty_by_category),
+            );
           } else {
             // Тип без збереженого шаблону (напр. "order"): лишаємо РЕАЛЬНІ
             // реквізити магазину, що вже підтягнулись вище, і застосовуємо лише
@@ -185,7 +204,11 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
     /* Shared by both paths so the warranty block cannot say one thing when a
        template exists and another when it does not. The wording itself lives in
        receipt-content.ts, which the ESC/POS builder reads too. */
-    function warrantyTextFor(templateText: string | undefined, usingFallbackTemplate: boolean) {
+    function warrantyTextFor(
+      templateText: string | undefined,
+      usingFallbackTemplate: boolean,
+      saleWarrantyByCategory?: SaleWarrantyByCategory,
+    ) {
       return composeWarrantyText({
         type,
         templateText,
@@ -194,6 +217,8 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
           : null,
         warrantyMonths: data.warranty_months,
         usingFallbackTemplate,
+        saleCategories: saleCategoriesOf(data.items),
+        saleWarrantyByCategory,
       });
     }
 

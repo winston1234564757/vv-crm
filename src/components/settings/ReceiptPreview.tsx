@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { saleWarrantyForCategory, type SaleItemCategory } from "@/lib/printer/receipt-content";
 
 interface ReceiptPreviewProps {
   companyName: string;
@@ -14,7 +15,7 @@ interface ReceiptPreviewProps {
   saleShowSeller: boolean;
   saleShowBuyer: boolean;
   saleShowQr: boolean;
-  saleWarrantyText: string;
+  saleWarrantyByCategory: Record<SaleItemCategory, string>;
 
   repAccTitle: string;
   repAccShowSeller: boolean;
@@ -40,7 +41,7 @@ export function ReceiptPreview({
   saleShowSeller,
   saleShowBuyer,
   saleShowQr,
-  saleWarrantyText,
+  saleWarrantyByCategory,
   repAccTitle,
   repAccShowSeller,
   repAccShowBuyer,
@@ -195,8 +196,11 @@ export function ReceiptPreview({
           {activePreviewTemplate === "sale" && (
             <>
               <p className="font-extrabold text-[8px]">Гарантія дійсна до: 14.12.2026</p>
+              {/* Позиція в макеті — телефон, тож показуються умови для техніки, а
+                  не загальний текст: інакше прев'ю обіцяло б те, чого на такому
+                  чеку не надрукується. */}
               <p className="text-[7px] text-gray-600 leading-normal whitespace-pre-wrap break-words">
-                {saleWarrantyText || "Умови гарантії..."}
+                {saleWarrantyForCategory("device", saleWarrantyByCategory)}
               </p>
             </>
           )}

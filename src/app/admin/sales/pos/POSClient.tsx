@@ -172,7 +172,8 @@ export function POSClient({
           name: c.name,
           quantity: c.quantity,
           unit_price: c.unit_price,
-          total_price: c.unit_price * c.quantity
+          total_price: c.unit_price * c.quantity,
+          item_type: c.item_type
         })),
         total_amount: finalTotal,
         discount: discount,

@@ -38,6 +38,8 @@ export interface LastSaleData {
     quantity: number;
     unit_price: number;
     total_price: number;
+    /** Категорія позиції — від неї залежать гарантійні умови в чеку. */
+    item_type: CartItem["item_type"];
   }>;
   total_amount: number;
   discount: number;

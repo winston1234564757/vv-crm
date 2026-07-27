@@ -572,6 +572,9 @@ const addPartSchema = z.object({
   partId: z.string().uuid("Оберіть деталь зі складу"),
   quantity: z.coerce.number().int().min(1, "Кількість має бути не менше 1"),
   unitCost: z.coerce.number().min(0, "Ціна не може бути менше 0"),
+  /* Ціна для клієнта. Необов'язкова: форма редагування ремонту її не питає, і
+     тоді RPC сам візьме ціну з каталогу, а як і її нема — собівартість. */
+  unitPrice: z.coerce.number().min(0, "Ціна не може бути менше 0").nullable().optional(),
 });
 
 export async function addPartToRepairAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -581,6 +584,7 @@ export async function addPartToRepairAction(prevState: ActionState | null, formD
       partId: formData.get("partId"),
       quantity: formData.get("quantity"),
       unitCost: formData.get("unitCost"),
+      unitPrice: formData.get("unitPrice") ?? null,
     };
 
     const parsed = addPartSchema.parse(rawData);
@@ -596,7 +600,8 @@ export async function addPartToRepairAction(prevState: ActionState | null, formD
       p_part_id: parsed.partId,
       p_quantity: parsed.quantity,
       p_unit_cost: parsed.unitCost,
-      p_user_id: user.id
+      p_user_id: user.id,
+      p_unit_price: parsed.unitPrice ?? null
     });
 
     if (rpcErr) throw rpcErr;

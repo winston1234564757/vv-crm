@@ -48,6 +48,132 @@ export function getConditionLabel(condition: string | null | undefined): string 
 const SALE_WARRANTY_FALLBACK =
   "При виявленні несправностей протягом гарантійного терміну товар приймається на діагностику за наявності цього чеку.";
 
+/** Категорія позиції продажу — те саме, що `sale_items.item_type`. */
+export type SaleItemCategory = "device" | "accessory" | "part" | "service";
+
+/** Підписи блоків у змішаному чеку. */
+const SALE_CATEGORY_LABELS: Record<SaleItemCategory, string> = {
+  device: "Техніка",
+  accessory: "Аксесуари",
+  part: "Запчастини",
+  service: "Послуги",
+};
+
+const SALE_CATEGORY_ORDER: SaleItemCategory[] = ["device", "accessory", "part", "service"];
+
+/**
+ * Умови гарантії окремо на кожну категорію товару.
+ *
+ * Один спільний текст на весь магазин був написаний під пристрої — і на чеку за
+ * захисне скло обіцяв діагностику та погрожував анулюванням «при самостійному
+ * розкритті пристрою». Скло не розкривають. Категорія позиції вже є в
+ * `sale_items.item_type`, тож чек може сказати саме те, що стосується проданого.
+ *
+ * Це дефолти: власник магазину може перезаписати кожен з них у Налаштуваннях →
+ * Чеки, а перед друком — ще й вручну в самому вікні друку.
+ */
+export const DEFAULT_SALE_WARRANTY_BY_CATEGORY: Record<SaleItemCategory, string> = {
+  device:
+    "Гарантія поширюється на заводські дефекти пристрою. Звернення приймається за наявності цього чеку. Гарантія анулюється при виявленні слідів вологи, механічних пошкоджень або самостійного розкриття пристрою.",
+  accessory:
+    "Гарантія поширюється лише на заводський брак. Захисне скло та плівка: претензії приймаються до моменту наклеювання — сколи й тріщини після встановлення не є гарантійним випадком. Обмін товару належного вигляду з упаковкою — 14 днів.",
+  part:
+    "Гарантія на запчастину діє за умови її встановлення в нашому сервісному центрі. При самостійному монтажі гарантія не надається. Комплектність і зовнішній вигляд перевіряються при купівлі.",
+  service:
+    "Гарантія поширюється на виконані роботи. Вона не діє при механічних пошкодженнях, потраплянні вологи або втручанні третіх осіб після надання послуги.",
+};
+
+/** Збережені в налаштуваннях заміни дефолтів. Порожній рядок = дефолт. */
+export type SaleWarrantyByCategory = Partial<Record<SaleItemCategory, string>>;
+
+export function saleWarrantyForCategory(
+  category: SaleItemCategory,
+  overrides?: SaleWarrantyByCategory,
+): string {
+  const custom = overrides?.[category];
+  return custom && custom.trim() ? custom.trim() : DEFAULT_SALE_WARRANTY_BY_CATEGORY[category];
+}
+
+/**
+ * Текст гарантії під конкретний набір категорій у чеку.
+ *
+ * Одна категорія — просто її умови, без зайвого підпису. Кілька — блок на
+ * кожну, підписаний категорією, у сталому порядку (техніка → аксесуари →
+ * запчастини → послуги), а не в порядку додавання в кошик: чек має читатися
+ * однаково незалежно від того, що касир пробив першим.
+ *
+ * Порожній результат означає «категорії невідомі» (старий продаж без позицій,
+ * швидкий продаж без вибраної категорії) — тоді викликач бере загальний текст.
+ */
+export function composeSaleWarrantyBody(
+  categories: SaleItemCategory[] | undefined,
+  overrides?: SaleWarrantyByCategory,
+): string {
+  if (!categories || categories.length === 0) return "";
+
+  const present = SALE_CATEGORY_ORDER.filter((c) => categories.includes(c));
+  if (present.length === 0) return "";
+  if (present.length === 1) return saleWarrantyForCategory(present[0], overrides);
+
+  return present
+    .map((c) => `${SALE_CATEGORY_LABELS[c]}: ${saleWarrantyForCategory(c, overrides)}`)
+    .join("\n\n");
+}
+
+/** Списана на ремонт деталь — те, що бачить `repair_parts` у картці ремонту. */
+export interface RepairPartLine {
+  name: string;
+  compatibleWith?: string | null;
+  quantity: number;
+  /** Ціна для клієнта, а не собівартість: чек — документ для клієнта. */
+  unitPrice: number;
+}
+
+/** Рядок таблиці «ДЕТАЛІ ТА РОБОТИ» у формі, яку чекає чек. */
+export interface RepairBreakdownLine {
+  name: string;
+  quantity: number;
+  unit_price: number;
+}
+
+/**
+ * Розшифровка суми гарантійного талона ремонту.
+ *
+ * Порожній результат означає «таблиці не буде» — чек друкує один рядок
+ * «до сплати». Так виходить у двох випадках, і обидва навмисні:
+ *
+ * 1. Деталей не списували. Розшифровувати 500 ₴ у єдиний рядок на 500 ₴ немає
+ *    чого. Раніше цей рядок ще й називався текстом виконаних робіт, тож той
+ *    самий опис друкувався двічі поспіль — під «ВИКОНАНІ РОБОТИ» і в таблиці.
+ * 2. Деталі коштують для клієнта більше за ціну ремонту. Звести таблицю
+ *    неможливо, а «РАЗОМ» у ній розійшлося б із сумою, яку клієнт заплатив.
+ *
+ * Роботи — це залишок ціни після цін деталей, тому сума рядків завжди дорівнює
+ * ціні ремонту.
+ */
+export function composeRepairBreakdown(
+  price: number,
+  parts: RepairPartLine[],
+): RepairBreakdownLine[] {
+  if (parts.length === 0) return [];
+
+  const partsTotal = parts.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0);
+  const labor = price - partsTotal;
+  if (labor < 0) return [];
+
+  const lines: RepairBreakdownLine[] = [];
+  if (labor > 0) lines.push({ name: "Ремонтні роботи", quantity: 1, unit_price: labor });
+  for (const p of parts) {
+    if (p.unitPrice <= 0) continue;
+    lines.push({
+      name: p.compatibleWith ? `${p.name} (${p.compatibleWith})` : p.name,
+      quantity: p.quantity,
+      unit_price: p.unitPrice,
+    });
+  }
+  return lines;
+}
+
 const REPAIR_WARRANTY_FALLBACK =
   "Гарантія поширюється виключно на замінені деталі та виконані роботи.";
 
@@ -71,10 +197,19 @@ export interface WarrantyTextParams {
   warrantyMonths?: number;
   /** True when no stored template was found and defaults must fill in. */
   usingFallbackTemplate?: boolean;
+  /** Категорії проданих позицій. Тільки для `sale`. */
+  saleCategories?: SaleItemCategory[];
+  /** Тексти по категоріях з налаштувань магазину. Тільки для `sale`. */
+  saleWarrantyByCategory?: SaleWarrantyByCategory;
 }
 
 /**
  * Assemble the warranty / terms block.
+ *
+ * Умови продажу беруться з категорій проданих позицій; збережений у
+ * налаштуваннях загальний текст лишається запасним варіантом на випадок, коли
+ * категорії невідомі — старі продажі без рядків позицій і швидкий продаж без
+ * вибраної категорії.
  *
  * Note one inherited asymmetry, preserved deliberately rather than quietly
  * fixed: an acceptance receipt gets the three-point storage terms only when no
@@ -83,12 +218,20 @@ export interface WarrantyTextParams {
  * is a product decision and not part of moving this code.
  */
 export function composeWarrantyText(params: WarrantyTextParams): string {
-  const { type, templateText, warrantyEndFormatted, warrantyMonths, usingFallbackTemplate } =
-    params;
+  const {
+    type,
+    templateText,
+    warrantyEndFormatted,
+    warrantyMonths,
+    usingFallbackTemplate,
+    saleCategories,
+    saleWarrantyByCategory,
+  } = params;
 
-  if (type === "sale" && warrantyEndFormatted) {
-    const body = templateText || SALE_WARRANTY_FALLBACK;
-    return `Гарантія дійсна до: ${warrantyEndFormatted}\n\n${body}`;
+  if (type === "sale") {
+    const byCategory = composeSaleWarrantyBody(saleCategories, saleWarrantyByCategory);
+    const body = byCategory || templateText || SALE_WARRANTY_FALLBACK;
+    return warrantyEndFormatted ? `Гарантія дійсна до: ${warrantyEndFormatted}\n\n${body}` : body;
   }
 
   if (type === "repair_warranty" && warrantyMonths) {

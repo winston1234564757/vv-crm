@@ -289,7 +289,8 @@ export function SaleDetailView({ sale, onClose }: SaleDetailViewProps) {
             name: item.name,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            total_price: item.total_price
+            total_price: item.total_price,
+            item_type: item.item_type
           })),
           total_amount: sale.total_amount,
           discount: sale.discount,

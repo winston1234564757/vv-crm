@@ -10,6 +10,7 @@ import {
 } from "./icons";
 import { createClient } from "@/lib/supabase/client";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
+import { composeRepairBreakdown } from "@/lib/printer/receipt-content";
 import { addPartToRepairAction, removePartFromRepairAction, addServiceToRepairAction, removeServiceFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
 import { InlineError } from "@/components/ui/InlineError";
 import { parseError } from "@/lib/utils/errors";
@@ -33,7 +34,10 @@ export interface AIDiagnosticData {
 interface AllocatedPart {
   id: string;
   quantity: number;
+  /** Собівартість — впливає на прибуток, у чек не потрапляє. */
   unit_cost: number;
+  /** Ціна для клієнта — саме вона друкується в гарантійному талоні. */
+  unit_price: number;
   part_id: string;
   parts: {
     name: string;
@@ -46,6 +50,7 @@ interface AvailablePart {
   name: string;
   compatible_with: string | null;
   cost_price: number;
+  price: number | null;
   stock: number;
 }
 
@@ -189,6 +194,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
   const [selectedPartId, setSelectedPartId] = useState("");
   const [partQuantity, setPartQuantity] = useState(1);
   const [partUnitCost, setPartUnitCost] = useState(0);
+  const [partUnitPrice, setPartUnitPrice] = useState(0);
   const [isSubmittingPart, setIsSubmittingPart] = useState(false);
 
   // States for services/labor
@@ -240,6 +246,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
           id,
           quantity,
           unit_cost,
+          unit_price,
           part_id,
           parts (
             name,
@@ -247,14 +254,14 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
           )
         `)
         .eq("repair_id", repair.id);
-      
+
       if (allocErr) throw allocErr;
       setAllocatedParts(allocData || []);
 
       // 2. Load available warehouse parts
       const { data: stockData, error: stockErr } = await supabase
         .from("parts")
-        .select("id, name, compatible_with, cost_price, stock")
+        .select("id, name, compatible_with, cost_price, price, stock")
         .gt("stock", 0)
         .order("name", { ascending: true });
 
@@ -392,13 +399,17 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
 
   const handlePartSelectChange = (partId: string) => {
     setSelectedPartId(partId);
+    setPartQuantity(1);
     const part = availableParts.find(p => p.id === partId);
     if (part) {
       setPartUnitCost(part.cost_price);
-      setPartQuantity(1);
+      /* Ціна з каталогу, а якщо її не проставили — собівартість. Підставити
+         нуль було б гірше: майстер може не помітити, і чек показав би деталь
+         безкоштовною, а всю суму — як роботи. */
+      setPartUnitPrice(part.price || part.cost_price);
     } else {
       setPartUnitCost(0);
-      setPartQuantity(1);
+      setPartUnitPrice(0);
     }
   };
 
@@ -414,6 +425,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
       formData.set("partId", selectedPartId);
       formData.set("quantity", partQuantity.toString());
       formData.set("unitCost", partUnitCost.toString());
+      formData.set("unitPrice", partUnitPrice.toString());
 
       const res = await addPartToRepairAction(null, formData);
       if (res.success) {
@@ -421,6 +433,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
         setSelectedPartId("");
         setPartQuantity(1);
         setPartUnitCost(0);
+        setPartUnitPrice(0);
         await Promise.all([loadParts(), loadLogs()]);
       } else {
         setPartsError(res.error || "Не вдалося додати деталь");
@@ -459,6 +472,18 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
     : null;
 
   const profit = repair.price - currentCost;
+
+  const warrantyReceiptItems = composeRepairBreakdown(
+    repair.price,
+    allocatedParts.map((p) => ({
+      name: p.parts?.name || "Запчастина",
+      compatibleWith: p.parts?.compatible_with,
+      quantity: p.quantity,
+      /* Деталі, списані до появи окремої ціни клієнта, мають unit_price = 0 —
+         для них у чек іде собівартість, як було раніше. */
+      unitPrice: p.unit_price || p.unit_cost,
+    })),
+  );
 
   return (
     <div className="space-y-6">
@@ -811,7 +836,9 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                       <th className="pb-2">Назва деталі</th>
                       <th className="pb-2">Сумісність</th>
                       <th className="pb-2 text-center">Кількість</th>
-                      <th className="pb-2 text-right">Ціна од.</th>
+                      <th className="pb-2 text-right">Собівартість</th>
+                      {/* Те, що побачить клієнт у гарантійному талоні. */}
+                      <th className="pb-2 text-right">Ціна клієнту</th>
                       <th className="pb-2 text-right">Сума</th>
                       <th className="pb-2 text-right">Дія</th>
                     </tr>
@@ -824,8 +851,9 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                           <td className="py-2.5 font-medium">{detail?.name || "Деталь"}</td>
                           <td className="py-2.5 text-text-secondary">{detail?.compatible_with || "—"}</td>
                           <td className="py-2.5 text-center font-mono font-semibold">{p.quantity} шт</td>
-                          <td className="py-2.5 text-right font-mono">{p.unit_cost.toLocaleString()} ₴</td>
-                          <td className="py-2.5 text-right font-mono font-bold">{(p.unit_cost * p.quantity).toLocaleString()} ₴</td>
+                          <td className="py-2.5 text-right font-mono text-text-secondary">{p.unit_cost.toLocaleString()} ₴</td>
+                          <td className="py-2.5 text-right font-mono">{(p.unit_price || p.unit_cost).toLocaleString()} ₴</td>
+                          <td className="py-2.5 text-right font-mono font-bold">{((p.unit_price || p.unit_cost) * p.quantity).toLocaleString()} ₴</td>
                           <td className="py-2.5 text-right">
                             <button
                               type="button"
@@ -846,7 +874,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
 
             {/* Inline Allocation Form */}
             <form onSubmit={handleAddPart} className="pt-4 border-t border-warm-border/50 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-              <div className="sm:col-span-5">
+              <div className="sm:col-span-4">
                 <label className="mb-1 block text-[10px] font-bold text-text-secondary">Обрати деталь зі складу</label>
                 <select
                   value={selectedPartId}
@@ -874,13 +902,26 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                 />
               </div>
 
-              <div className="sm:col-span-3">
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-[10px] font-bold text-text-secondary">Собівартість од. (₴)</label>
                 <input
                   type="number"
                   min="0"
                   value={partUnitCost}
                   onChange={(e) => setPartUnitCost(Number(e.target.value))}
+                  className="w-full rounded-xl border border-iris/20 bg-transparent px-3 py-2 text-xs text-text-primary outline-none focus:border-violet text-right font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-[10px] font-bold text-text-secondary" title="Ця ціна друкується в гарантійному талоні">
+                  Ціна клієнту од. (₴)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={partUnitPrice}
+                  onChange={(e) => setPartUnitPrice(Number(e.target.value))}
                   className="w-full rounded-xl border border-iris/20 bg-transparent px-3 py-2 text-xs text-text-primary outline-none focus:border-violet text-right font-mono"
                 />
               </div>
@@ -1126,21 +1167,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
           tracking_token: repair.tracking_token,
           public_token: repair.public_token,
           price: repair.price,
-          // For warranty receipt: parts from warehouse + main service
-          repairItems: [
-            // Main service (repair work itself)
-            ...(repair.price > 0 ? [{
-              name: repair.issue || "Ремонтні роботи",
-              quantity: 1,
-              unit_price: repair.price - allocatedParts.reduce((s: number, p: { unit_cost: number; quantity: number }) => s + (p.unit_cost * p.quantity), 0),
-            }] : []),
-            // Allocated warehouse parts
-            ...allocatedParts.map((p) => ({
-              name: (p.parts?.name || "Запчастина") + (p.parts?.compatible_with ? ` (${p.parts.compatible_with})` : ""),
-              quantity: p.quantity,
-              unit_price: p.unit_cost,
-            })),
-          ].filter(item => item.unit_price > 0),
+          repairItems: warrantyReceiptItems,
         }}
       />
 

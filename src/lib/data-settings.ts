@@ -4,6 +4,7 @@ import {
   DEFAULT_PRINTER_SETTINGS,
   type StoredPrinterSettings,
 } from "@/lib/printer/receipt-escpos";
+import type { SaleItemCategory, SaleWarrantyByCategory } from "@/lib/printer/receipt-content";
 
 export interface SafeDistribution {
   opex: number;
@@ -22,7 +23,17 @@ export interface ReceiptTemplate {
   title: string;
   show_seller: boolean;
   show_buyer: boolean;
+  /**
+   * Для чеків ремонту — єдиний текст умов. Для продажу — запасний текст, який
+   * друкується лише коли категорія проданого невідома: звичайний продаж бере
+   * умови з `warranty_by_category`.
+   */
   warranty_text: string;
+  /**
+   * Тільки для шаблону продажу. Порожнє поле або відсутній ключ = дефолт із
+   * `DEFAULT_SALE_WARRANTY_BY_CATEGORY`.
+   */
+  warranty_by_category?: SaleWarrantyByCategory;
   show_qr: boolean;
 }
 
@@ -138,6 +149,7 @@ function parseReceiptSettings(value: unknown, fallback: ReceiptSettings): Receip
           show_seller: typeof to.show_seller === "boolean" ? to.show_seller : fb.show_seller,
           show_buyer: typeof to.show_buyer === "boolean" ? to.show_buyer : fb.show_buyer,
           warranty_text: typeof to.warranty_text === "string" ? to.warranty_text : fb.warranty_text,
+          warranty_by_category: parseWarrantyByCategory(to.warranty_by_category),
           show_qr: typeof to.show_qr === "boolean" ? to.show_qr : fb.show_qr,
         };
       }
@@ -159,6 +171,24 @@ function parseReceiptSettings(value: unknown, fallback: ReceiptSettings): Receip
     };
   }
   return fallback;
+}
+
+/**
+ * Порожній рядок зберігається як «нема свого тексту» — тобто ключ просто не
+ * потрапляє в результат, і рендер бере дефолт із `receipt-content.ts`. Так
+ * очищене поле в налаштуваннях повертає стандартні умови, а не друкує порожній
+ * блок гарантії.
+ */
+function parseWarrantyByCategory(value: unknown): SaleWarrantyByCategory | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const obj = value as Record<string, unknown>;
+  const categories: SaleItemCategory[] = ["device", "accessory", "part", "service"];
+  const out: SaleWarrantyByCategory = {};
+  for (const c of categories) {
+    const raw = obj[c];
+    if (typeof raw === "string" && raw.trim()) out[c] = raw.trim();
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -216,7 +246,9 @@ export async function getSettings(): Promise<ParsedSettings> {
           title: "ТОВАРНИЙ ЧЕК",
           show_seller: true,
           show_buyer: true,
-          warranty_text: "При виявленні несправностей протягом гарантійного періоду товар приймається на діагностику за наявності цього чеку та оригінальної упаковки. Гарантія анулюється при виявленні слідів механічних пошкоджень, вологи або самостійного розкриття пристрою.",
+          /* Категорійно-нейтральний: друкується тільки коли категорія проданого
+             невідома. Умови під конкретну категорію — у warranty_by_category. */
+          warranty_text: "При виявленні несправностей протягом гарантійного строку товар приймається на діагностику за наявності цього чеку. Гарантія не поширюється на механічні пошкодження, сліди вологи та наслідки неправильної експлуатації.",
           show_qr: true
         },
         repair_acceptance: {

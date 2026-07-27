@@ -828,6 +828,7 @@ export type Database = {
           quantity: number
           repair_id: string
           unit_cost: number
+          unit_price: number
         }
         Insert: {
           id?: string
@@ -835,6 +836,7 @@ export type Database = {
           quantity?: number
           repair_id: string
           unit_cost?: number
+          unit_price?: number
         }
         Update: {
           id?: string
@@ -842,6 +844,7 @@ export type Database = {
           quantity?: number
           repair_id?: string
           unit_cost?: number
+          unit_price?: number
         }
         Relationships: [
           {

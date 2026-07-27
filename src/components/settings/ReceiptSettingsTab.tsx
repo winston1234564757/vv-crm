@@ -3,6 +3,18 @@
 import { ReceiptPreview } from "./ReceiptPreview";
 import { PrinterSettingsCard } from "./PrinterSettingsCard";
 import type { StoredPrinterSettings } from "@/lib/printer";
+import {
+  DEFAULT_SALE_WARRANTY_BY_CATEGORY,
+  type SaleItemCategory,
+} from "@/lib/printer/receipt-content";
+
+/** Порядок полів у формі — той самий, у якому категорії друкуються на чеку. */
+const SALE_WARRANTY_FIELDS: { category: SaleItemCategory; name: string; label: string }[] = [
+  { category: "device", name: "sale_warranty_device", label: "Техніка (телефони, планшети, ноутбуки)" },
+  { category: "accessory", name: "sale_warranty_accessory", label: "Аксесуари (скло, чохли, кабелі)" },
+  { category: "part", name: "sale_warranty_part", label: "Запчастини (продані окремо)" },
+  { category: "service", name: "sale_warranty_service", label: "Послуги" },
+];
 
 interface ReceiptSettingsTabProps {
   companyName: string;
@@ -29,6 +41,10 @@ interface ReceiptSettingsTabProps {
   setSaleShowQr: (val: boolean) => void;
   saleWarrantyText: string;
   setSaleWarrantyText: (val: string) => void;
+  /* Передається блоком з одним сеттером — з тієї ж причини, що й printer нижче:
+     чотири категорії це вісім пропсів у компоненті, який і так тріщить. */
+  saleWarrantyByCategory: Record<SaleItemCategory, string>;
+  setSaleWarrantyByCategory: (val: Record<SaleItemCategory, string>) => void;
 
   repAccTitle: string;
   setRepAccTitle: (val: string) => void;
@@ -85,6 +101,8 @@ export function ReceiptSettingsTab({
   setSaleShowQr,
   saleWarrantyText,
   setSaleWarrantyText,
+  saleWarrantyByCategory,
+  setSaleWarrantyByCategory,
   repAccTitle,
   setRepAccTitle,
   repAccShowSeller,
@@ -268,14 +286,53 @@ export function ReceiptSettingsTab({
               </label>
             </div>
 
+            {/* Умови друкуються за категорією проданого, тому це чотири поля, а
+                не одне: чек за захисне скло не має погрожувати анулюванням
+                гарантії «при самостійному розкритті пристрою». */}
+            <div className="space-y-3 border border-warm-border/30 rounded-xl p-3 bg-warm-bg/25">
+              <div>
+                <p className="text-[11px] font-semibold text-text-secondary">Гарантійні умови за категорією товару</p>
+                <p className="text-[10px] text-text-secondary mt-0.5 leading-relaxed">
+                  У чек потрапляють умови тих категорій, які є в продажу. Порожнє поле — друкується стандартний текст (він у підказці поля).
+                </p>
+              </div>
+
+              {SALE_WARRANTY_FIELDS.map(({ category, name, label }) => (
+                <div key={category}>
+                  <label htmlFor={name} className="mb-1.5 block text-[11px] font-semibold text-text-secondary">
+                    {label}
+                  </label>
+                  <textarea
+                    id={name}
+                    name={name}
+                    value={saleWarrantyByCategory[category]}
+                    onChange={(e) =>
+                      setSaleWarrantyByCategory({
+                        ...saleWarrantyByCategory,
+                        [category]: e.target.value,
+                      })
+                    }
+                    placeholder={DEFAULT_SALE_WARRANTY_BY_CATEGORY[category]}
+                    rows={4}
+                    className="w-full text-xs rounded-xl border border-warm-border/60 bg-transparent px-4 py-2.5 text-text-primary outline-none focus:border-violet leading-relaxed placeholder:text-text-secondary/60"
+                  />
+                </div>
+              ))}
+            </div>
+
             <div>
-              <label htmlFor="sale_warranty_text" className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Текст гарантійних зобов&apos;язань</label>
+              <label htmlFor="sale_warranty_text" className="mb-1.5 block text-[11px] font-semibold text-text-secondary">
+                Загальний текст (коли категорія невідома)
+              </label>
+              <p className="mb-1.5 text-[10px] text-text-secondary leading-relaxed">
+                Друкується лише на старих чеках без переліку позицій — коли зрозуміти категорію проданого неможливо.
+              </p>
               <textarea
                 id="sale_warranty_text"
                 name="sale_warranty_text"
                 value={saleWarrantyText}
                 onChange={(e) => setSaleWarrantyText(e.target.value)}
-                rows={5}
+                rows={4}
                 className="w-full text-xs rounded-xl border border-warm-border/60 bg-transparent px-4 py-2.5 text-text-primary outline-none focus:border-violet leading-relaxed"
                 required
               />
@@ -432,7 +489,7 @@ export function ReceiptSettingsTab({
             saleShowSeller={saleShowSeller}
             saleShowBuyer={saleShowBuyer}
             saleShowQr={saleShowQr}
-            saleWarrantyText={saleWarrantyText}
+            saleWarrantyByCategory={saleWarrantyByCategory}
             repAccTitle={repAccTitle}
             repAccShowSeller={repAccShowSeller}
             repAccShowBuyer={repAccShowBuyer}

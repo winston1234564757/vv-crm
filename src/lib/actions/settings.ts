@@ -208,6 +208,20 @@ const receiptTemplateSchema = z.object({
 });
 
 /**
+ * Умови гарантії по категоріях товару — тільки для чека продажу.
+ *
+ * Порожній рядок дозволений і означає «взяти стандартний текст»: інакше власник,
+ * який захотів прибрати свою правку, не мав би способу повернутись до дефолту,
+ * окрім як переписати його з пам'яті.
+ */
+const saleWarrantyByCategorySchema = z.object({
+  device: z.string().max(3000, "Текст гарантії занадто довгий (макс. 3000 символів)"),
+  accessory: z.string().max(3000, "Текст гарантії занадто довгий (макс. 3000 символів)"),
+  part: z.string().max(3000, "Текст гарантії занадто довгий (макс. 3000 символів)"),
+  service: z.string().max(3000, "Текст гарантії занадто довгий (макс. 3000 символів)"),
+});
+
+/**
  * Printer parameters are hardware facts, so the bounds are the command set's,
  * not a product preference: `ESC t n` takes one byte, `GS ( k` accepts a module
  * size of 1..16. Coerced from strings because they arrive as form fields.
@@ -228,7 +242,7 @@ const receiptSettingsSchema = z.object({
   phone: z.string().min(2, "Телефон має містити хоча б 2 символи").max(50, "Телефон занадто довгий (макс. 50 символів)"),
   footer_text: z.string().min(2, "Текст підвалу має містити хоча б 2 символи").max(3000, "Текст підвалу занадто довгий (макс. 3000 символів)"),
   templates: z.object({
-    sale: receiptTemplateSchema,
+    sale: receiptTemplateSchema.extend({ warranty_by_category: saleWarrantyByCategorySchema }),
     repair_acceptance: receiptTemplateSchema,
     repair_warranty: receiptTemplateSchema,
   }),
@@ -252,6 +266,12 @@ export async function updateReceiptSettingsAction(
           show_seller: formData.get("sale_show_seller") === "true",
           show_buyer: formData.get("sale_show_buyer") === "true",
           warranty_text: formData.get("sale_warranty_text"),
+          warranty_by_category: {
+            device: formData.get("sale_warranty_device") ?? "",
+            accessory: formData.get("sale_warranty_accessory") ?? "",
+            part: formData.get("sale_warranty_part") ?? "",
+            service: formData.get("sale_warranty_service") ?? "",
+          },
           show_qr: formData.get("sale_show_qr") === "true",
         },
         repair_acceptance: {
