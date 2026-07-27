@@ -9,17 +9,25 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils/cn";
-import type { SaleWithDetails } from "@/lib/data-sales";
+import type { SaleWithDetails, SalesRow, SoldRepair } from "@/lib/data-sales";
+import { labelOf, paymentStatus as domainPaymentStatus } from "@/lib/domain-labels";
+import Link from "next/link";
 
 const paymentMethods: Record<string, string> = {
   cash: "Готівка", card: "Картка", transfer: "Переказ",
 };
 
+/* Оплата ремонту пишеться в касу без поділу на готівку/картку, тож у колонці
+   «Метод оплати» для нього стоїть стан розрахунку — єдине, що дані знають. */
+function paymentStatusLabel(status: string | null) {
+  return labelOf(domainPaymentStatus, status).label;
+}
+
 const selectClass =
   "rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent cursor-pointer";
 
 interface SalesTableProps {
-  sales: SaleWithDetails[];
+  rows: SalesRow[];
   total: number;
   page: number;
   pageSize: number;
@@ -29,12 +37,22 @@ interface SalesTableProps {
   payment: string;
 }
 
-export function SalesTable({ sales, total, page, pageSize, pageCount, query, category, payment }: SalesTableProps) {
+/** Ключ рядка. Id продажу й id ремонту живуть у різних таблицях — префікс розводить їх. */
+function rowKey(row: SalesRow) {
+  return row.kind === "sale" ? `s-${row.sale.id}` : `r-${row.repair.id}`;
+}
+
+function rowDate(row: SalesRow) {
+  return row.kind === "sale" ? row.sale.created_at : row.repair.completed_at;
+}
+
+export function SalesTable({ rows, total, page, pageSize, pageCount, query, category, payment }: SalesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
+  const [selectedRepair, setSelectedRepair] = useState<SoldRepair | null>(null);
 
   // Local mirror so typing stays responsive while the server catches up.
   const [draftQuery, setDraftQuery] = useState(query);
@@ -67,7 +85,13 @@ export function SalesTable({ sales, total, page, pageSize, pageCount, query, cat
       : sale.notes || "Товар / Послуга";
   }
 
-  const empty = sales.length === 0;
+  /* Пристрій і що з ним робили — рівно те, що в товарному продажі дає перелік
+     позицій. Опис робіт часто довгий, тож модель попереду: за нею впізнають. */
+  function repairSummary(repair: SoldRepair) {
+    return repair.issue ? `${repair.device_name} — ${repair.issue}` : repair.device_name;
+  }
+
+  const empty = rows.length === 0;
 
   return (
     <>
@@ -89,8 +113,16 @@ export function SalesTable({ sales, total, page, pageSize, pageCount, query, cat
             <option value="accessory">Аксесуари</option>
             <option value="service">Послуги</option>
             <option value="part">Запчастини</option>
+            <option value="repair">Ремонти</option>
           </select>
-          <select value={payment} onChange={(e) => push({ pay: e.target.value })} className={selectClass}>
+          {/* Фільтр методу оплати ховає ремонти: у їхніх платежах методу немає.
+              Тому підказка, а не мовчазний порожній список. */}
+          <select
+            value={payment}
+            onChange={(e) => push({ pay: e.target.value })}
+            className={selectClass}
+            title="Ремонти мають лише стан розрахунку, тож фільтр за методом їх не показує"
+          >
             <option value="all">Всі оплати</option>
             <option value="cash">Готівка</option>
             <option value="card">Картка</option>
@@ -105,30 +137,45 @@ export function SalesTable({ sales, total, page, pageSize, pageCount, query, cat
           {empty ? (
             <p className="py-12 text-center text-sm text-muted">Продажів не знайдено</p>
           ) : (
-            sales.map((sale) => {
-              const paymentsList = sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ");
+            rows.map((row) => {
+              const isRepair = row.kind === "repair";
+              const amount = isRepair ? row.repair.price : row.sale.total_amount;
               return (
                 <button
-                  key={sale.id}
-                  onClick={() => setSelectedSale(sale)}
+                  key={rowKey(row)}
+                  onClick={() =>
+                    row.kind === "sale" ? setSelectedSale(row.sale) : setSelectedRepair(row.repair)
+                  }
                   className="card card-hover btn-press p-4 flex flex-col gap-2.5 text-left cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="tabular text-xs text-muted">#{sale.id.substring(0, 8)}</span>
-                      <h4 className="font-semibold text-sm text-ink mt-1">{sale.customer_name}</h4>
+                      <span className="tabular text-xs text-muted">
+                        #{(isRepair ? row.repair.id : row.sale.id).substring(0, 8)}
+                      </span>
+                      <h4 className="font-semibold text-sm text-ink mt-1">
+                        {isRepair ? row.repair.customer_name : row.sale.customer_name}
+                      </h4>
                     </div>
-                    <Badge tone="neutral">{paymentsList || "—"}</Badge>
+                    {isRepair ? (
+                      <Badge tone="accent">Ремонт</Badge>
+                    ) : (
+                      <Badge tone="neutral">
+                        {row.sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ") || "—"}
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-xs text-muted border-t border-border pt-2.5">
-                    <span className="text-ink">{summarize(sale)}</span>
+                    <span className="text-ink">
+                      {isRepair ? repairSummary(row.repair) : summarize(row.sale)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
-                    <span className="text-muted tabular">{format(new Date(sale.created_at), "dd.MM.yyyy HH:mm")}</span>
-                    {sale.is_warranty ? (
+                    <span className="text-muted tabular">{format(new Date(rowDate(row)), "dd.MM.yyyy HH:mm")}</span>
+                    {!isRepair && row.sale.is_warranty ? (
                       <Badge tone="accent">Гарантія</Badge>
                     ) : (
-                      <span className="font-semibold text-sm text-success tabular">{sale.total_amount.toLocaleString()} ₴</span>
+                      <span className="font-semibold text-sm text-success tabular">{amount.toLocaleString()} ₴</span>
                     )}
                   </div>
                 </button>
@@ -156,22 +203,38 @@ export function SalesTable({ sales, total, page, pageSize, pageCount, query, cat
                   <td colSpan={6} className="py-12 text-center text-sm text-muted">Продажів не знайдено</td>
                 </tr>
               ) : (
-                sales.map((sale) => {
-                  const paymentsList = sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ");
-                  const itemsSummary = summarize(sale);
+                rows.map((row) => {
+                  const isRepair = row.kind === "repair";
+                  const id = isRepair ? row.repair.id : row.sale.id;
+                  const summary = isRepair ? repairSummary(row.repair) : summarize(row.sale);
                   return (
                     <tr
-                      key={sale.id}
-                      onClick={() => setSelectedSale(sale)}
+                      key={rowKey(row)}
+                      onClick={() =>
+                        row.kind === "sale" ? setSelectedSale(row.sale) : setSelectedRepair(row.repair)
+                      }
                       className="border-b border-border text-ink transition-colors hover:bg-hover cursor-pointer"
                     >
-                      <td className="py-3 pr-4 tabular text-xs text-muted">{sale.id.substring(0, 8)}</td>
-                      <td className="py-3 pr-4 text-xs text-muted tabular">{format(new Date(sale.created_at), "dd.MM.yyyy HH:mm")}</td>
-                      <td className="py-3 pr-4 font-medium">{sale.customer_name}</td>
-                      <td className="py-3 pr-4 max-w-[240px] truncate text-xs" title={itemsSummary}>{itemsSummary}</td>
-                      <td className="py-3 pr-4 text-xs text-muted">{paymentsList || "—"}</td>
+                      <td className="py-3 pr-4 tabular text-xs text-muted">{id.substring(0, 8)}</td>
+                      <td className="py-3 pr-4 text-xs text-muted tabular">{format(new Date(rowDate(row)), "dd.MM.yyyy HH:mm")}</td>
+                      <td className="py-3 pr-4 font-medium">
+                        {isRepair ? row.repair.customer_name : row.sale.customer_name}
+                      </td>
+                      <td className="py-3 pr-4 max-w-[240px] text-xs" title={summary}>
+                        <span className="flex items-center gap-1.5">
+                          {isRepair && <Badge tone="accent">Ремонт</Badge>}
+                          <span className="truncate">{summary}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-muted">
+                        {isRepair
+                          ? paymentStatusLabel(row.repair.payment_status)
+                          : row.sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ") || "—"}
+                      </td>
                       <td className="py-3 pr-4 text-right font-semibold tabular">
-                        {sale.is_warranty ? <Badge tone="accent">Гарантія</Badge> : `${sale.total_amount.toLocaleString()} ₴`}
+                        {!isRepair && row.sale.is_warranty
+                          ? <Badge tone="accent">Гарантія</Badge>
+                          : `${(isRepair ? row.repair.price : row.sale.total_amount).toLocaleString()} ₴`}
                       </td>
                     </tr>
                   );
@@ -187,15 +250,75 @@ export function SalesTable({ sales, total, page, pageSize, pageCount, query, cat
         pageCount={pageCount}
         total={total}
         start={(page - 1) * pageSize}
-        shown={sales.length}
+        shown={rows.length}
         pageSize={pageSize}
         onPageChange={(next) => push({ page: String(next) })}
         onPageSizeChange={(size) => push({ size: String(size) })}
-        itemLabel="продажів"
+        itemLabel="операцій"
       />
 
       <Drawer isOpen={!!selectedSale} onClose={() => setSelectedSale(null)} title="Деталі продажу" size="half">
         {selectedSale && <SaleDetailView sale={selectedSale} onClose={() => setSelectedSale(null)} />}
+      </Drawer>
+
+      {/* Зведення, а не робоче місце: керувати ремонтом — на сторінці Ремонтів,
+          інакше та сама дія жила б у двох розділах і розійшлася б, як розійшлися
+          статуси. */}
+      <Drawer isOpen={!!selectedRepair} onClose={() => setSelectedRepair(null)} title="Ремонт" size="half">
+        {selectedRepair && (
+          <div className="space-y-5 p-1">
+            <div>
+              <p className="tabular text-xs text-muted">#{selectedRepair.id.substring(0, 8)}</p>
+              <h3 className="mt-1 text-lg font-semibold text-ink">{selectedRepair.device_name}</h3>
+              <p className="mt-0.5 text-sm text-muted">{selectedRepair.customer_name}</p>
+            </div>
+
+            {selectedRepair.issue && (
+              <div className="rounded-[var(--radius-md)] border border-border p-3">
+                <p className="text-xs font-medium text-muted">Виконані роботи</p>
+                <p className="mt-1 text-sm text-ink">{selectedRepair.issue}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted">Сума</p>
+                <p className="mt-0.5 font-semibold tabular text-ink">
+                  {selectedRepair.price.toLocaleString()} ₴
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Розрахунок</p>
+                <p className="mt-0.5">
+                  <Badge tone={labelOf(domainPaymentStatus, selectedRepair.payment_status).tone}>
+                    {paymentStatusLabel(selectedRepair.payment_status)}
+                  </Badge>
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Видано</p>
+                <p className="mt-0.5 tabular text-ink">
+                  {selectedRepair.completed_at
+                    ? format(new Date(selectedRepair.completed_at), "dd.MM.yyyy HH:mm")
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Гарантія</p>
+                <p className="mt-0.5 text-ink">
+                  {selectedRepair.warranty_months ? `${selectedRepair.warranty_months} міс.` : "—"}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href={`/admin/repairs?q=${selectedRepair.id}`}
+              className="inline-flex items-center rounded-[var(--radius-md)] border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover"
+            >
+              Відкрити в Ремонтах
+            </Link>
+          </div>
+        )}
       </Drawer>
     </>
   );

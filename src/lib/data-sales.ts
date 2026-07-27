@@ -250,10 +250,10 @@ export async function getSalesStats() {
 // ---------------------------------------------------------------------------
 // Server-side pagination & analytics
 //
-// Search, filtering and paging happen in Postgres (search_sales_ids), which
-// returns one page of ids plus the total match count. The rows themselves are
-// then loaded through getSales() so all the item-name / payment / seller
-// resolution above stays in one place.
+// Search, filtering and paging happen in Postgres (search_transactions), which
+// returns one page of (kind, id) plus the total match count across BOTH sales
+// and repairs. The rows themselves are then loaded per kind, so all the
+// item-name / payment / seller resolution above stays in one place.
 // ---------------------------------------------------------------------------
 
 export interface SalesPageParams {
@@ -264,8 +264,39 @@ export interface SalesPageParams {
   payment?: string;
 }
 
+/**
+ * Ремонт у списку продажів.
+ *
+ * Навмисно вужчий за `RepairWithPayments`: сторінка продажів показує гроші й
+ * те, за що вони взяті, а не робочий процес ремонту. Керувати ремонтом далі —
+ * на сторінці Ремонтів.
+ */
+export interface SoldRepair {
+  id: string;
+  completed_at: string;
+  customer_name: string;
+  device_name: string;
+  issue: string | null;
+  price: number;
+  payment_status: string | null;
+  warranty_months: number | null;
+  is_warranty: boolean | null;
+}
+
+/** Рядок спільної хронології: або товарний продаж, або зароблений ремонт. */
+export type SalesRow =
+  | { kind: "sale"; sale: SaleWithDetails }
+  | { kind: "repair"; repair: SoldRepair };
+
+interface TransactionHit {
+  kind: "sale" | "repair";
+  row_id: string;
+  occurred_at: string;
+  total_count: number;
+}
+
 export async function getSalesPage(params: SalesPageParams = {}): Promise<{
-  rows: SaleWithDetails[];
+  rows: SalesRow[];
   total: number;
   page: number;
   pageSize: number;
@@ -275,7 +306,8 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
   const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 100);
   const requestedPage = Math.max(params.page ?? 1, 1);
 
-  const { data, error } = await supabase.rpc("search_sales_ids", {
+  // @ts-expect-error - search_transactions is missing from database.ts types
+  const { data, error } = await supabase.rpc("search_transactions", {
     p_query: params.query?.trim() || undefined,
     p_category: params.category && params.category !== "all" ? params.category : undefined,
     p_payment: params.payment && params.payment !== "all" ? params.payment : undefined,
@@ -283,7 +315,7 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     p_offset: (requestedPage - 1) * pageSize,
   });
   if (error) throw new Error(error.message);
-  const hits = data ?? [];
+  const hits = supabaseCast<TransactionHit[]>(data ?? []);
   const total = hits.length > 0 ? Number(hits[0].total_count) : 0;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
@@ -292,9 +324,47 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     return getSalesPage({ ...params, page: pageCount, pageSize });
   }
 
-  const rows = await getSales(undefined, hits.map((h) => h.sale_id));
+  const saleIds = hits.filter((h) => h.kind === "sale").map((h) => h.row_id);
+  const repairIds = hits.filter((h) => h.kind === "repair").map((h) => h.row_id);
+
+  const [sales, repairs] = await Promise.all([
+    saleIds.length > 0 ? getSales(undefined, saleIds) : Promise.resolve([]),
+    getSoldRepairs(repairIds),
+  ]);
+
+  /* Порядок задає Postgres — це єдине місце, де обидва джерела відсортовані за
+     спільною датою. Перебираємо hits, а не склеюємо два масиви, інакше
+     хронологія розсипалась би на межі сторінки. */
+  const byId = new Map<string, SalesRow>();
+  for (const s of sales) byId.set(s.id, { kind: "sale", sale: s });
+  for (const r of repairs) byId.set(r.id, { kind: "repair", repair: r });
+  const rows = hits.map((h) => byId.get(h.row_id)).filter((r): r is SalesRow => !!r);
 
   return { rows, total, page: Math.min(requestedPage, pageCount), pageSize, pageCount };
+}
+
+async function getSoldRepairs(ids: string[]): Promise<SoldRepair[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("repairs")
+    .select("id, completed_at, device_name, issue, price, payment_status, warranty_months, is_warranty, customers(name)")
+    .in("id", ids);
+  if (error) throw error;
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    // Відбір у search_transactions гарантує completed_at; порожній рядок тут —
+    // лише щоб не тягнути null у тип, який його не потребує.
+    completed_at: r.completed_at ?? "",
+    customer_name: (r.customers as { name: string } | null)?.name ?? "Роздрібний клієнт",
+    device_name: r.device_name,
+    issue: r.issue,
+    price: r.price,
+    payment_status: r.payment_status,
+    warranty_months: r.warranty_months,
+    is_warranty: r.is_warranty,
+  }));
 }
 
 export type SalesBucket = "hour" | "day" | "month";

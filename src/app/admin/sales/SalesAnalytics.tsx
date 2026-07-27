@@ -12,6 +12,7 @@ import { PERIOD_TABS, periodRange, type Period } from "./period";
 
 const CATEGORY_LABELS: Record<string, string> = {
   device: "Техніка", accessory: "Аксесуари", part: "Запчастини", service: "Послуги",
+  repair: "Ремонти",
 };
 const PAYMENT_LABELS: Record<string, string> = {
   cash: "Готівка", card: "Картка", transfer: "Переказ",
@@ -104,13 +105,13 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
       <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-4">
         <StatCard label="Оборот за період" value={`${data.revenue.toLocaleString()} ₴`} />
         <StatCard
-          label="Чеків"
+          label="Операцій"
           tone="info"
           value={data.count}
           sub={`${data.warrantyCount} ${pluralUk(data.warrantyCount, "гарантійний", "гарантійні", "гарантійних")}`}
         />
         <StatCard label="Середній чек" tone="accent" value={`${data.avgCheck.toLocaleString()} ₴`} />
-        <StatCard label="Товарів продано" tone="success" value={`${data.itemsTotal.toLocaleString()} ₴`} sub="Сума позицій у чеках" />
+        <StatCard label="Продано на суму" tone="success" value={`${data.itemsTotal.toLocaleString()} ₴`} sub="Позиції в чеках і ремонти" />
       </div>
 
       <div className="card p-5">
@@ -147,6 +148,8 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
 
       <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
         <Breakdown title="За категоріями" rows={data.byCategory} total={data.itemsTotal} empty="Немає позицій за період" labels={CATEGORY_LABELS} />
+        {/* Тільки товарні продажі: оплата ремонту йде в касу без поділу на
+            готівку/картку, тож сума тут менша за оборот. */}
         <Breakdown title="За методом оплати" rows={data.byPayment} total={data.byPayment.reduce((s, r) => s + r.value, 0)} empty="Немає оплат за період" labels={PAYMENT_LABELS} />
         <Breakdown title="За продавцями" rows={data.bySeller} total={data.revenue} empty="Немає продажів за період" />
       </div>

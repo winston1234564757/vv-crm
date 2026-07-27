@@ -39,8 +39,9 @@ export default async function SalesPage({
     <div className="space-y-5">
       <header>
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">Продажі</h1>
+        {/* «Операція», а не «продаж»: у списку тепер і товари, і ремонти. */}
         <p className="mt-0.5 text-sm text-muted">
-          {pageData.total} {pluralUk(pageData.total, "продаж", "продажі", "продажів")} знайдено
+          {pageData.total} {pluralUk(pageData.total, "операція", "операції", "операцій")} знайдено
         </p>
       </header>
 
@@ -48,7 +49,7 @@ export default async function SalesPage({
 
       <StandardCard>
         <SalesTable
-          sales={pageData.rows}
+          rows={pageData.rows}
           total={pageData.total}
           page={pageData.page}
           pageSize={pageData.pageSize}
