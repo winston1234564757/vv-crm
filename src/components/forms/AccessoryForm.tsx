@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { createAccessory, updateAccessory } from "@/lib/actions/accessories";
 import { Input } from "@/components/ui/Input";
+import { accessoryType, optionsOf } from "@/lib/domain-labels";
 
 const initialState = { success: false, error: "" };
 
@@ -57,12 +58,9 @@ export function AccessoryForm({
           defaultValue={accessory?.type ?? "case"}
           className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
         >
-          <option value="case">Чохол</option>
-          <option value="charger">Зарядний пристрій</option>
-          <option value="cable">Кабель</option>
-          <option value="headphones">Навушники</option>
-          <option value="screen_protector">Захисне скло / плівка</option>
-          <option value="other">Інше</option>
+          {optionsOf(accessoryType).map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
       </div>
 

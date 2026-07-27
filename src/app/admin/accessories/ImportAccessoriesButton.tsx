@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Drawer from "@/components/ui/Drawer";
 import { importAccessories } from "@/lib/actions/accessories";
 import { IconPlus } from "@/components/icons";
+import { ACCESSORY_TYPES, accessoryType, labelOf, optionsOf } from "@/lib/domain-labels";
 
 interface ImportRow {
   name: string;
@@ -16,15 +17,7 @@ interface ImportRow {
   error?: string;
 }
 
-const VALID_TYPES = ["case", "charger", "cable", "headphones", "screen_protector", "other"];
-const TYPE_LABELS: Record<string, string> = {
-  case: "Чохол",
-  charger: "Зарядка",
-  cable: "Кабель",
-  headphones: "Навушники",
-  screen_protector: "Скло/Плівка",
-  other: "Інше"
-};
+const VALID_TYPES = ACCESSORY_TYPES;
 
 export function ImportAccessoriesButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -170,7 +163,17 @@ export function ImportAccessoriesButton() {
               name, type, price, cost_price, stock, min_stock
             </code>
             <div className="mt-3 space-y-1 text-xs text-text-secondary">
-              <p>• <strong className="text-text-primary">type</strong> може мати лише такі значення: <span className="font-mono bg-surface px-1 py-0.5 rounded">case</span> (чохол), <span className="font-mono bg-surface px-1 py-0.5 rounded">charger</span> (зарядка), <span className="font-mono bg-surface px-1 py-0.5 rounded">cable</span> (кабель), <span className="font-mono bg-surface px-1 py-0.5 rounded">headphones</span> (навушники), <span className="font-mono bg-surface px-1 py-0.5 rounded">screen_protector</span> (скло/плівка), <span className="font-mono bg-surface px-1 py-0.5 rounded">other</span> (інше).</p>
+              {/* Перелік зі словника, а не з пам'яті: інакше нова категорія
+                  з'явиться у формі, але інструкція з імпорту про неї мовчатиме. */}
+              <p>
+                • <strong className="text-text-primary">type</strong> може мати лише такі значення:{" "}
+                {optionsOf(accessoryType).map((o, i, arr) => (
+                  <span key={o.value}>
+                    <span className="font-mono bg-surface px-1 py-0.5 rounded">{o.value}</span>{" "}
+                    ({o.label.toLowerCase()}){i < arr.length - 1 ? ", " : "."}
+                  </span>
+                ))}
+              </p>
               <p>• Розділювачем стовпців може бути кома або крапка з комою.</p>
             </div>
           </div>
@@ -231,7 +234,7 @@ export function ImportAccessoriesButton() {
                         }`}
                       >
                         <td className="p-3 font-medium">{row.name || "—"}</td>
-                        <td className="p-3 text-text-secondary">{TYPE_LABELS[row.type] || row.type || "—"}</td>
+                        <td className="p-3 text-text-secondary">{row.type ? labelOf(accessoryType, row.type).label : "—"}</td>
                         <td className="p-3 font-mono">{row.price} грн</td>
                         <td className="p-3 font-mono text-text-secondary">{row.cost_price} грн</td>
                         <td className="p-3 font-mono">{row.stock} шт</td>

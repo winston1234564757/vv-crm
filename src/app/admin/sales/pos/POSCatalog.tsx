@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { IconSearch, IconDevice, IconAccessory, IconBox, IconRepair } from "@/components/icons";
 import { Device, Accessory, Part, Service, CatalogItem } from "./pos-types";
+import { accessoryType, optionsOf } from "@/lib/domain-labels";
 
 interface POSCatalogProps {
   activeMobileTab: "catalog" | "cart";
@@ -181,20 +182,12 @@ export function POSCatalog({
           {/* Accessory Subcategories */}
           {activeCategory === "accessory" && (
             <div className="flex flex-wrap gap-2 mb-2">
-              {[
-                { id: "all", label: "Всі" },
-                { id: "case", label: "Чохли" },
-                { id: "charger", label: "Зарядні" },
-                { id: "cable", label: "Кабелі" },
-                { id: "headphones", label: "Навушники" },
-                { id: "screen_protector", label: "Скло" },
-                { id: "other", label: "Інше" }
-              ].map((sub) => (
+              {[{ value: "all", label: "Всі" }, ...optionsOf(accessoryType)].map((sub) => (
                 <button
-                  key={sub.id}
-                  onClick={() => setActiveAccessoryCategory(sub.id)}
+                  key={sub.value}
+                  onClick={() => setActiveAccessoryCategory(sub.value)}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    activeAccessoryCategory === sub.id
+                    activeAccessoryCategory === sub.value
                       ? "bg-violet text-white shadow-sm"
                       : "bg-surface border border-warm-border text-text-secondary hover:text-text-primary hover:border-violet/30"
                   }`}

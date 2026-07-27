@@ -201,6 +201,31 @@ export const itemType: LabelMap = {
   service: { label: "Послуга", tone: "neutral" },
 };
 
+/* -------------------------------------------------------- accessories */
+
+/**
+ * `accessories.type` — plain text column.
+ *
+ * Цей словник був переписаний від руки в шести місцях: форма створення, картка
+ * аксесуара, таблиця складу, фільтри POS, імпорт з файлу і двічі — zod-схеми в
+ * діях. Списки вже встигли розійтися: у фільтрах складу не було «Інше», а в
+ * імпорті — своя коротша назва скла. Тепер джерело одне; порядок ключів тут же
+ * задає порядок кнопок і опцій.
+ */
+export const accessoryType: LabelMap = {
+  case: { label: "Чохол", tone: "neutral" },
+  screen_protector: { label: "Захисне скло / плівка", tone: "neutral" },
+  charger: { label: "Зарядний пристрій", tone: "neutral" },
+  powerbank: { label: "Павербанк", tone: "neutral" },
+  cable: { label: "Кабель", tone: "neutral" },
+  headphones: { label: "Навушники", tone: "neutral" },
+  speaker: { label: "Колонка", tone: "neutral" },
+  other: { label: "Інше", tone: "neutral" },
+};
+
+/** Ключі того ж словника — для zod-енумів і перевірки імпорту. */
+export const ACCESSORY_TYPES = Object.keys(accessoryType) as [string, ...string[]];
+
 /* -------------------------------------------------------------------- parts */
 
 /** `parts.type` — plain text. */

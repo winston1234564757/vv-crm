@@ -9,6 +9,7 @@ import { AccessoryForm } from "@/components/forms/AccessoryForm";
 import { AccessoryDetailView } from "@/components/AccessoryDetailView";
 import { InlineError } from "@/components/ui/InlineError";
 import type { SaleWithDetails } from "@/lib/data-sales";
+import { accessoryType, labelOf } from "@/lib/domain-labels";
 
 type AccessoryRow = {
   id: string;
@@ -27,7 +28,10 @@ type AccessoryRow = {
   photo_urls?: string[] | null;
 };
 
-const typeLabels: Record<string, string> = { case: "Чохол", screen_protector: "Захисне скло", charger: "Зарядка", cable: "Кабель", headphones: "Навушники", other: "Інше" };
+/* «Усі» плюс усі категорії словника — раніше список був набраний руками, і
+   «Інше» в нього не потрапило: аксесуари цієї категорії не показувалися в
+   жодному фільтрі, крім «Усі». */
+const TYPE_FILTERS = ["all", ...Object.keys(accessoryType)];
 
 export function AccessoriesTable({ accessories, sales = [] }: { accessories: AccessoryRow[]; sales?: SaleWithDetails[] }) {
   const [query, setQuery] = useState("");
@@ -65,13 +69,13 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {["all", "case", "screen_protector", "charger", "cable", "headphones"].map((f) => (
+          {TYPE_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${filter === f ? "bg-violet text-white" : "bg-violet/5 text-text-secondary hover:bg-violet/10 hover:text-text-primary"}`}
             >
-              {f === "all" ? "Усі" : typeLabels[f]}
+              {f === "all" ? "Усі" : labelOf(accessoryType, f).label}
             </button>
           ))}
         </div>
@@ -100,7 +104,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                       )}
                     </div>
                     <span className="text-[10px] bg-iris/5 px-2 py-0.5 rounded font-medium text-text-secondary">
-                      {typeLabels[a.type] || a.type}
+                      {labelOf(accessoryType, a.type).label}
                     </span>
                   </div>
 
@@ -183,7 +187,7 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                     className="border-b border-iris/5 text-text-primary transition-colors hover:bg-violet/[0.02] cursor-pointer"
                   >
                     <td className="py-3 pr-4 font-medium">{a.name}</td>
-                    <td className="py-3 pr-4 text-text-secondary text-xs">{typeLabels[a.type]}</td>
+                    <td className="py-3 pr-4 text-text-secondary text-xs">{labelOf(accessoryType, a.type).label}</td>
                     <td className="py-3 pr-4 text-right">{a.price.toLocaleString()} грн</td>
                     <td className="py-3 pr-4 text-right text-text-secondary">{a.cost_price.toLocaleString()} грн</td>
                     <td className="py-3 pr-4 text-right font-medium">{a.stock}</td>

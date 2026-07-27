@@ -9,6 +9,7 @@ import type { ActionState } from "./types";
 import type { Database } from "@/types/database";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadMediaFiles } from "@/lib/supabase/storage";
+import { ACCESSORY_TYPES } from "@/lib/domain-labels";
 
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
 type AccessoryInsert = Database["public"]["Tables"]["accessories"]["Insert"];
@@ -18,7 +19,7 @@ type ServiceUpdate = Database["public"]["Tables"]["services"]["Update"];
 
 
 const accessorySchema = z.object({
-  type: z.enum(["case", "charger", "cable", "headphones", "screen_protector", "other"]),
+  type: z.enum(ACCESSORY_TYPES),
   name: z.string().min(1, "Назва обов'язкова"),
   price: z.coerce.number().min(0),
   cost_price: z.coerce.number().min(0),
@@ -209,7 +210,7 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
     
     const schema = z.array(z.object({
       name: z.string().min(1, "Назва обов'язкова"),
-      type: z.enum(["case", "charger", "cable", "headphones", "screen_protector", "other"]),
+      type: z.enum(ACCESSORY_TYPES),
       price: z.coerce.number().min(0, "Ціна не може бути менше 0"),
       cost_price: z.coerce.number().min(0, "Собівартість не може бути менше 0"),
       stock: z.coerce.number().min(0, "Кількість не може бути менше 0"),

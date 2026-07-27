@@ -1,8 +1,9 @@
 "use client";
 
-import { 
+import {
   IconEdit, IconFinance, IconBox, IconWarning, IconCheck
 } from "./icons";
+import { accessoryType, labelOf } from "@/lib/domain-labels";
 
 type AccessoryDetailViewProps = {
   accessory: {
@@ -32,14 +33,6 @@ type AccessoryDetailViewProps = {
   onClose: () => void;
 };
 
-const typeLabels: Record<string, string> = {
-  case: "Чохол",
-  screen_protector: "Захисне скло",
-  charger: "Зарядка",
-  cable: "Кабель",
-  headphones: "Навушники",
-  other: "Інше"
-};
 
 export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: AccessoryDetailViewProps) {
   const margin = accessory.price - accessory.cost_price;
@@ -53,7 +46,7 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-text-secondary">#{accessory.id.substring(0, 8)}</span>
             <span className="rounded-lg bg-violet/5 text-violet px-2.5 py-1 text-[11px] font-semibold">
-              {typeLabels[accessory.type] || accessory.type}
+              {labelOf(accessoryType, accessory.type).label}
             </span>
             <span className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
               accessory.is_visible ? "text-cyan bg-cyan/10" : "text-text-muted bg-warm-sidebar"
