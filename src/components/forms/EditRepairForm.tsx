@@ -80,7 +80,10 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
     id: string;
     part_id: string;
     quantity: number;
+    /** Собівартість — рахує прибуток, у чек не потрапляє. */
     unit_cost: number;
+    /** Ціна для клієнта — саме вона друкується в гарантійному талоні. */
+    unit_price: number;
     parts: {
       name: string;
       compatible_with: string | null;
@@ -91,11 +94,13 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
     name: string;
     stock: number;
     cost_price: number;
+    price: number | null;
     compatible_with: string | null;
   }>>([]);
   const [selectedPartId, setSelectedPartId] = useState<string>("");
   const [partQty, setPartQty] = useState<number>(1);
   const [partCost, setPartCost] = useState<string>("");
+  const [partPrice, setPartPrice] = useState<string>("");
   const [partsLoading, setPartsLoading] = useState<boolean>(true);
   const [partActionPending, setPartActionPending] = useState<boolean>(false);
 
@@ -104,8 +109,13 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
     const part = availableParts.find(p => p.id === partId);
     if (part) {
       setPartCost(part.cost_price.toString());
+      /* Ціна з каталогу, а якщо її не проставили — собівартість. Порожнє поле
+         тут означало б нуль у чеку: деталь виглядала б безкоштовною, а вся
+         сума ремонту — як вартість робіт. */
+      setPartPrice((part.price || part.cost_price).toString());
     } else {
       setPartCost("");
+      setPartPrice("");
     }
   };
 
@@ -117,7 +127,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
       // 1. Fetch allocated parts
       const { data: allocated, error: allocErr } = await supabase
         .from("repair_parts")
-        .select("id, part_id, quantity, unit_cost, parts(name, compatible_with)")
+        .select("id, part_id, quantity, unit_cost, unit_price, parts(name, compatible_with)")
         .eq("repair_id", repair.id);
         
       if (!allocErr && allocated) {
@@ -127,7 +137,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
       // 2. Fetch available parts
       const { data: available, error: availErr } = await supabase
         .from("parts")
-        .select("id, name, stock, cost_price, compatible_with")
+        .select("id, name, stock, cost_price, price, compatible_with")
         .gt("stock", 0)
         .order("name");
         
@@ -178,6 +188,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
     formData.append("partId", selectedPartId);
     formData.append("quantity", partQty.toString());
     formData.append("unitCost", partCost || part.cost_price.toString());
+    formData.append("unitPrice", partPrice || (part.price || part.cost_price).toString());
 
     const res = await addPartToRepairAction(null, formData);
     setPartActionPending(false);
@@ -188,6 +199,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
       setSelectedPartId("");
       setPartQty(1);
       setPartCost("");
+      setPartPrice("");
       fetchPartsData();
       router.refresh();
     } else {
@@ -438,11 +450,20 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
                   )}
                 </div>
                 <div className="flex items-center gap-4">
+                  {/* Наперед — ціна клієнта: саме вона піде в чек. Собівартість
+                      поруч дрібним, бо вона потрібна лише для прибутку.
+                      Деталі, списані до появи окремої ціни, мають unit_price 0 —
+                      для них показується собівартість, як було раніше. */}
                   <div className="text-right">
                     <span className="font-medium text-text-secondary">
-                      {item.quantity} шт. × {item.unit_cost} грн
+                      {item.quantity} шт. × {item.unit_price || item.unit_cost} грн
                     </span>
-                    <p className="font-bold text-violet">{item.quantity * item.unit_cost} грн</p>
+                    <p className="font-bold text-violet">
+                      {item.quantity * (item.unit_price || item.unit_cost)} грн
+                    </p>
+                    <p className="text-[10px] text-text-secondary/70">
+                      собівартість {item.unit_cost} грн
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -462,7 +483,7 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
         {/* Форма додавання запчастини */}
         <div className="pt-2 border-t border-iris/10">
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="md:col-span-1">
                 <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Оберіть деталь</label>
                 <select
@@ -501,6 +522,24 @@ export function EditRepairForm({ repair, onSuccess }: { repair: RepairData, onSu
                   placeholder={selectedPartId ? (availableParts.find(p => p.id === selectedPartId)?.cost_price.toString() || "") : "0"}
                   value={partCost}
                   onChange={(e) => setPartCost(e.target.value)}
+                  disabled={!selectedPartId || partActionPending}
+                  className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
+                />
+              </div>
+
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-medium text-text-secondary"
+                  title="Ця ціна друкується в гарантійному талоні"
+                >
+                  Ціна клієнту (грн)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder={selectedPartId ? ((availableParts.find(p => p.id === selectedPartId)?.price || availableParts.find(p => p.id === selectedPartId)?.cost_price || 0).toString()) : "0"}
+                  value={partPrice}
+                  onChange={(e) => setPartPrice(e.target.value)}
                   disabled={!selectedPartId || partActionPending}
                   className="w-full rounded-xl border border-iris/20 bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-violet"
                 />
