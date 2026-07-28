@@ -24,3 +24,25 @@ describe("баланси кас підсумовуються лише через
     });
   }
 });
+
+// Негативний regex вище прив'язаний до конкретного імені змінної
+// (`cashRegisters`). Якщо масив кас перейменують (як-от `registers` у
+// ai-chat/route.ts), той regex мовчки перестає щось ловити — рефактор може
+// непомітно повернути ручний reduce(...).balance під новим ім'ям, і тест
+// все одно буде зелений. Ця перевірка не залежить від імені змінної: вона
+// вимагає, щоб у файлі реально був виклик splitByKind.
+//
+// src/lib/data-finance.ts свідомо не входить сюди: getFinanceData() — це
+// шар сирих даних, він повертає cashRegisters як є й не класифікує їх.
+// Класифікація відбувається у споживача, src/app/admin/finance/page.tsx,
+// який уже охоплений цією перевіркою окремо.
+const CLASSIFIES_DIRECTLY = GUARDED.filter((file) => file !== "src/lib/data-finance.ts");
+
+describe("файли, що класифікують каси, дійсно викликають splitByKind", () => {
+  for (const file of CLASSIFIES_DIRECTLY) {
+    it(`${file} використовує splitByKind`, () => {
+      const src = readFileSync(file, "utf8");
+      expect(src.includes("splitByKind"), `${file} не викликає splitByKind`).toBe(true);
+    });
+  }
+});
