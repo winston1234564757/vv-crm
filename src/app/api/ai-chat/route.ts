@@ -9,7 +9,7 @@ import {
   buildFinanceCopilotSystem,
 } from "@/lib/ai-prompts";
 import { getFinanceReport } from "@/lib/data-finance";
-import { splitByKind } from "@/lib/utils/finance";
+import { splitByKind, isCashless } from "@/lib/utils/finance";
 
 type ChatEntity = "customer" | "repair" | "finance";
 
@@ -121,13 +121,19 @@ export async function POST(request: NextRequest) {
       const report = await getFinanceReport("30d");
       const registerKinds = splitByKind(registers);
 
+      // Рахунок безготівки прибираємо зі списку кас, а не лише з підсумку:
+      // інакше промпт каже «Каси: 0 ₴ (…, Безготівка: 1300)» — сума й перелік
+      // у тих самих дужках суперечать одне одному, і суперечність доводиться
+      // латати припискою «не додавай». Безготівка йде окремим рядком нижче.
+      const cashRegisters = registers.filter((r) => !isCashless(r.type));
+
       systemPrompt = buildFinanceCopilotSystem({
         totalCash: registerKinds.cash,
         totalSafes: safes.reduce((s, r) => s + r.balance, 0),
         totalExpenses: report.totalExpenses,
         totalRevenue: report.totalSales + report.repairsRevenue,
         profit: report.profit,
-        registers,
+        registers: cashRegisters,
         safes,
       });
 

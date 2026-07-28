@@ -334,8 +334,14 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
 
         const category =
           dist.type === "tech" ? "device" : dist.type === "accessories" ? "accessory" : "service";
-        const targetRegisterId = regMap[targetRegisterType(p.method, category)];
-        if (!targetRegisterId) continue;
+        const regType = targetRegisterType(p.method, category);
+        const targetRegisterId = regMap[regType];
+        // Пропустити рядок означало б створити продаж із нульовою оплатою:
+        // виторг записано, грошей ніде, помилки нема. Швидкий продаж у цьому
+        // ж файлі кидає — тут має бути так само.
+        if (!targetRegisterId) {
+          throw new Error(`Касу типу "${regType}" не знайдено в системі.`);
+        }
 
         const paymentMethodText = p.method === "cash" ? "Готівка" : p.method === "card" ? "Картка" : "Переказ";
         const catText = dist.type === "tech" ? "Техніка" : dist.type === "accessories" ? "Аксесуари" : "Послуги";
