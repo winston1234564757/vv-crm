@@ -9,6 +9,7 @@ import {
   buildFinanceCopilotSystem,
 } from "@/lib/ai-prompts";
 import { getFinanceReport } from "@/lib/data-finance";
+import { splitByKind } from "@/lib/utils/finance";
 
 type ChatEntity = "customer" | "repair" | "finance";
 
@@ -118,9 +119,10 @@ export async function POST(request: NextRequest) {
       const registers = registersRes.data || [];
       const safes = safesRes.data || [];
       const report = await getFinanceReport("30d");
+      const registerKinds = splitByKind(registers);
 
       systemPrompt = buildFinanceCopilotSystem({
-        totalCash: registers.reduce((s, r) => s + r.balance, 0),
+        totalCash: registerKinds.cash,
         totalSafes: safes.reduce((s, r) => s + r.balance, 0),
         totalExpenses: report.totalExpenses,
         totalRevenue: report.totalSales + report.repairsRevenue,
@@ -128,6 +130,11 @@ export async function POST(request: NextRequest) {
         registers,
         safes,
       });
+
+      // Безготівка (картка/переказ) — окремий рахунок, а не готівка в шухляді.
+      // Без цього рядка модель дублює суму з розбивки кас і називає картку
+      // готівкою.
+      systemPrompt += `\nБезготівка (картка/переказ, ще не розподілена по сейфах): ${registerKinds.cashless} ₴. Це НЕ готівка — не додавай її до кас.`;
     }
 
     // Передаємо тільки реальну розмову — системний контекст йде через systemInstruction

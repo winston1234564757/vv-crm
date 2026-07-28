@@ -176,4 +176,16 @@ describe("Розділення готівки й безготівки", () => {
   it("невідомий метод вважається безготівковим", () => {
     expect(targetRegisterType("crypto", "device")).toBe(CASHLESS_REGISTER_TYPE);
   });
+
+  // Регресія: до цієї зміни «готівка» дорівнювала сумі всіх кас, тож картка
+  // мовчки рахувалась готівкою. Тест фіксує саме поділ, а не суму.
+  it("картка не потрапляє в готівку навіть коли вона найбільша", () => {
+    const { cash, cashless, total } = splitByKind([
+      { type: "tech", balance: 0 },
+      { type: CASHLESS_REGISTER_TYPE, balance: 5000 },
+    ]);
+    expect(cash).toBe(0);
+    expect(cashless).toBe(5000);
+    expect(total).toBe(5000);
+  });
 });

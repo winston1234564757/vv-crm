@@ -13,6 +13,7 @@ import type { SafeDistribution } from "@/lib/data-settings";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
 import { getPurchases } from "@/lib/data-purchases";
+import { splitByKind } from "@/lib/utils/finance";
 import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
@@ -36,9 +37,11 @@ export default async function FinancePage() {
     getPurchases(),
   ]);
 
-  const totalCash = cashRegisters.reduce((s, c) => s + c.balance, 0);
+  // Сейфи — окрема таблиця, не каса, тому пряме додавання balance тут не є
+  // тим шаблоном, що ловить no-raw-register-sum.test.ts.
   const totalSafes = safes.reduce((s, c) => s + c.balance, 0);
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
+  const kinds = splitByKind(cashRegisters);
 
   const crColors: Record<string, string> = { 
     tech: "var(--color-violet)", 
@@ -184,9 +187,18 @@ export default async function FinancePage() {
               <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
                 <div>
                   <p className="text-[10px] text-text-secondary">Нерозподілені каси</p>
-                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{totalCash.toLocaleString()} ₴</p>
+                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{kinds.cash.toLocaleString()} ₴</p>
                 </div>
                 <span className="h-2 w-2 rounded-full bg-violet animate-pulse" />
+              </div>
+
+              <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
+                {/* Картка/переказ, ще не розподілені по сейфах — не готівка */}
+                <div>
+                  <p className="text-[10px] text-text-secondary">Безготівка</p>
+                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{kinds.cashless.toLocaleString()} ₴</p>
+                </div>
+                <span className="h-2 w-2 rounded-full bg-amber" />
               </div>
 
               <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">

@@ -1,5 +1,6 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
+import { splitByKind } from "@/lib/utils/finance";
 import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
 import {
@@ -97,8 +98,12 @@ export interface DashboardMoney {
   profit: ProfitResult;
   /** Витрати за обраний період (`expenses.created_at`, той самий діапазон, що й profit). */
   expenses: number;
-  /** Сума балансів усіх кас і сейфів. */
+  /** Сума балансів усіх кас і сейфів (готівка + безготівка). */
   cashTotal: number;
+  /** Готівка на руках: каси готівкового типу плюс сейфи. Без безготівки. */
+  cashOnHand: number;
+  /** Нерозподілена картка/переказ — лише рахунок безготівки. */
+  cashless: number;
   runwayDays: number;
   dailyOpex: number;
   /** Прибуток за поточний місяць — незалежно від обраного пресету. */
@@ -162,7 +167,7 @@ async function loadDataset(
   end: Date,
 ): Promise<{
   dataset: ProfitDataset;
-  cashRegisters: { id: string; name: string; balance: number }[];
+  cashRegisters: { id: string; name: string; balance: number; type: string }[];
 }> {
   const startStr = start.toISOString();
   const endStr = end.toISOString();
@@ -198,7 +203,7 @@ async function loadDataset(
           .select("created_at, amount, category_id, paid_from_safe_id")
           .gte("created_at", startStr)
           .lt("created_at", endStr),
-    supabase.from("cash_registers").select("balance, id, name"),
+    supabase.from("cash_registers").select("balance, id, name, type"),
   ]);
 
   const salesData = supabaseCast<
@@ -394,9 +399,14 @@ export async function getDashboardMoney(
   const toKey = dayKey(new Date(chartWin.end.getTime() - 1));
   const series = chartWin.empty ? [] : daily.filter((p) => p.day >= fromKey && p.day <= toKey);
 
-  const cashTotal =
-    loaded.cashRegisters.reduce((s, c) => s + c.balance, 0) +
-    (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
+  const registerKinds = splitByKind(loaded.cashRegisters);
+  const safesTotal = (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
+
+  // Сейфи — спільний котел: після розподілу картка в них уже невідрізнима
+  // від готівки. Тому безготівкою вважається лише нерозподілене на рахунку.
+  const cashless = registerKinds.cashless;
+  const cashOnHand = registerKinds.cash + safesTotal;
+  const cashTotal = cashOnHand + cashless;
 
   // OPEX run-rate: 30 повних календарних днів із датасету, без вилучень
   // прибутку і без одноразових бурстів (> 50k). Раніше це було ковзне вікно
@@ -456,6 +466,8 @@ export async function getDashboardMoney(
     profit: main.profit,
     expenses: main.expenses,
     cashTotal,
+    cashOnHand,
+    cashless,
     runwayDays,
     dailyOpex,
     monthProfit: month.profit.profit,
