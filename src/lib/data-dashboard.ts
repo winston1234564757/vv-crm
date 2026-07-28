@@ -136,12 +136,12 @@ export interface DashboardMoney {
      * чеків. `cardRevenue` — сума нечеготівкових спліт-оплат; `cashRevenue` =
      * `revenue − cardRevenue`, притиснуто знизу до нуля.
      *
-     * Обидві бази рахуються по-різному: `revenue` — це виторг з розподіленою
-     * знижкою (`allocateSaleRevenue`) і ВКЛЮЧАЄ ремонти дня, а спліт-оплати —
-     * сирі суми, прив'язані лише до продажів. Ремонт, оплачений карткою,
-     * потрапляє у виторг, але не в `cardRevenue` — тому різниця може піти в
-     * мінус (ремонт-рефанд дня, чек із заокругленням). Такий випадок
-     * притискаємо до нуля, а не показуємо від'ємну готівку.
+     * `revenue` — це виторг ЛИШЕ з продажів (категорія `repair` з
+     * `byCategory` виключена навмисно, картка про ремонти нічого не каже), з
+     * розподіленою знижкою (`allocateSaleRevenue`). Спліт-оплати рахуються з
+     * тих самих чеків, тож база тепер спільна для обох чисел — `Math.max(0,
+     * …)` лишається лише підстраховкою на округлення знижки/рефанду в межах
+     * чека, а не заглушкою на чужу категорію.
      */
     cashRevenue: number;
     cardRevenue: number;
@@ -486,11 +486,19 @@ export async function getDashboardMoney(
         .reduce((a, p) => a + p.amount, 0),
     0,
   );
-  // Притиснуто до нуля: `today.profit.revenue` рахується інакше, ніж сирі
-  // спліт-оплати (включає ремонти дня, знижка розподілена по позиціях), тож
-  // на ремонт-рефанді чи заокругленні різниця може піти в мінус. Від'ємна
-  // «готівка» на дашборді — гірше, ніж трохи занижена сума.
-  const todayCashRevenue = Math.max(0, today.profit.revenue - todayCardRevenue);
+  // Виторг картки «Продажі сьогодні» — ЛИШЕ продажі: `today.profit.revenue`
+  // рахує усі категорії, включно з `repair`, а в ремонтів взагалі немає
+  // `payment_splits`. Раніше це заганяло виторг ремонту, оплаченого карткою,
+  // у готівку — рутинний випадок для сервісу телефонів, не крайній. Тепер
+  // база та сама, що в `cardRevenue`: усі категорії `byCategory`, крім
+  // `repair`, з розподіленою знижкою.
+  const todaySalesRevenue = today.profit.byCategory
+    .filter((c) => c.category !== "repair")
+    .reduce((s, c) => s + c.revenue, 0);
+  // Притиснуто до нуля лише як підстраховка на округлення розподіленої
+  // знижки чи рефанд у межах дня — база вже узгоджена з `cardRevenue`, тож
+  // від'ємне значення тут означати мало б лише копійчану похибку заокруглення.
+  const todayCashRevenue = Math.max(0, todaySalesRevenue - todayCardRevenue);
 
   const partnerLedger = buildLedger({
     // Чистими від епохи: денний ряд уже покриває саме це вікно. Довідково —
@@ -521,7 +529,7 @@ export async function getDashboardMoney(
     daily,
     todaySales: {
       count: todayReceipts.length,
-      revenue: today.profit.revenue,
+      revenue: todaySalesRevenue,
       cardRevenue: todayCardRevenue,
       cashRevenue: todayCashRevenue,
       receipts: todayReceipts.slice(0, TODAY_RECEIPTS_SHOWN).map((s) => ({
