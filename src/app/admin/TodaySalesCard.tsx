@@ -28,6 +28,13 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
         {today.count > 0 && (
           <span className="text-xs text-muted">
             на <span className="font-semibold tabular text-ink">{uah(today.revenue)}</span>
+            {/*
+              Підпис не косметичний. Ця цифра — лише продажі, а hero над нею
+              рахує ще й ремонти, тож у день із ремонтами вони законно різні.
+              Без пояснення на екрані це читається як помилка або як падіння
+              виторгу, і різницю доводиться шукати в коді.
+            */}
+            {" "}<span className="text-faint">без ремонтів</span>
           </span>
         )}
         {today.count > 0 && (
