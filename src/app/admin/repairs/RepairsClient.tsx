@@ -162,9 +162,11 @@ export function RepairsClient({
   function openPayment(r: RepairWithPayments) {
     setPaying(r);
     setPayAmount(String(outstanding(r, r.paid_amount)));
-    setPayRegister(
-      cashRegisters.find((c) => c.type === "repairs")?.id ?? cashRegisters[0]?.id ?? "",
-    );
+    // Без запасного варіанту навмисно: якщо каси ремонтів немає, підстановка
+    // будь-якої іншої каси (напр. технічної) мовчки провела б оплату туди,
+    // де жодна з кнопок не виглядає вибраною. Порожній payRegister блокує
+    // кнопку — і це видно користувачу, а не ховається під капотом.
+    setPayRegister(cashRegisters.find((c) => c.type === "repairs")?.id ?? "");
   }
 
   const actionColumn = {
@@ -369,18 +371,20 @@ export function RepairsClient({
           */}
           <div>
             <p className="mb-1.5 block text-xs font-medium text-muted">Спосіб оплати</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Спосіб оплати">
               {([
                 { key: "cash", label: "Готівкою", type: "repairs" },
                 { key: "card", label: "Карткою", type: CASHLESS_REGISTER_TYPE },
               ] as const).map((opt) => {
                 const target = cashRegisters.find((c) => c.type === opt.type);
+                const selected = payRegister === target?.id;
                 return (
                   <Button
                     key={opt.key}
                     type="button"
-                    variant={payRegister === target?.id ? "primary" : "secondary"}
+                    variant={selected ? "primary" : "secondary"}
                     disabled={!target}
+                    aria-pressed={selected}
                     onClick={() => target && setPayRegister(target.id)}
                   >
                     {opt.label}
