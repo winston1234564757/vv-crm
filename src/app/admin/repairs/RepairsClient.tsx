@@ -21,6 +21,7 @@ import { EditRepairForm } from "@/components/forms/EditRepairForm";
 import { AddRepairButton } from "./AddRepairButton";
 
 import { updateRepairStatus, payRepair } from "@/lib/actions/repairs";
+import { CASHLESS_REGISTER_TYPE } from "@/lib/utils/finance";
 import { optionsOf, repairStatus, repairSource } from "@/lib/domain-labels";
 import {
   repairGroup,
@@ -69,7 +70,8 @@ export function RepairsClient({
   const [isEditing, setIsEditing] = useState(false);
   const [paying, setPaying] = useState<RepairWithPayments | null>(null);
   const [payAmount, setPayAmount] = useState("");
-  const [payRegister, setPayRegister] = useState("");
+  const repairsRegisterId = cashRegisters.find((c) => c.type === "repairs")?.id ?? "";
+  const [payRegister, setPayRegister] = useState(repairsRegisterId);
   const [handover, setHandover] = useState<RepairWithPayments | null>(null);
 
   const rows: RepairWithPayments[] = useMemo(
@@ -359,17 +361,34 @@ export function RepairsClient({
             }
             hint={`Залишок за ремонтом — ${owed.toLocaleString()} ₴. Часткову оплату можна прийняти кілька разів.`}
           />
-          <Select
-            label="Каса"
-            value={payRegister}
-            onChange={(e) => setPayRegister(e.target.value)}
-          >
-            {cashRegisters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          {/*
+            Замість списку кас — спосіб оплати. Каса виводиться з нього сама:
+            готівка йде в касу ремонтів, картка — на рахунок безготівки.
+            Кліків не більшає, а спосіб оплати нарешті фіксується: раніше
+            `pay_repair` не знав його взагалі.
+          */}
+          <div>
+            <p className="mb-1.5 block text-xs font-medium text-muted">Спосіб оплати</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: "cash", label: "Готівкою", type: "repairs" },
+                { key: "card", label: "Карткою", type: CASHLESS_REGISTER_TYPE },
+              ] as const).map((opt) => {
+                const target = cashRegisters.find((c) => c.type === opt.type);
+                return (
+                  <Button
+                    key={opt.key}
+                    type="button"
+                    variant={payRegister === target?.id ? "primary" : "secondary"}
+                    disabled={!target}
+                    onClick={() => target && setPayRegister(target.id)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </Modal>
 
