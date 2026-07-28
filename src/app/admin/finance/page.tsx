@@ -13,7 +13,7 @@ import type { SafeDistribution } from "@/lib/data-settings";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
 import { getPurchases } from "@/lib/data-purchases";
-import { splitByKind } from "@/lib/utils/finance";
+import { splitByKind, isCashless } from "@/lib/utils/finance";
 import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
@@ -43,10 +43,11 @@ export default async function FinancePage() {
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
-  const crColors: Record<string, string> = { 
-    tech: "var(--color-violet)", 
-    accessories: "var(--color-cyan)", 
-    repairs: "var(--color-amber)" 
+  const crColors: Record<string, string> = {
+    tech: "var(--color-violet)",
+    accessories: "var(--color-cyan)",
+    repairs: "var(--color-amber)",
+    cashless: "var(--color-emerald)",
   };
   const sfColors: Record<string, string> = { 
     opex: "var(--color-rose)", 
@@ -116,13 +117,27 @@ export default async function FinancePage() {
           <div className="space-y-4">
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1 tracking-tight">Розподіл ліквідності</h3>
             
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+              <span className="text-xs text-text-secondary">
+                Готівкою <span className="font-mono font-bold text-text-primary">{kinds.cash.toLocaleString()} ₴</span>
+              </span>
+              <span className="text-xs text-text-secondary">
+                Карткою <span className="font-mono font-bold text-text-primary">{kinds.cashless.toLocaleString()} ₴</span>
+              </span>
+              <span className="text-xs text-text-secondary">
+                Разом <span className="font-mono font-bold text-text-primary">{kinds.total.toLocaleString()} ₴</span>
+              </span>
+            </div>
+
             {/* Cash Registers layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {cashRegisters.map((cr) => (
                 <div key={cr.id} className="card p-4 bg-warm-surface border border-warm-border relative overflow-hidden flex flex-col justify-between min-h-[90px] card-hover transition-all duration-200">
                   <div className="absolute left-0 top-0 h-1 w-full" style={{ backgroundColor: crColors[cr.type] ?? "var(--color-iris)" }} />
                   <div>
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-text-muted">ПОТОЧНА КАСА</span>
+                    <span className="font-mono text-[8px] uppercase tracking-wider text-text-muted">
+                      {isCashless(cr.type) ? "БЕЗГОТІВКОВИЙ РАХУНОК" : "ПОТОЧНА КАСА"}
+                    </span>
                     <h4 className="text-xs font-semibold text-text-primary mt-0.5">{cr.name}</h4>
                   </div>
                   <p className="text-lg font-bold text-text-primary mt-2 font-mono">{cr.balance.toLocaleString()} ₴</p>
