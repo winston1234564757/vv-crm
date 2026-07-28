@@ -29,6 +29,11 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
             на <span className="font-semibold tabular text-ink">{uah(today.revenue)}</span>
           </span>
         )}
+        {today.count > 0 && (
+          <span className="text-xs text-muted">
+            {uah(today.cashRevenue)} готівкою · {uah(today.cardRevenue)} карткою
+          </span>
+        )}
       </CardStat>
 
       {today.count === 0 ? (

@@ -117,6 +117,8 @@ export function DashboardClient({
             <MoneyBreakdownCard preset={preset} money={money} targets={targets} />
             <CashCard
               cashTotal={money.cashTotal}
+              cashOnHand={money.cashOnHand}
+              cashless={money.cashless}
               runwayDays={money.runwayDays}
               dailyOpex={money.dailyOpex}
             />

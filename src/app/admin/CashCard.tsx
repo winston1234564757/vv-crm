@@ -14,19 +14,23 @@ const RUNWAY_WARN_DAYS = 14;
  * звіряють із фізичною готівкою в кишені, і воно має читатися з першого
  * погляду, а не вишукуватись.
  *
- * Свідомо БЕЗ розбивки по касах. Три числа замість одного перетворюють
- * «скільки в мене грошей» на задачку на додавання; розклад по касах живе у
- * Фінансах, куди веде посилання.
+ * Свідомо БЕЗ розбивки по касах — окрім готівка/картка одразу під головною
+ * цифрою. Далі не заглиблюємось: розклад по касах живе у Фінансах, куди веде
+ * посилання.
  *
  * Запас OPEX стоїть поруч, бо це та сама цифра з іншого боку: скільки ця
  * готівка протримає магазин при поточному темпі витрат.
  */
 export function CashCard({
   cashTotal,
+  cashOnHand,
+  cashless,
   runwayDays,
   dailyOpex,
 }: {
   cashTotal: number;
+  cashOnHand: number;
+  cashless: number;
   runwayDays: number;
   dailyOpex: number;
 }) {
@@ -41,7 +45,11 @@ export function CashCard({
       <p className="font-display text-[2.5rem] font-semibold leading-none tabular tracking-tight text-ink">
         {uah(cashTotal)}
       </p>
-      <p className="mt-2 text-xs text-muted">у касах і сейфах разом</p>
+      <p className="mt-1 text-xs text-muted">
+        готівкою <span className="tabular text-ink">{uah(cashOnHand)}</span>
+        {" · "}
+        на карті <span className="tabular text-ink">{uah(cashless)}</span>
+      </p>
 
       <p className="mt-auto pt-4 text-xs text-muted">
         Вистачить на{" "}

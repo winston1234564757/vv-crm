@@ -131,6 +131,20 @@ export interface DashboardMoney {
   todaySales: {
     count: number;
     revenue: number;
+    /**
+     * Розбивка виторгу дня за методом оплати, з `payment_splits` сьогоднішніх
+     * чеків. `cardRevenue` — сума нечеготівкових спліт-оплат; `cashRevenue` =
+     * `revenue − cardRevenue`, притиснуто знизу до нуля.
+     *
+     * Обидві бази рахуються по-різному: `revenue` — це виторг з розподіленою
+     * знижкою (`allocateSaleRevenue`) і ВКЛЮЧАЄ ремонти дня, а спліт-оплати —
+     * сирі суми, прив'язані лише до продажів. Ремонт, оплачений карткою,
+     * потрапляє у виторг, але не в `cardRevenue` — тому різниця може піти в
+     * мінус (ремонт-рефанд дня, чек із заокругленням). Такий випадок
+     * притискаємо до нуля, а не показуємо від'ємну готівку.
+     */
+    cashRevenue: number;
+    cardRevenue: number;
     /** Найновіші першими, обрізано до `TODAY_RECEIPTS_SHOWN`. */
     receipts: { id: string; at: string; amount: number }[];
   };
@@ -168,6 +182,12 @@ async function loadDataset(
 ): Promise<{
   dataset: ProfitDataset;
   cashRegisters: { id: string; name: string; balance: number; type: string }[];
+  /**
+   * Спліт-оплати продажів, ключ — `sales.id`. Живе окремо від `DatedSale`
+   * (тип спільний з `lib/profit`, який про оплати нічого не знає) — потрібні
+   * лише для розбивки готівка/картка в картці «Продажі сьогодні».
+   */
+  paymentSplitsBySale: Map<string, { amount: number; method: string }[]>;
 }> {
   const startStr = start.toISOString();
   const endStr = end.toISOString();
@@ -179,7 +199,7 @@ async function loadDataset(
       : supabase
           .from("sales")
           .select(
-            "id, created_at, total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)",
+            "id, created_at, total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price), payment_splits(amount, method)",
           )
           .gte("created_at", startStr)
           .lt("created_at", endStr),
@@ -213,6 +233,7 @@ async function loadDataset(
       total_amount: number;
       discount: number | null;
       sale_items: ProfitSaleItem[] | null;
+      payment_splits: { amount: number; method: string }[] | null;
     }[]
   >(salesRes.data ?? []);
 
@@ -245,6 +266,11 @@ async function loadDataset(
     items: s.sale_items ?? [],
   }));
 
+  const paymentSplitsBySale = new Map<string, { amount: number; method: string }[]>();
+  for (const s of salesData) {
+    paymentSplitsBySale.set(s.id, s.payment_splits ?? []);
+  }
+
   const repairs: DatedRepair[] = toDatedRepairs(
     supabaseCast<RepairPnlRow[]>(repairsRes.data ?? []),
     start,
@@ -261,6 +287,7 @@ async function loadDataset(
   return {
     dataset: { sales, repairs, expenses, devices, windowStart: start },
     cashRegisters: cashRes.data ?? [],
+    paymentSplitsBySale,
   };
 }
 
@@ -449,6 +476,22 @@ export async function getDashboardMoney(
     })
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
+  // Лише продажі. Оплати ремонтів і аванси карткою сюди не входять — вони
+  // живуть в інших картках, а повна картина по карті це баланс рахунку.
+  const todayCardRevenue = todayReceipts.reduce(
+    (s, r) =>
+      s +
+      (loaded.paymentSplitsBySale.get(r.id) ?? [])
+        .filter((p) => p.method !== "cash")
+        .reduce((a, p) => a + p.amount, 0),
+    0,
+  );
+  // Притиснуто до нуля: `today.profit.revenue` рахується інакше, ніж сирі
+  // спліт-оплати (включає ремонти дня, знижка розподілена по позиціях), тож
+  // на ремонт-рефанді чи заокругленні різниця може піти в мінус. Від'ємна
+  // «готівка» на дашборді — гірше, ніж трохи занижена сума.
+  const todayCashRevenue = Math.max(0, today.profit.revenue - todayCardRevenue);
+
   const partnerLedger = buildLedger({
     // Чистими від епохи: денний ряд уже покриває саме це вікно. Довідково —
     // нарахування рахується з сейфа, а не звідси.
@@ -479,6 +522,8 @@ export async function getDashboardMoney(
     todaySales: {
       count: todayReceipts.length,
       revenue: today.profit.revenue,
+      cardRevenue: todayCardRevenue,
+      cashRevenue: todayCashRevenue,
       receipts: todayReceipts.slice(0, TODAY_RECEIPTS_SHOWN).map((s) => ({
         id: s.id,
         at: s.created_at,
