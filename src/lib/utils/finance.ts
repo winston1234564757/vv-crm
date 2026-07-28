@@ -136,7 +136,7 @@ export function validateDiscount(discount: unknown): number {
 export function validateSplitPayment(total: number, cash: unknown, card: unknown): { cash: number; card: number } {
   const cashNum = Number(cash);
   const cardNum = Number(card);
-  
+
   if (isNaN(cashNum) || cashNum < 0) {
     throw new Error("Сума готівки має бути невід'ємним числом");
   }
@@ -146,6 +146,55 @@ export function validateSplitPayment(total: number, cash: unknown, card: unknown
   if (cashNum + cardNum > total) {
     throw new Error("Сума спліт-оплати не може перевищувати загальну суму");
   }
-  
+
   return { cash: cashNum, card: cardNum };
+}
+
+/**
+ * Тип рядка `cash_registers`, який означає безготівковий рахунок.
+ *
+ * Безготівка — це не каса: фізично цих грошей у шухляді немає. Але окрема
+ * таблиця коштувала б третього виду сховища в кожному шляху читання, тож
+ * рахунок живе поруч із касами й відрізняється саме типом.
+ */
+export const CASHLESS_REGISTER_TYPE = "cashless";
+
+export function isCashless(type: string): boolean {
+  return type === CASHLESS_REGISTER_TYPE;
+}
+
+/**
+ * Ділить баланси контейнерів на готівку й безготівку.
+ *
+ * Живе тут, а не чотирма копіями в дашборді, фінансах і AI-роуті: у цьому
+ * проєкті вже є слід від скопійованого правила — `EARNED_REPAIR_STATUSES`
+ * колись розійшовся по незалежних копіях і почав означати різне.
+ */
+export function splitByKind<T extends { type: string; balance: number }>(
+  registers: T[],
+): { cash: number; cashless: number; total: number } {
+  let cash = 0;
+  let cashless = 0;
+  for (const r of registers) {
+    if (isCashless(r.type)) cashless += r.balance;
+    else cash += r.balance;
+  }
+  return { cash, cashless, total: cash + cashless };
+}
+
+/**
+ * У який тип каси має лягти платіж.
+ *
+ * Метод важливіший за категорію: категорія обирає касу лише тоді, коли гроші
+ * справді готівкові. Усе інше — картка, переказ, невідоме — їде на безготівку,
+ * бо в шухляду воно не потрапляє.
+ */
+export function targetRegisterType(
+  method: string,
+  category: "device" | "accessory" | "service",
+): string {
+  if (method !== "cash") return CASHLESS_REGISTER_TYPE;
+  if (category === "accessory") return "accessories";
+  if (category === "service") return "repairs";
+  return "tech";
 }

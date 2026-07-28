@@ -119,3 +119,61 @@ describe("Finance Utils", () => {
     });
   });
 });
+
+import {
+  CASHLESS_REGISTER_TYPE,
+  isCashless,
+  splitByKind,
+  targetRegisterType,
+} from "../finance";
+
+describe("Розділення готівки й безготівки", () => {
+  const registers = [
+    { type: "tech", balance: 100 },
+    { type: "accessories", balance: 250 },
+    { type: "repairs", balance: 50 },
+    { type: CASHLESS_REGISTER_TYPE, balance: 1300 },
+  ];
+
+  it("splitByKind рахує готівку окремо від картки", () => {
+    expect(splitByKind(registers)).toEqual({ cash: 400, cashless: 1300, total: 1700 });
+  });
+
+  it("splitByKind на порожньому списку дає нулі, а не NaN", () => {
+    expect(splitByKind([])).toEqual({ cash: 0, cashless: 0, total: 0 });
+  });
+
+  it("splitByKind без рахунку безготівки дає cashless = 0", () => {
+    expect(splitByKind([{ type: "tech", balance: 100 }])).toEqual({
+      cash: 100,
+      cashless: 0,
+      total: 100,
+    });
+  });
+
+  it("isCashless впізнає лише рахунок безготівки", () => {
+    expect(isCashless(CASHLESS_REGISTER_TYPE)).toBe(true);
+    expect(isCashless("tech")).toBe(false);
+    expect(isCashless("")).toBe(false);
+  });
+
+  // Головне правило: метод важливіший за категорію. Саме його бракувало,
+  // коли 1300 карткою потрапили в касу аксесуарів.
+  it("готівка йде в касу за категорією товару", () => {
+    expect(targetRegisterType("cash", "device")).toBe("tech");
+    expect(targetRegisterType("cash", "accessory")).toBe("accessories");
+    expect(targetRegisterType("cash", "service")).toBe("repairs");
+  });
+
+  it("картка й переказ ідуть на безготівку з будь-якої категорії", () => {
+    for (const category of ["device", "accessory", "service"] as const) {
+      expect(targetRegisterType("card", category)).toBe(CASHLESS_REGISTER_TYPE);
+      expect(targetRegisterType("transfer", category)).toBe(CASHLESS_REGISTER_TYPE);
+    }
+  });
+
+  // Невідомий метод не має тихо стати готівкою: у шухляді його немає.
+  it("невідомий метод вважається безготівковим", () => {
+    expect(targetRegisterType("crypto", "device")).toBe(CASHLESS_REGISTER_TYPE);
+  });
+});
