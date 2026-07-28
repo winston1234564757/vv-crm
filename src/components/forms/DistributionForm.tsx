@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { distributeFundsAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 import type { SafeDistribution } from "@/lib/data-settings";
+import { isCashless } from "@/lib/utils/finance";
 
 interface CashRegister {
   id: string;
@@ -32,6 +33,9 @@ export function DistributionForm({
   const [registerId, setRegisterId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [manualOpex, setManualOpex] = useState("0");
+  const [manualGrowth, setManualGrowth] = useState("0");
+  const [manualNetProfit, setManualNetProfit] = useState("0");
 
   useEffect(() => {
     if (state.success) {
@@ -48,14 +52,22 @@ export function DistributionForm({
     } else {
       setAmount("");
     }
+    // Ручні суми завжди скидаються на 0 при зміні каси — старі значення від
+    // іншої каси не мають ніякого стосунку до нового розподілу.
+    setManualOpex("0");
+    setManualGrowth("0");
+    setManualNetProfit("0");
   }, [registerId, selectedRegister]);
 
   const amountNum = parseFloat(amount) || 0;
   const hasOverdraft = selectedRegister ? amountNum > selectedRegister.balance : false;
+  const cashless = isCashless(selectedRegister?.type ?? "");
 
-  // Resolve percentages based on register type
+  // Resolve percentages based on register type. Для безготівки відсотків у
+  // налаштуваннях немає навмисно: власник обрав ручний режим — скільки саме
+  // зняти з рахунку, вирішує він щоразу.
   const getPercentages = () => {
-    if (!selectedRegister) return { opex: 0, growth: 0, net_profit: 0 };
+    if (!selectedRegister || cashless) return { opex: 0, growth: 0, net_profit: 0 };
     if (selectedRegister.type === "tech") return settings.distribution_tech;
     if (selectedRegister.type === "accessories") return settings.distribution_accessories;
     if (selectedRegister.type === "repairs") return settings.distribution_repairs;
@@ -64,10 +76,20 @@ export function DistributionForm({
 
   const pct = getPercentages();
 
-  // Calculate shares
-  const opexShare = Math.round(amountNum * (pct.opex / 100));
-  const growthShare = Math.round(amountNum * (pct.growth / 100));
-  const netProfitShare = amountNum > 0 ? amountNum - opexShare - growthShare : 0;
+  const manualOpexNum = parseFloat(manualOpex) || 0;
+  const manualGrowthNum = parseFloat(manualGrowth) || 0;
+  const manualNetProfitNum = parseFloat(manualNetProfit) || 0;
+  const manualSum = manualOpexNum + manualGrowthNum + manualNetProfitNum;
+  const manualSumMismatch = cashless && amountNum > 0 && Math.abs(manualSum - amountNum) > 0.01;
+
+  // Calculate shares: безготівка бере суми напряму з ручних полів, решта — з відсотків
+  const opexShare = cashless ? manualOpexNum : Math.round(amountNum * (pct.opex / 100));
+  const growthShare = cashless ? manualGrowthNum : Math.round(amountNum * (pct.growth / 100));
+  const netProfitShare = cashless
+    ? manualNetProfitNum
+    : amountNum > 0
+      ? amountNum - opexShare - growthShare
+      : 0;
 
   return (
     <form action={action} className="space-y-4 p-5">
@@ -113,8 +135,49 @@ export function DistributionForm({
       <input type="hidden" name="growth_amount" value={growthShare} />
       <input type="hidden" name="net_profit_amount" value={netProfitShare} />
 
+      {/* Cashless: no percentage setting exists on purpose — the amounts are typed in by hand every time */}
+      {cashless && selectedRegister && (
+        <div className="rounded-2xl border border-violet/10 bg-violet/[0.02] p-4 space-y-3 animate-entry">
+          <p className="text-xs font-semibold text-text-primary">Розподіл коштів (вручну):</p>
+          <div className="grid grid-cols-3 gap-2">
+            <Input
+              label="OPEX (грн)"
+              name="opex_amount_display"
+              type="number"
+              min="0"
+              value={manualOpex}
+              onChange={(e) => setManualOpex(e.target.value)}
+            />
+            <Input
+              label="Growth (грн)"
+              name="growth_amount_display"
+              type="number"
+              min="0"
+              value={manualGrowth}
+              onChange={(e) => setManualGrowth(e.target.value)}
+            />
+            <Input
+              label="Прибуток (грн)"
+              name="net_profit_amount_display"
+              type="number"
+              min="0"
+              value={manualNetProfit}
+              onChange={(e) => setManualNetProfit(e.target.value)}
+            />
+          </div>
+          {manualSumMismatch && (
+            <p className="text-xs text-rose">
+              Сума OPEX + Growth + Прибуток ({manualSum.toLocaleString()} грн) має дорівнювати сумі розподілу ({amountNum.toLocaleString()} грн).
+            </p>
+          )}
+          <p className="text-xs text-text-secondary">
+            Для безготівки відсотки не задані — впишіть суми вручну.
+          </p>
+        </div>
+      )}
+
       {/* Visual Shares Breakdown */}
-      {selectedRegister && amountNum > 0 && !hasOverdraft && (
+      {!cashless && selectedRegister && amountNum > 0 && !hasOverdraft && (
         <div className="rounded-2xl border border-violet/10 bg-violet/[0.02] p-4 space-y-3 animate-entry">
           <p className="text-xs font-semibold text-text-primary">Прогноз розподілу коштів ({pct.opex}% / {pct.growth}% / {pct.net_profit}%):</p>
           <div className="grid grid-cols-3 gap-2">
@@ -152,7 +215,7 @@ export function DistributionForm({
 
       <button
         type="submit"
-        disabled={pending || hasOverdraft || !registerId || amountNum <= 0}
+        disabled={pending || hasOverdraft || !registerId || amountNum <= 0 || manualSumMismatch}
         className="btn-press mt-4 w-full rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer"
       >
         {pending ? "Розподіл коштів..." : "Розподілити кошти"}
