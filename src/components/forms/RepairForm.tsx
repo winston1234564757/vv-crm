@@ -15,6 +15,7 @@ import { InlineError } from "@/components/ui/InlineError";
 import { IconEye, IconEyeOff, IconChevronDown } from "@/components/icons";
 import { optionsOf, deviceCondition, repairSource } from "@/lib/domain-labels";
 import { downscaleImages } from "@/lib/utils/image";
+import { phoneKey } from "@/lib/utils/phone";
 import { cn } from "@/lib/utils/cn";
 
 interface Customer {
@@ -120,6 +121,7 @@ export function RepairForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   const [custError, setCustError] = useState("");
+  const [custNotice, setCustNotice] = useState("");
   const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
 
   const [isWarranty, setIsWarranty] = useState(false);
@@ -269,6 +271,25 @@ export function RepairForm({
   async function handleCreateCustomer() {
     if (!newCustName.trim() || !newCustPhone.trim()) return;
     setCustError("");
+    setCustNotice("");
+
+    /* Номер уже в базі — беремо наявного клієнта замість спроби створити
+       другого. Без цього форма впиралась у глухий кут: телефон унікальний,
+       вставка падала на `customers_phone_key`, клієнт не вибирався, і ремонт
+       зберегти було неможливо. Найчастіший шлях сюди — коли клієнт у списку
+       є, але його там не знайшли й почали заводити заново. */
+    const key = phoneKey(newCustPhone);
+    const existing = key ? localCustomers.find((c) => phoneKey(c.phone) === key) : undefined;
+    if (existing) {
+      setSelectedCustomerId(existing.id);
+      setShowNewCustomer(false);
+      setNewCustName("");
+      setNewCustPhone("");
+      setNewCustEmail("");
+      setCustNotice(`Клієнт із цим номером уже є — вибрано «${existing.name}»`);
+      return;
+    }
+
     const formData = new FormData();
     formData.set("name", newCustName);
     formData.set("phone", newCustPhone);
@@ -288,6 +309,7 @@ export function RepairForm({
   }
 
   function handleCustomerSelect(id: string) {
+    setCustNotice("");
     if (id === "__new__") {
       setShowNewCustomer(true);
       setSelectedCustomerId("");
@@ -357,6 +379,11 @@ export function RepairForm({
           placeholder="Оберіть клієнта..."
           required
         />
+        {custNotice && (
+          <p className="text-xs text-muted" role="status">
+            {custNotice}
+          </p>
+        )}
         {showNewCustomer && (
           <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border bg-bg p-4">
             <p className="text-xs font-medium text-muted">Новий клієнт</p>

@@ -19,6 +19,28 @@ function handleForeignKeyError(message: string, code?: string): string | null {
   return "Неможливо видалити цей запис, оскільки він пов'язаний з іншими даними в системі.";
 }
 
+/**
+ * Порушення унікальності (23505). Без цього користувач бачив сирий текст
+ * Postgres — `duplicate key value violates unique constraint "..."` — і не мав
+ * жодної підказки, що робити далі.
+ */
+function handleUniqueError(message: string, code?: string): string | null {
+  const isUnique =
+    code === "23505" || message.includes("duplicate key value violates unique constraint");
+  if (!isUnique) return null;
+
+  if (message.includes("customers_phone_key")) {
+    return "Клієнт із таким номером телефону вже є в базі. Знайдіть його у списку клієнтів замість створення нового.";
+  }
+  if (message.includes("customers_email_key")) {
+    return "Клієнт із таким email вже є в базі.";
+  }
+  if (message.includes("repairs_tracking_token_key")) {
+    return "Номер талона вже зайнятий. Спробуйте зберегти ще раз.";
+  }
+  return "Запис із такими даними вже існує.";
+}
+
 export function parseError(error: unknown): string {
   if (typeof error === "string") return error;
   
@@ -45,9 +67,12 @@ export function parseError(error: unknown): string {
   if (error instanceof Error) {
     const msg = error.message;
     
-    // Check for DB foreign key violations first
+    // Check for DB constraint violations first
     const fkMsg = handleForeignKeyError(msg);
     if (fkMsg) return fkMsg;
+
+    const uniqueMsg = handleUniqueError(msg);
+    if (uniqueMsg) return uniqueMsg;
 
     // Map known Supabase Auth errors to Ukrainian
     if (msg === "Invalid login credentials") return "Невірний email або пароль";
@@ -64,6 +89,10 @@ export function parseError(error: unknown): string {
     if (msg) {
       const fkMsg = handleForeignKeyError(msg, code);
       if (fkMsg) return fkMsg;
+
+      const uniqueMsg = handleUniqueError(msg, code);
+      if (uniqueMsg) return uniqueMsg;
+
       return msg;
     }
   }

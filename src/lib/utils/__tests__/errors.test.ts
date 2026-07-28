@@ -74,4 +74,26 @@ describe("Error Parser", () => {
     };
     expect(parseError(genericFkErr)).toBe("Неможливо видалити цей запис, оскільки він пов'язаний з іншими даними в системі.");
   });
+
+  // Порушення унікальності доходило до користувача сирим текстом Postgres:
+  // саме його бачили у формі ремонту, коли телефон уже був у базі.
+  it("should translate unique-constraint violations", () => {
+    const dupPhone = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "customers_phone_key"',
+    };
+    expect(parseError(dupPhone)).toContain("Клієнт із таким номером телефону вже є в базі");
+    expect(parseError(dupPhone)).not.toContain("duplicate key");
+
+    // Той самий випадок, але як Error — саме так він приходить із `throw error`.
+    expect(
+      parseError(new Error('duplicate key value violates unique constraint "customers_phone_key"')),
+    ).toContain("Клієнт із таким номером телефону вже є в базі");
+
+    const genericDup = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "something_else_key"',
+    };
+    expect(parseError(genericDup)).toBe("Запис із такими даними вже існує.");
+  });
 });
