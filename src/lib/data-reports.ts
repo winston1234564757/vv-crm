@@ -4,7 +4,10 @@ export async function getReportsData() {
   const supabase = await createClient();
 
   const [salesRes, itemsRes, devicesRes, accessoriesRes] = await Promise.all([
-    supabase.from("sales").select("total_amount, created_at").order("created_at", { ascending: false }),
+    supabase
+      .from("sales")
+      .select("total_amount, created_at, payment_splits(amount, method)")
+      .order("created_at", { ascending: false }),
     supabase.from("sale_items").select("item_type, item_id, total_price, quantity, unit_cost, sales!inner(created_at)"),
     supabase.from("devices").select("id, brand, model, cost_price, repair_cost"),
     supabase.from("accessories").select("id, name"),
@@ -98,10 +101,26 @@ export async function getReportsData() {
   const totalRevenue = sales.reduce((s, r) => s + r.total_amount, 0);
   const avgCheck = sales.length > 0 ? Math.round(totalRevenue / sales.length) : 0;
 
+  // Розбивка виторгу за методом оплати — та сама логіка, що в дашборді:
+  // cardRevenue — сума неготівкових спліт-оплат чеків, cashRevenue —
+  // залишок, притиснутий знизу до нуля на випадок копійчаної похибки
+  // округлення розподіленої знижки.
+  const cardRevenue = sales.reduce(
+    (sum, s) =>
+      sum +
+      (s.payment_splits ?? [])
+        .filter((p) => p.method !== "cash")
+        .reduce((a, p) => a + p.amount, 0),
+    0,
+  );
+  const cashRevenue = Math.max(0, totalRevenue - cardRevenue);
+
   return {
     monthlyRevenue: revenue,
     months,
     totalRevenue,
+    cashRevenue,
+    cardRevenue,
     avgCheck,
     transactionCount: sales.length,
     categories,

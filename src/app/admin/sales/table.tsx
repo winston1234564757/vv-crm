@@ -11,11 +11,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils/cn";
 import type { SaleWithDetails, SalesRow, SoldRepair } from "@/lib/data-sales";
 import { labelOf, paymentStatus as domainPaymentStatus } from "@/lib/domain-labels";
+import { paymentMethodLabel } from "@/lib/utils/finance";
 import Link from "next/link";
-
-const paymentMethods: Record<string, string> = {
-  cash: "Готівка", card: "Картка", transfer: "Переказ",
-};
 
 /* Оплата ремонту пишеться в касу без поділу на готівку/картку, тож у колонці
    «Метод оплати» для нього стоїть стан розрахунку — єдине, що дані знають. */
@@ -161,7 +158,7 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
                       <Badge tone="accent">Ремонт</Badge>
                     ) : (
                       <Badge tone="neutral">
-                        {row.sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ") || "—"}
+                        {paymentMethodLabel(row.sale.payments)}
                       </Badge>
                     )}
                   </div>
@@ -229,7 +226,7 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
                       <td className="py-3 pr-4 text-xs text-muted">
                         {isRepair
                           ? paymentStatusLabel(row.repair.payment_status)
-                          : row.sale.payments.map((p) => paymentMethods[p.method] || p.method).join(" + ") || "—"}
+                          : paymentMethodLabel(row.sale.payments)}
                       </td>
                       <td className="py-3 pr-4 text-right font-semibold tabular">
                         {!isRepair && row.sale.is_warranty

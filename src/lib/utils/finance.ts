@@ -198,3 +198,13 @@ export function targetRegisterType(
   if (category === "service") return "repairs";
   return "tech";
 }
+
+/**
+ * Підпис способу оплати для чека. Чек буває зі сплітом, тож методів може
+ * бути кілька — тоді підписи зводяться в один без повторів.
+ */
+export function paymentMethodLabel(payments: { method: string }[]): string {
+  if (payments.length === 0) return "—";
+  const kinds = new Set(payments.map((p) => (p.method === "cash" ? "Готівка" : "Картка")));
+  return [...kinds].join(" + ");
+}

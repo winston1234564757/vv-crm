@@ -42,6 +42,19 @@ export default async function ReportsPage() {
         </StandardCard>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Готівкою</h2>
+          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{data.cashRevenue.toLocaleString()} грн</p>
+          <p className="mt-1 text-xs text-text-secondary">за весь період</p>
+        </StandardCard>
+        <StandardCard>
+          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Карткою</h2>
+          <p className="mt-2 text-3xl font-light tracking-tight text-text-primary">{data.cardRevenue.toLocaleString()} грн</p>
+          <p className="mt-1 text-xs text-text-secondary">за весь період</p>
+        </StandardCard>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-4">
         <StandardCard className="md:col-span-3">
           <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Динаміка виручки</h2>

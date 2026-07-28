@@ -123,6 +123,7 @@ describe("Finance Utils", () => {
 import {
   CASHLESS_REGISTER_TYPE,
   isCashless,
+  paymentMethodLabel,
   splitByKind,
   targetRegisterType,
 } from "../finance";
@@ -187,5 +188,12 @@ describe("Розділення готівки й безготівки", () => {
     expect(cash).toBe(0);
     expect(cashless).toBe(5000);
     expect(total).toBe(5000);
+  });
+
+  it("paymentMethodLabel зводить методи чека без повторів", () => {
+    expect(paymentMethodLabel([])).toBe("—");
+    expect(paymentMethodLabel([{ method: "cash" }])).toBe("Готівка");
+    expect(paymentMethodLabel([{ method: "card" }, { method: "transfer" }])).toBe("Картка");
+    expect(paymentMethodLabel([{ method: "cash" }, { method: "card" }])).toBe("Готівка + Картка");
   });
 });
