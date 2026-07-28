@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { InlineError } from "@/components/ui/InlineError";
 import { IconEye, IconEyeOff, IconChevronDown } from "@/components/icons";
 import { optionsOf, deviceCondition, repairSource } from "@/lib/domain-labels";
-import { downscaleImages } from "@/lib/utils/image";
+import { downscaleImages, totalBytes, TOTAL_BUDGET_BYTES } from "@/lib/utils/image";
 import { phoneKey } from "@/lib/utils/phone";
 import { cn } from "@/lib/utils/cn";
 
@@ -362,6 +362,20 @@ export function RepairForm({
       .filter((f) => f instanceof File && f.size > 0) as File[];
     if (photos.length > 0) {
       const smaller = await downscaleImages(photos);
+
+      /* Стиснення не гарантоване: кадр, який браузер не зміг перекодувати,
+         повертається як є. Якщо набір усе одно завеликий, кажемо це прямо —
+         інакше запит відпадає з 413 на межі Server Action, і замість форми
+         користувач бачить «Помилка завантаження» без жодної підказки. */
+      const bytes = totalBytes(smaller);
+      if (bytes > TOTAL_BUDGET_BYTES) {
+        const mb = (bytes / 1024 / 1024).toFixed(1);
+        return {
+          success: false,
+          error: `Фото заважкі (${mb} МБ) — приберіть частину. Ремонт можна зберегти й без них, а знімки додати пізніше в картці.`,
+        };
+      }
+
       formData.delete("device_condition_photos");
       for (const f of smaller) formData.append("device_condition_photos", f);
     }

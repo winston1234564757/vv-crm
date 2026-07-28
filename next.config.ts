@@ -11,6 +11,24 @@ const withSerwist = withSerwistInit({
 // (reading 'length')" during "Creating an optimized production build".
 // https://github.com/webpack/webpack/issues/14532
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      /*
+       * Прийом у ремонт шле фото стану тим самим Server Action, що й поля
+       * форми. Ліміт за замовчуванням — 1 МБ, а два кадри з телефона його
+       * перевищують навіть після стиснення: запит відпадав із 413 ще до
+       * сервера, і сторінка показувала «Помилка завантаження» замість
+       * збереженого ремонту.
+       *
+       * 4 МБ, а не більше: у Vercel власна стеля на тіло запиту до
+       * serverless-функції (4.5 МБ), і перевищення дало б ту саму відмову,
+       * тільки вже на рівні платформи, повз цей ліміт. Клієнт при цьому
+       * тримає payload у межах 3 МБ (`downscaleImages`), тож мегабайт
+       * лишається на самі поля.
+       */
+      bodySizeLimit: "4mb",
+    },
+  },
   // Type errors fail the build. Previously this was `typescript.ignoreBuildErrors:
   // true`, which silently shipped a broken AccessoryRow type to production for a
   // long time. The project now type-checks clean, so keep the gate on.
