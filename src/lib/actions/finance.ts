@@ -126,6 +126,21 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
     };
 
     const parsed = distributionSchema.parse(data);
+
+    // Суми частин тепер вводяться вручну (для сейфа «Безготівка»), а не
+    // рахуються з відсоткових налаштувань. Клієнт блокує сабміт, якщо суми
+    // не збігаються, але це лише зручність інтерфейсу, а не контроль:
+    // підроблений або застарілий POST-запит все одно дійде до сервера.
+    // Тому суму частин звіряємо із сумою зняття тут — точним порівнянням,
+    // без похибки, бо це цілі гривні.
+    const partsSum = parsed.opex_amount + parsed.growth_amount + parsed.net_profit_amount;
+    if (partsSum !== parsed.amount) {
+      return {
+        success: false,
+        error: `Сума частин розподілу (${partsSum} грн) не дорівнює сумі зняття з каси (${parsed.amount} грн)`,
+      };
+    }
+
     const supabase = await createClient();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
