@@ -70,6 +70,7 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
 
   // --- оплата/деталі (заголовок) ---
   const [deposit, setDeposit] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
   const [deadline, setDeadline] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -274,6 +275,29 @@ export function OrderForm({ customers, onSuccess }: OrderFormProps) {
               onChange={(e) => setDeadline(e.target.value)}
             />
           </div>
+
+          {depositNum > 0 && (
+            <div>
+              <p className="mb-1.5 block text-xs font-medium text-muted">Спосіб оплати авансу</p>
+              <input type="hidden" name="payment_method" value={paymentMethod} />
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={paymentMethod === "cash" ? "primary" : "secondary"}
+                  onClick={() => setPaymentMethod("cash")}
+                >
+                  Готівкою
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentMethod === "card" ? "primary" : "secondary"}
+                  onClick={() => setPaymentMethod("card")}
+                >
+                  Карткою
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Textarea
             label="Нотатки"

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/utils/rbac";
 import { parseError } from "@/lib/utils/errors";
+import { targetRegisterType } from "@/lib/utils/finance";
 import type { ActionState } from "./types";
 import type { CreatedClientOrder, OrderItemType, OrderStatus } from "@/types/orders";
 
@@ -18,15 +19,16 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 /**
- * Каса для авансу обирається за категорією товару — той самий маршрут, що й у
+ * Категорія товару для маршрутизації каси авансу — той самий принцип, що й у
  * продажах (`sales.ts`): техніка → каса техніки, аксесуар → каса аксесуарів,
- * запчастина/послуга → каса ремонтів.
+ * запчастина/послуга → каса ремонтів. Саму касу обирає `targetRegisterType`
+ * разом зі способом оплати — картка завжди їде на безготівку.
  */
-const REGISTER_TYPE_BY_ITEM: Record<OrderItemType, string> = {
-  device: "tech",
-  accessory: "accessories",
-  part: "repairs",
-  service: "repairs",
+const REGISTER_CATEGORY_BY_ITEM: Record<OrderItemType, "device" | "accessory" | "service"> = {
+  device: "device",
+  accessory: "accessory",
+  part: "service",
+  service: "service",
 };
 
 const orderItemSchema = z.object({
@@ -43,6 +45,7 @@ const orderSchema = z.object({
   deposit: z.coerce.number().int().min(0).default(0),
   deadline: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  payment_method: z.enum(["cash", "card"]).optional().default("cash"),
 });
 
 export async function createClientOrder(
@@ -63,6 +66,7 @@ export async function createClientOrder(
       deposit: formData.get("deposit") || 0,
       deadline: (formData.get("deadline") as string | null) || null,
       notes: (formData.get("notes") as string | null) || null,
+      payment_method: formData.get("payment_method") || "cash",
     });
 
     const total = parsed.items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
@@ -78,9 +82,14 @@ export async function createClientOrder(
 
     // Касу шукаємо лише коли є аванс. Для змішаного замовлення маршрутизуємо
     // за категорією першої позиції — той самий принцип, що й у продажах.
+    // Аванс карткою не потрапляє в шухляду, тож категорія першої позиції
+    // обирає касу лише для готівки.
     let registerId: string | null = null;
     if (parsed.deposit > 0) {
-      const registerType = REGISTER_TYPE_BY_ITEM[parsed.items[0].item_type];
+      const registerType = targetRegisterType(
+        parsed.payment_method,
+        REGISTER_CATEGORY_BY_ITEM[parsed.items[0].item_type],
+      );
       const { data: register, error: regError } = await supabase
         .from("cash_registers")
         .select("id")
