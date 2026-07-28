@@ -1,6 +1,8 @@
 import StandardCard from "@/components/ui/StandardCard";
 export const dynamic = "force-dynamic";
 
+import { requirePageRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 import { getReportsData } from "@/lib/data-reports";
 
 function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -8,6 +10,8 @@ function GlassCard({ className, children }: { className?: string; children: Reac
 }
 
 export default async function ReportsPage() {
+  await requirePageRole(MONEY_ROLES);
+
   const data = await getReportsData();
   const maxRevenue = Math.max(...data.monthlyRevenue, 1);
 

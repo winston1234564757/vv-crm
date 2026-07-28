@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { checkRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 import { fetchGemini, GeminiRateLimitError, safeParseJSON } from "@/lib/utils/gemini";
 import { buildInsightsPrompt } from "@/lib/ai-prompts";
 import { getDashboardMoney } from "@/lib/data-dashboard";
@@ -17,12 +18,13 @@ export interface SmartInsight {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Інсайти будуються з прибутку, витрат і OPEX-резерву — це той самий рівень
+  // доступу, що й фінансовий розділ, тож і список ролей той самий.
+  const access = await checkRole(MONEY_ROLES);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
   }
+  const { user } = access;
 
   let body: { range?: string };
   try {

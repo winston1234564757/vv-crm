@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRole, type UserRole } from "@/lib/utils/rbac";
 import { fetchGemini, GeminiRateLimitError, safeParseJSON } from "@/lib/utils/gemini";
 import { buildCustomerProfilePrompt, buildCustomerMessagePrompt, buildRepairDiagnosePrompt } from "@/lib/ai-prompts";
 import type { Json } from "@/types/database";
 
+type AIAction = "generate_customer_profile" | "generate_customer_message" | "diagnose_repair";
+
+/**
+ * Роут читає й пише через service-role клієнт в обхід RLS, а `entityId`
+ * приходить від клієнта — без цієї перевірки будь-хто автентифікований
+ * витягує профіль довільного клієнта. Ключі мапи водночас є білим списком
+ * дозволених `action`.
+ */
+const ROLES_BY_ACTION: Record<AIAction, UserRole[]> = {
+  generate_customer_profile: ["owner", "manager", "sales"],
+  generate_customer_message: ["owner", "manager", "sales"],
+  diagnose_repair: ["owner", "manager", "technician"],
+};
+
+function isAIAction(value: unknown): value is AIAction {
+  return typeof value === "string" && value in ROLES_BY_ACTION;
+}
+
 export async function POST(request: NextRequest) {
-  // 1. Guard check: Must be authenticated user
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: { action: string; entityId: string };
+  let body: { action: AIAction; entityId: string };
   try {
     body = await request.json();
   } catch {
@@ -27,6 +37,15 @@ export async function POST(request: NextRequest) {
       { error: "Missing required parameters: action, entityId" },
       { status: 400 }
     );
+  }
+
+  if (!isAIAction(action)) {
+    return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+  }
+
+  const access = await checkRole(ROLES_BY_ACTION[action]);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
   const adminClient = createAdminClient();

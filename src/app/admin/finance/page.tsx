@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+import { requirePageRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 import { getFinanceData, getFinanceReport } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
 import { AddExpenseButton } from "./AddExpenseButton";
@@ -16,6 +18,8 @@ import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
 
 export default async function FinancePage() {
+  await requirePageRole(MONEY_ROLES);
+
   const [
     { cashRegisters, safes, transactions, expenseCategories },
     report,

@@ -1,6 +1,8 @@
 import StandardCard from "@/components/ui/StandardCard";
 export const dynamic = "force-dynamic";
 
+import { requirePageRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 import { getPurchases } from "@/lib/data-purchases";
 import { PurchasesTable } from "./table";
 import { AddPurchaseButton } from "./AddPurchaseButton";
@@ -12,6 +14,10 @@ function GlassCard({ className, children }: { className?: string; children: Reac
 }
 
 export default async function PurchasesPage() {
+  // Той самий список, що й у `deletePurchase` — сторінка показує собівартість
+  // і рухи по сейфах, тобто рівно те, що ховається на дашборді.
+  await requirePageRole(MONEY_ROLES);
+
   const [purchases, safes] = await Promise.all([
     getPurchases(),
     getSafes(),

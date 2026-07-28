@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRole, type UserRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 import { fetchGemini, GeminiRateLimitError, type GeminiContent } from "@/lib/utils/gemini";
 import {
   buildCustomerCopilotSystem,
@@ -9,17 +10,27 @@ import {
 } from "@/lib/ai-prompts";
 import { getFinanceReport } from "@/lib/data-finance";
 
+type ChatEntity = "customer" | "repair" | "finance";
+
+/**
+ * Роут читає дані через service-role клієнт в обхід RLS, тож права мусять
+ * перевірятись тут — інакше будь-хто автентифікований дістає баланси кас.
+ * Ключі цієї мапи водночас є білим списком `entityType`.
+ */
+const ROLES_BY_ENTITY: Record<ChatEntity, UserRole[]> = {
+  customer: ["owner", "manager", "sales"],
+  repair: ["owner", "manager", "technician"],
+  finance: MONEY_ROLES,
+};
+
+function isChatEntity(value: unknown): value is ChatEntity {
+  return typeof value === "string" && value in ROLES_BY_ENTITY;
+}
+
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body: {
     messages: Array<{ role: "user" | "model"; content: string }>;
-    entityType: "customer" | "repair" | "finance";
+    entityType: ChatEntity;
     entityId: string;
   };
 
@@ -35,6 +46,15 @@ export async function POST(request: NextRequest) {
       { error: "Missing required parameters: messages, entityType, entityId" },
       { status: 400 }
     );
+  }
+
+  if (!isChatEntity(entityType)) {
+    return NextResponse.json({ error: "Unsupported entityType" }, { status: 400 });
+  }
+
+  const access = await checkRole(ROLES_BY_ENTITY[entityType]);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
   const adminClient = createAdminClient();

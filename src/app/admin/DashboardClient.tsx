@@ -24,7 +24,8 @@ interface DashboardClientProps {
   preset: RangePreset;
   selectedDay: string | null;
   attention: AttentionGroup[];
-  money: DashboardMoney;
+  /** `null` для ролей без доступу до грошей — дані навіть не читались з бази. */
+  money: DashboardMoney | null;
   operations: OperationsData;
   targets: SalesTargets;
 }
@@ -45,6 +46,15 @@ interface DashboardClientProps {
  * Ряди складаються по 12: hero+черга · три операційні · розклад+каса ·
  * частка+увага. Спани статичні (`BentoCell`), тож будь-яка зміна цього
  * набору вимагає перерахувати ряд руками — сітка сама дірку не закриє.
+ *
+ * Без грошей (`money === null`, роль поза `MONEY_ROLES`) відпадає все, що
+ * годується з `DashboardMoney`: hero, продажі дня, розклад прибутку, каса,
+ * частка й AI-аналіз. Лишається робоча сітка, і ряди знову сходяться по 12:
+ * черга+видача+замовлення · увага на всю ширину. Тому будь-яка правка цього
+ * набору вимагає перерахувати ОБИДВА розклади, а не тільки повний.
+ *
+ * Інверсна плита зникає разом із hero — §2.1 DESIGN.md вимагає не більше
+ * однієї на екран, а не рівно одну.
  */
 export function DashboardClient({
   preset,
@@ -76,17 +86,19 @@ export function DashboardClient({
       <RangeTabs preset={preset} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
-        <HeroToday
-          preset={preset}
-          profit={money.profit}
-          comparison={money.comparison}
-          series={money.series}
-          dayLabel={selectedDay ? dayLabel(selectedDay) : "Сьогодні"}
-        />
+        {money && (
+          <HeroToday
+            preset={preset}
+            profit={money.profit}
+            comparison={money.comparison}
+            series={money.series}
+            dayLabel={selectedDay ? dayLabel(selectedDay) : "Сьогодні"}
+          />
+        )}
 
         <RepairQueueCard queue={operations.queue} total={operations.queueTotal} />
 
-        <TodaySalesCard today={money.todaySales} />
+        {money && <TodaySalesCard today={money.todaySales} />}
         <PickupCard
           rows={operations.pickup.rows}
           total={operations.pickup.total}
@@ -100,33 +112,38 @@ export function DashboardClient({
           overdue={operations.orders.overdue}
         />
 
-        <MoneyBreakdownCard preset={preset} money={money} targets={targets} />
-        <CashCard
-          cashTotal={money.cashTotal}
-          runwayDays={money.runwayDays}
-          dailyOpex={money.dailyOpex}
-        />
+        {money && (
+          <>
+            <MoneyBreakdownCard preset={preset} money={money} targets={targets} />
+            <CashCard
+              cashTotal={money.cashTotal}
+              runwayDays={money.runwayDays}
+              dailyOpex={money.dailyOpex}
+            />
 
-        {/*
-          Частка йде перед увагою, а не після: увага рендериться лише коли їй
-          є що сказати, і при тихому магазині картка частки має лишитись у
-          своєму ряду зліва, а не поїхати в порожній рядок сама.
-        */}
-        <ShareCard
-          ledger={money.partnerLedger}
-          sources={money.sources}
-          netProfitSafeId={money.netProfitSafeId}
-          monthShare={money.partnerShare.month.share}
-        />
+            {/*
+              Частка йде перед увагою, а не після: увага рендериться лише коли
+              їй є що сказати, і при тихому магазині картка частки має
+              лишитись у своєму ряду зліва, а не поїхати в порожній рядок сама.
+            */}
+            <ShareCard
+              ledger={money.partnerLedger}
+              sources={money.sources}
+              netProfitSafeId={money.netProfitSafeId}
+              monthShare={money.partnerShare.month.share}
+            />
+          </>
+        )}
 
         {attention.length > 0 && (
-          <BentoCell span={8} title="Потребує уваги">
+          <BentoCell span={money ? 8 : 12} title="Потребує уваги">
             <AttentionSection groups={attention} />
           </BentoCell>
         )}
       </div>
 
-      <InsightsSection preset={preset} />
+      {/* Інсайти читають прибуток і OPEX — той самий доступ, що й решта грошей. */}
+      {money && <InsightsSection preset={preset} />}
     </div>
   );
 }

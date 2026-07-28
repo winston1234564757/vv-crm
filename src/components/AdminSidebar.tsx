@@ -12,6 +12,7 @@ import {
   getActiveGroup,
   type NavGroup,
 } from "@/lib/nav-config";
+import type { UserRole } from "@/lib/roles";
 
 const roleLabels: Record<string, string> = {
   owner: "Власник",
@@ -20,13 +21,13 @@ const roleLabels: Record<string, string> = {
   technician: "Технік",
 };
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ role }: { role: UserRole | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("vlasnyk@vv-crm.com");
-  const [userRole, setUserRole] = useState("Адміністратор");
-  const [rawRole, setRawRole] = useState<string>("admin");
   const [shopName, setShopName] = useState("VV CRM");
+
+  const userRole = role ? roleLabels[role] ?? role : "—";
 
   const activeGroup = getActiveGroup(pathname);
   const [openId, setOpenId] = useState<string | null>(activeGroup?.id ?? null);
@@ -36,21 +37,12 @@ export default function AdminSidebar() {
     if (activeGroup && !activeGroup.standalone) setOpenId(activeGroup.id);
   }, [activeGroup]);
 
+  // Роль сюди більше не тягнеться — вона приходить пропом із layout. Лишились
+  // пошта користувача й назва магазину, які на видимість нічого не впливають.
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user && user.email) {
-        setUserEmail(user.email);
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-        if (profile?.role) {
-          setRawRole(profile.role);
-          setUserRole(roleLabels[profile.role] ?? profile.role);
-        }
-      }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email);
     });
 
     supabase
@@ -70,7 +62,7 @@ export default function AdminSidebar() {
     router.refresh();
   }
 
-  const groups = visibleGroups(rawRole);
+  const groups = visibleGroups(role);
 
   function handleGroupClick(group: NavGroup) {
     setOpenId(group.id);

@@ -2,43 +2,32 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { IconMenu, IconClose, IconLogout } from "@/components/icons";
 import { cn } from "@/lib/utils/cn";
 import {
-  NAV_GROUPS,
   visibleGroups,
   getActiveGroup,
   isItemActive,
 } from "@/lib/nav-config";
+import type { UserRole } from "@/lib/roles";
 
 // Groups pinned to the bottom bar; the rest live in the "More" sheet.
 const BOTTOM_IDS = ["dashboard", "work", "inventory", "sales"];
 
-export default function MobileNavigation() {
+export default function MobileNavigation({ role }: { role: UserRole | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [rawRole, setRawRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      if (profile?.role) setRawRole(profile.role);
-    });
-  }, []);
 
   const activeGroup = getActiveGroup(pathname);
-  const bottomGroups = NAV_GROUPS.filter((g) => BOTTOM_IDS.includes(g.id));
-  const sheetGroups = visibleGroups(rawRole).filter((g) => !BOTTOM_IDS.includes(g.id));
+  // Обидва набори беруться з відфільтрованого списку: нижня панель веде на
+  // `items[0]` групи, а він теж може виявитись обмеженим.
+  const groups = visibleGroups(role);
+  const bottomGroups = groups.filter((g) => BOTTOM_IDS.includes(g.id));
+  const sheetGroups = groups.filter((g) => !BOTTOM_IDS.includes(g.id));
 
   async function handleLogout() {
     const supabase = createClient();

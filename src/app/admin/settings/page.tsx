@@ -2,17 +2,15 @@ export const dynamic = "force-dynamic";
 
 import SettingsClient from "@/components/SettingsClient";
 import { getSettings, getProfiles } from "@/lib/data-settings";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { requirePageRole } from "@/lib/utils/rbac";
 import Link from "next/link";
 import { IconEye } from "@/components/icons";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login");
-  }
+  // Усі три дії сторінки — розподіл по сейфах, реквізити чеків і зміна ролей
+  // персоналу — вже вимагають власника всередині себе. Читання лишалось
+  // відкритим, хоча показує відсотки розподілу, цілі й список працівників.
+  const { user } = await requirePageRole(["owner"]);
   const currentUserId = user.id;
 
   const [settings, profiles] = await Promise.all([

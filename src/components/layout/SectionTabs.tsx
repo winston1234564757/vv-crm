@@ -3,18 +3,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-import { getActiveGroup, isItemActive } from "@/lib/nav-config";
+import { getActiveGroup, isItemActive, visibleItems } from "@/lib/nav-config";
+import type { UserRole } from "@/lib/roles";
 
 /**
  * Route-based tab bar for grouped admin pages. Reads the current pathname,
  * finds its nav group and renders its sibling pages as tabs. Renders nothing
  * on standalone pages (Dashboard, Settings, Store launch) or unknown routes.
+ *
+ * `role` приходить пропом із серверного layout: вкладки мусять фільтруватись
+ * так само, як сайдбар, інакше «Закупівлі» лишились би видимі в «Складі» тим,
+ * кого сторінка все одно розверне.
  */
-export default function SectionTabs() {
+export default function SectionTabs({ role }: { role: UserRole | null }) {
   const pathname = usePathname();
   const group = getActiveGroup(pathname);
 
-  if (!group || group.standalone || group.items.length < 2) return null;
+  if (!group) return null;
+
+  const items = visibleItems(group, role);
+
+  if (group.standalone || items.length < 2) return null;
 
   return (
     <div className="mb-5 -mx-4 md:mx-0 px-4 md:px-0 border-b border-border">
@@ -23,7 +32,7 @@ export default function SectionTabs() {
         aria-label={group.label}
         className="flex items-center gap-1 overflow-x-auto"
       >
-        {group.items.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active = isItemActive(pathname, item.href);
           return (

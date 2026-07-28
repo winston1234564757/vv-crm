@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserRole } from "@/lib/utils/rbac";
+import { canSeeMoney } from "@/lib/roles";
 import { getSettings } from "@/lib/data-settings";
 import { getOperationsData } from "@/lib/data-operations";
 import { getDashboardMoney } from "@/lib/data-dashboard";
@@ -14,11 +15,11 @@ export default async function AdminDashboard({
 }: {
   searchParams: Promise<{ range?: string; day?: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const session = await getCurrentUserRole();
+  if (!session) return null;
+
+  const { user, role } = session;
+  const showMoney = canSeeMoney(role);
 
   const { range, day } = await searchParams;
   const preset: RangePreset = isRangePreset(range) ? range : "today";
@@ -30,10 +31,13 @@ export default async function AdminDashboard({
   const selectedDay =
     preset === "today" && isDayKey(day) && day < todayKey ? day : null;
 
+  // Гроші не просто ховаються в розмітці — вони не читаються з бази взагалі.
+  // Інакше прибуток і залишки кас доїхали б у клієнтський payload, де їх
+  // видно в DevTools попри відсутність на екрані.
   const [settings, operations, money] = await Promise.all([
     getSettings(),
     getOperationsData(),
-    getDashboardMoney(preset, user.id, selectedDay),
+    showMoney ? getDashboardMoney(preset, user.id, selectedDay) : null,
   ]);
 
   // `findAttention` — чиста функція, тож рахуємо її тут, а не в браузері:

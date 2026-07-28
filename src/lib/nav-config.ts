@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { MONEY_ROLES, type UserRole } from "@/lib/roles";
 import {
   IconGrid,
   IconRepair,
@@ -23,6 +24,13 @@ export interface NavItem {
   href: string;
   label: string;
   icon: IconComponent;
+  /**
+   * Roles allowed to see this page. Omitted means everyone.
+   *
+   * Потрібен там, де обмежена окрема сторінка, а не вся група: «Закупівлі»
+   * стоять у «Складі» поруч із технікою й запчастинами, які потрібні всім.
+   */
+  roles?: UserRole[];
 }
 
 export interface NavGroup {
@@ -36,8 +44,13 @@ export interface NavGroup {
   items: NavItem[];
   /** Standalone groups (Dashboard, Settings, Store launch) render no section tabs. */
   standalone?: boolean;
-  /** Visible only to the owner. */
-  ownerOnly?: boolean;
+  /**
+   * Roles allowed to see this group. Omitted means everyone.
+   *
+   * Hiding here is cosmetic only — every page in a restricted group must carry
+   * its own `requirePageRole`, because a hidden link is still a reachable URL.
+   */
+  roles?: UserRole[];
 }
 
 /**
@@ -71,7 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/devices", label: "Техніка", icon: IconDevice },
       { href: "/admin/accessories", label: "Аксесуари", icon: IconAccessory },
       { href: "/admin/suppliers", label: "Постачальники", icon: IconSupplier },
-      { href: "/admin/purchases", label: "Закупівлі", icon: IconPurchase },
+      { href: "/admin/purchases", label: "Закупівлі", icon: IconPurchase, roles: MONEY_ROLES },
     ],
   },
   {
@@ -89,6 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "finance",
     label: "Фінанси",
     icon: IconFinance,
+    roles: MONEY_ROLES,
     items: [
       { href: "/admin/finance", label: "Фінанси", icon: IconFinance },
       { href: "/admin/reports", label: "Звіти", icon: IconReport },
@@ -97,19 +111,22 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     // Not prominent on purpose: the shop hasn't opened yet (24.07.2026), so
     // there's nothing here worth surfacing for at least a month. Standalone
-    // + ownerOnly keeps it out of the main tab flow.
+    // + owner-only keeps it out of the main tab flow.
     id: "analytics",
     label: "Аналітика",
     icon: IconReport,
     standalone: true,
-    ownerOnly: true,
+    roles: ["owner"],
     items: [{ href: "/admin/analytics", label: "Аналітика", icon: IconReport }],
   },
   {
+    // Кожна з трьох дій сторінки (розподіл, чеки, ролі персоналу) і так
+    // вимагає власника — для решти це був екран, де нічого не натиснеш.
     id: "settings",
     label: "Налаштування",
     icon: IconSettings,
     standalone: true,
+    roles: ["owner"],
     items: [{ href: "/admin/settings", label: "Налаштування", icon: IconSettings }],
   },
   {
@@ -117,7 +134,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Запуск Магазину",
     icon: IconRocket,
     standalone: true,
-    ownerOnly: true,
+    roles: ["owner"],
     items: [{ href: "/admin/store-launch", label: "Запуск Магазину", icon: IconRocket }],
   },
 ];
@@ -128,10 +145,30 @@ export function isItemActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** Groups visible to a raw role string (owner gating). */
+/** Чи дозволений елемент навігації для ролі. Без списку — дозволений усім. */
+function allowed(roles: UserRole[] | undefined, rawRole: string | null | undefined): boolean {
+  return !roles || roles.includes(rawRole as UserRole);
+}
+
+/** Пункти групи, доступні ролі. */
+export function visibleItems(group: NavGroup, rawRole: string | null | undefined): NavItem[] {
+  return group.items.filter((i) => allowed(i.roles, rawRole));
+}
+
+/**
+ * Groups visible to a raw role string, з уже відфільтрованими пунктами.
+ *
+ * Невідома або ще не завантажена роль бачить лише необмежене: навігація падає
+ * закрито, тож обмежене посилання не блимає до приходу ролі.
+ *
+ * Групи, з яких після фільтра не лишилось жодного пункту, зникають цілком —
+ * інакше в сайдбарі був би заголовок, що розкривається в порожнечу, а клік по
+ * ньому вів би на `items[0]`, якого користувачу видно не має бути.
+ */
 export function visibleGroups(rawRole: string | null | undefined): NavGroup[] {
-  const isOwner = rawRole === "owner";
-  return NAV_GROUPS.filter((g) => !g.ownerOnly || isOwner);
+  return NAV_GROUPS.filter((g) => allowed(g.roles, rawRole))
+    .map((g) => ({ ...g, items: visibleItems(g, rawRole) }))
+    .filter((g) => g.items.length > 0);
 }
 
 /** The group that owns the current pathname, or null. */
