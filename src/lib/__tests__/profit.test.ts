@@ -13,6 +13,7 @@ import {
   dailySeries,
   comparisonFor,
   deltaPct,
+  toDatedRepairs,
   type ProfitSale,
   type ProfitSaleItem,
   type ProfitDeviceCost,
@@ -20,6 +21,7 @@ import {
   type DatedSale,
   type DatedRepair,
   type DatedExpense,
+  type RepairPnlRow,
 } from "../profit";
 
 const DEV = new Map<string, ProfitDeviceCost>([
@@ -388,8 +390,8 @@ function dSale(created_at: string, items: ProfitSaleItem[], discount: number | n
   return { id: created_at, created_at, total_amount: 0, discount, items };
 }
 
-function dRepair(completed_at: string, price: number, cost: number): DatedRepair {
-  return { completed_at, price, cost, external_sc_cost: 0 };
+function dRepair(settled_at: string, price: number, cost: number): DatedRepair {
+  return { settled_at, price, cost, external_sc_cost: 0 };
 }
 
 function dExpense(
@@ -633,5 +635,77 @@ describe("deltaPct", () => {
   it("uses the baseline magnitude so a loss shrinking reads as growth", () => {
     // База −200, стало −100: це рух угору на 50%, а не вниз.
     expect(deltaPct(-100, -200)).toBe(50);
+  });
+});
+
+// `toDatedRepairs` — єдина брама між базою і P&L. SQL-фільтр по датах грубий
+// (тягне обидві дати закриття), тож точність вікна тримається саме тут.
+describe("toDatedRepairs", () => {
+  const start = new Date("2026-07-28T00:00:00Z");
+  const end = new Date("2026-07-29T00:00:00Z");
+
+  const row = (over: Partial<RepairPnlRow> = {}): RepairPnlRow => ({
+    price: 1800,
+    cost: 950,
+    external_sc_cost: 0,
+    status: "received",
+    payment_status: "paid",
+    paid_at: "2026-07-28T07:13:37Z",
+    completed_at: null,
+    ...over,
+  });
+
+  it("бере передоплачений ремонт, який ще навіть не в роботі", () => {
+    const out = toDatedRepairs([row()], start, end);
+    expect(out).toHaveLength(1);
+    expect(out[0].settled_at).toBe("2026-07-28T07:13:37Z");
+    expect(out[0].price).toBe(1800);
+    expect(out[0].cost).toBe(950);
+  });
+
+  // Рядок пройшов грубий SQL-фільтр по `completed_at`, але заплатили за нього
+  // раніше — у це вікно він не належить.
+  it("відкидає оплачений до вікна, хоч і виданий усередині", () => {
+    const out = toDatedRepairs(
+      [
+        row({
+          paid_at: "2026-07-20T10:00:00Z",
+          completed_at: "2026-07-28T12:00:00Z",
+          status: "handed_over",
+        }),
+      ],
+      start,
+      end,
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("відкидає незакриті ремонти", () => {
+    const out = toDatedRepairs(
+      [row({ payment_status: "unpaid", paid_at: null })],
+      start,
+      end,
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("проводить гарантійну переробку з її собівартістю", () => {
+    const out = toDatedRepairs(
+      [
+        row({
+          price: 0,
+          cost: 400,
+          payment_status: "unpaid",
+          paid_at: null,
+          status: "handed_over",
+          completed_at: "2026-07-28T15:00:00Z",
+        }),
+      ],
+      start,
+      end,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].price).toBe(0);
+    expect(out[0].cost).toBe(400);
   });
 });

@@ -13,6 +13,7 @@
  */
 
 import { addDays, dayKey } from "./utils/day";
+import { repairSettledAt, type SettleableRepair } from "./repair-flow";
 
 export type ProfitCategory = "device" | "accessory" | "part" | "service" | "repair";
 
@@ -410,7 +411,12 @@ export interface DatedSale extends ProfitSale {
 }
 
 export interface DatedRepair extends ProfitRepair {
-  completed_at: string;
+  /**
+   * День, яким ремонт лягає в період: дата повної оплати, а для робіт без
+   * рахунку — дата видачі. Рахує `repairSettledAt`; сюди приходить уже
+   * готове значення, бо правило одне на всю систему.
+   */
+  settled_at: string;
 }
 
 export interface DatedExpense {
@@ -490,6 +496,39 @@ export function chartWindow(
   return { start, end: range.end };
 }
 
+/** Рядок ремонту так, як його треба вибрати з бази для P&L. */
+export interface RepairPnlRow extends ProfitRepair, SettleableRepair {}
+
+/** Поля, які мусить містити SELECT ремонтів для P&L. Один рядок на всі місця. */
+export const REPAIR_PNL_COLUMNS =
+  "status, price, cost, external_sc_cost, payment_status, paid_at, completed_at";
+
+/**
+ * Відбирає ремонти, закриті всередині `[start, end)`, і проставляє їм день.
+ *
+ * Живе тут, а не трьома копіями в дашборді, фінансах і аналітиці: саме через
+ * незалежні копії правила `completed` колись почав означати різне в різних
+ * місцях. SQL-фільтр по датах лишається грубим — точне рішення завжди тут.
+ */
+export function toDatedRepairs(
+  rows: RepairPnlRow[],
+  start: Date,
+  end: Date,
+): DatedRepair[] {
+  const out: DatedRepair[] = [];
+  for (const r of rows) {
+    const settled = repairSettledAt(r);
+    if (!settled || !inWindow(settled, start, end)) continue;
+    out.push({
+      settled_at: settled,
+      price: r.price,
+      cost: r.cost,
+      external_sc_cost: r.external_sc_cost,
+    });
+  }
+  return out;
+}
+
 function inWindow(iso: string | null | undefined, start: Date, end: Date): boolean {
   if (!iso) return false;
   const t = new Date(iso).getTime();
@@ -503,7 +542,7 @@ export function sliceProfit(ds: ProfitDataset, start: Date, end: Date): ProfitRe
   return computeProfit(
     ds.sales.filter((s) => inWindow(s.created_at, start, end)),
     ds.devices,
-    ds.repairs.filter((r) => inWindow(r.completed_at, start, end)),
+    ds.repairs.filter((r) => inWindow(r.settled_at, start, end)),
   );
 }
 
@@ -574,8 +613,8 @@ export function dailySeries(
 
   const repairsByDay = new Map<string, DatedRepair[]>();
   for (const r of ds.repairs) {
-    if (!inWindow(r.completed_at, from, to)) continue;
-    const key = dayKey(new Date(r.completed_at));
+    if (!inWindow(r.settled_at, from, to)) continue;
+    const key = dayKey(new Date(r.settled_at));
     const arr = repairsByDay.get(key);
     if (arr) arr.push(r);
     else repairsByDay.set(key, [r]);

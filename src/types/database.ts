@@ -991,6 +991,7 @@ export type Database = {
           notes: string | null
           np_ttn: string | null
           partner_id: string | null
+          paid_at: string | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
           photo_urls: string[] | null
           price: number
@@ -1035,6 +1036,7 @@ export type Database = {
           notes?: string | null
           np_ttn?: string | null
           partner_id?: string | null
+          paid_at?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           photo_urls?: string[] | null
           price?: number
@@ -1079,6 +1081,7 @@ export type Database = {
           notes?: string | null
           np_ttn?: string | null
           partner_id?: string | null
+          paid_at?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           photo_urls?: string[] | null
           price?: number

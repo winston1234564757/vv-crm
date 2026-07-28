@@ -2,7 +2,6 @@ import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
-import { EARNED_REPAIR_STATUSES } from "./repair-flow";
 import {
   comparisonFor,
   dailySeries,
@@ -12,7 +11,9 @@ import {
   resolveRange,
   sliceExpenses,
   sliceProfit,
+  toDatedRepairs,
   chartWindow,
+  REPAIR_PNL_COLUMNS,
   LEDGER_MAX_DAYS,
   type Comparison,
   type DatedExpense,
@@ -22,6 +23,7 @@ import {
   type ProfitDataset,
   type ProfitDeviceCost,
   type ProfitResult,
+  type RepairPnlRow,
   type ProfitSaleItem,
   type RangePreset,
   PARTNER_SHARE,
@@ -180,11 +182,15 @@ async function loadDataset(
       ? Promise.resolve({ data: [] })
       : supabase
           .from("repairs")
-          .select("completed_at, price, cost, external_sc_cost")
+          .select(REPAIR_PNL_COLUMNS)
           .is("inventory_device_id", null)
-          .in("status", [...EARNED_REPAIR_STATUSES])
-          .gte("completed_at", startStr)
-          .lt("completed_at", endStr),
+          // Грубий фільтр: ремонт міг закритись оплатою або видачею, тож
+          // тягнемо обидві дати, а точне рішення лишається за
+          // `toDatedRepairs` — там одне правило на всю систему.
+          .or(
+            `and(paid_at.gte.${startStr},paid_at.lt.${endStr}),` +
+              `and(completed_at.gte.${startStr},completed_at.lt.${endStr})`,
+          ),
     empty
       ? Promise.resolve({ data: [] })
       : supabase
@@ -234,14 +240,11 @@ async function loadDataset(
     items: s.sale_items ?? [],
   }));
 
-  const repairs: DatedRepair[] = (repairsRes.data ?? [])
-    .filter((r): r is typeof r & { completed_at: string } => !!r.completed_at)
-    .map((r) => ({
-      completed_at: r.completed_at,
-      price: r.price,
-      cost: r.cost,
-      external_sc_cost: r.external_sc_cost,
-    }));
+  const repairs: DatedRepair[] = toDatedRepairs(
+    supabaseCast<RepairPnlRow[]>(repairsRes.data ?? []),
+    start,
+    end,
+  );
 
   const expenses: DatedExpense[] = (expensesRes.data ?? []).map((e) => ({
     created_at: e.created_at,

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { getCustomers } from "@/lib/data-customers";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
-import { EARNED_REPAIR_STATUSES } from "@/lib/repair-flow";
+import { repairSettledAt } from "@/lib/repair-flow";
 import { IconPlus } from "@/components/icons";
 import { CustomersTable } from "./table";
 import { AddCustomerButton } from "./AddCustomerButton";
@@ -23,8 +23,11 @@ export default async function CustomersPage() {
     const salesSpent = clientSales.reduce((sum, s) => sum + s.total_amount, 0);
     const salesCount = clientSales.length;
 
+    // Витрачене рахуємо по закритих ремонтах: оплачених або без рахунку.
+    // Раніше сюди потрапляв виданий-але-неоплачений — тобто борг клієнта
+    // показувався як його витрати.
     const clientRepairs = repairs.filter(
-      (r) => r.customer_id === c.id && (EARNED_REPAIR_STATUSES as readonly string[]).includes(r.status)
+      (r) => r.customer_id === c.id && repairSettledAt(r) !== null
     );
     const repairsSpent = clientRepairs.reduce((sum, r) => sum + r.price, 0);
     const repairsCount = clientRepairs.length;

@@ -1,5 +1,5 @@
 import { createClient } from "./supabase/server";
-import { EARNED_REPAIR_STATUSES } from "./repair-flow";
+import { repairSettledAt } from "./repair-flow";
 import type { ModelAnalyticsItem, StockoutItem, HeatmapRow } from "@/components/dashboard/widget-types";
 
 // Duplicated (not shared) from data-dashboard.ts on purpose — see Task 7 report.
@@ -94,7 +94,10 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
     // Partner Sales (B2B channel)
     supabase.from("sales").select("total_amount, partner_id").gte("created_at", thirtyDaysAgo),
     // Partner Repairs (B2B channel)
-    supabase.from("repairs").select("price, partner_id").in("status", [...EARNED_REPAIR_STATUSES]).gte("created_at", thirtyDaysAgo),
+    supabase
+      .from("repairs")
+      .select("price, partner_id, status, payment_status, paid_at, completed_at")
+      .gte("created_at", thirtyDaysAgo),
     // Sales Velocity Matrix / Cross-sell / Refurbishment margin sale prices
     supabase.from("sale_items").select("item_id, item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
     // Customer Retention Rate (Sales 90d)
@@ -152,13 +155,20 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
   const partnerSalesTotal = (partnerSalesRes.data ?? [])
     .filter((s) => s.partner_id !== null)
     .reduce((sum, s) => sum + s.total_amount, 0);
-  const partnerRepairsTotal = (partnerRepairsRes.data ?? [])
+  // Заробленим ремонт стає за тим самим правилом, що й у P&L: оплачений або
+  // без рахунку і виданий. Статусу тут замало — передоплачений ремонт лежить
+  // у `received` і гроші за нього вже в касі.
+  const settledRepairs30Days = (partnerRepairsRes.data ?? []).filter(
+    (r) => repairSettledAt(r) !== null,
+  );
+
+  const partnerRepairsTotal = settledRepairs30Days
     .filter((r) => r.partner_id !== null)
     .reduce((sum, r) => sum + r.price, 0);
   const partnerRevenueTotal = partnerSalesTotal + partnerRepairsTotal;
 
   const totalSales30Days = (partnerSalesRes.data ?? []).reduce((sum, s) => sum + s.total_amount, 0);
-  const totalRepairs30Days = (partnerRepairsRes.data ?? []).reduce((sum, r) => sum + r.price, 0);
+  const totalRepairs30Days = settledRepairs30Days.reduce((sum, r) => sum + r.price, 0);
   const totalRevenue30Days = totalSales30Days + totalRepairs30Days;
   const partnerVolumeShare = totalRevenue30Days > 0 ? Math.round((partnerRevenueTotal / totalRevenue30Days) * 100) : 0;
 

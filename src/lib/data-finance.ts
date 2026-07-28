@@ -1,8 +1,18 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "@/lib/utils/supabase";
 import { getSettings } from "./data-settings";
-import { computeProfit, floorAtEpoch, resolveRange, type ProfitDeviceCost, type ProfitSale, type ProfitSaleItem, type RangePreset } from "./profit";
-import { EARNED_REPAIR_STATUSES } from "./repair-flow";
+import {
+  computeProfit,
+  floorAtEpoch,
+  resolveRange,
+  toDatedRepairs,
+  REPAIR_PNL_COLUMNS,
+  type ProfitDeviceCost,
+  type ProfitSale,
+  type ProfitSaleItem,
+  type RangePreset,
+  type RepairPnlRow,
+} from "./profit";
 
 export async function getCashRegisters() {
   const supabase = await createClient();
@@ -119,11 +129,13 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
     supabase.from("expense_categories").select("*"),
     supabase
       .from("repairs")
-      .select("price, cost, external_sc_cost")
+      .select(REPAIR_PNL_COLUMNS)
       .is("inventory_device_id", null)
-      .in("status", [...EARNED_REPAIR_STATUSES])
-      .gte("completed_at", startStr)
-      .lt("completed_at", endStr),
+      // Грубий фільтр по обох датах закриття; точний відбір — `toDatedRepairs`.
+      .or(
+        `and(paid_at.gte.${startStr},paid_at.lt.${endStr}),` +
+          `and(completed_at.gte.${startStr},completed_at.lt.${endStr})`,
+      ),
     supabase.from("safes").select("id, type"),
   ]);
 
@@ -178,7 +190,15 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
     items: supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
   }));
 
-  const report = computeProfit(profitSales, deviceCostsMap, repairsRes.data ?? []);
+  // Ремонти проходять те саме правило закриття, що й на дашборді, тож звіт і
+  // KPI над ним не можуть розійтися.
+  const settledRepairs = toDatedRepairs(
+    supabaseCast<RepairPnlRow[]>(repairsRes.data ?? []),
+    floored.start,
+    floored.end,
+  );
+
+  const report = computeProfit(profitSales, deviceCostsMap, settledRepairs);
 
   const salesCost = report.byCategory
     .filter((c) => c.category !== "repair")

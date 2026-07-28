@@ -878,22 +878,44 @@ async function recalcRepairPaymentStatus(
   // єдиний викликач (`updateRepair`) уже має `oldRepair.inventory_device_id`
   // під рукою, тож другий похід у базу за тим самим значенням був би зайвим.
   if (inventoryDeviceId) {
-    await supabase.from("repairs").update({ payment_status: null }).eq("id", repairId);
+    await supabase
+      .from("repairs")
+      .update({ payment_status: null, paid_at: null })
+      .eq("id", repairId);
     return;
   }
 
   const { data: payments, error } = await supabase
     .from("transactions")
-    .select("amount")
+    .select("amount, created_at")
     .eq("reference_type", "repair_payment")
     .eq("reference_id", repairId);
 
   if (error) return;
 
-  const paid = (payments ?? []).reduce((s, p) => s + p.amount, 0);
+  const rows = payments ?? [];
+  const paid = rows.reduce((s, p) => s + p.amount, 0);
   const status = paid <= 0 ? "unpaid" : paid >= price ? "paid" : "partial";
 
-  await supabase.from("repairs").update({ payment_status: status }).eq("id", repairId);
+  /* `paid_at` — якір визнання виторгу, тож він мусить рухатись разом зі
+     статусом. Ціну ремонту тут щойно могли підняти (борг з'явився знову) або
+     опустити до вже сплаченої суми — у першому випадку виторг має піти з
+     періоду, у другому прийти в нього датою останнього платежу.
+
+     Дата береться з самих платежів, а не `NOW()`: гроші прийшли тоді, коли
+     прийшли, і правка ціни заднім числом не має переносити виторг у сьогодні. */
+  const paidAt =
+    status === "paid"
+      ? rows.reduce<string | null>(
+          (max, p) => (!max || p.created_at > max ? p.created_at : max),
+          null,
+        )
+      : null;
+
+  await supabase
+    .from("repairs")
+    .update({ payment_status: status, paid_at: paidAt })
+    .eq("id", repairId);
 }
 
 /**

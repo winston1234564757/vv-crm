@@ -73,13 +73,53 @@ export function isTerminal(status: string): boolean {
 }
 
 /**
- * Статуси, у яких ремонт вважається заробленим — гроші за нього рахуються.
- *
- * Живе тут, а не окремими масивами в дашборді й аналітиці: саме через дві
- * незалежні копії цього списку `completed` колись і почав означати різне в
- * різних місцях. `completed` — архівний, лишається для старих рядків.
+ * Архівний `completed` лишається для старих рядків: живих із ним немає, але
+ * вони є в історії, і гарантійний ремонт міг закритись саме так.
  */
-export const EARNED_REPAIR_STATUSES = ["handed_over", "completed"] as const;
+export const DELIVERED_REPAIR_STATUSES = ["handed_over", "completed"] as const;
+
+/**
+ * Коли ремонт заходить у P&L.
+ *
+ * Раніше це був список статусів — виторг визнавався на видачі. Клієнт, що
+ * заплатив наперед, у прибуток не потрапляв узагалі, хоча гроші вже лежали в
+ * касі: рівно так загубився PS5 Slim, оплачений у день прийому.
+ *
+ * Тепер ремонт закритий, коли за ним нема чого чекати:
+ *
+ *  - оплачений повністю → якір `paid_at`, дата приходу грошей;
+ *  - стягувати нема чого (ціна 0) і виданий → якір `completed_at`.
+ *
+ * Другий випадок — не дрібниця. Гарантійна переробка має ціну 0 за визначенням
+ * (`updateRepair` обнуляє її примусово), безкоштовна діагностика — теж. Такий
+ * ремонт ніколи не стане «оплаченим», і без цієї гілки його собівартість тихо
+ * зникла б із P&L, завищивши маржу.
+ *
+ * Виданий, але неоплачений ремонт сюди не потрапляє свідомо: це дебіторка, а
+ * не виторг, і блок уваги ловить його окремим правилом.
+ */
+export interface SettleableRepair {
+  price: number;
+  payment_status: string | null;
+  paid_at: string | null;
+  completed_at: string | null;
+  status: string;
+}
+
+/**
+ * Дата, якою ремонт лягає в період, або `null` якщо він ще не закритий.
+ *
+ * Повертає саме дату, а не булеве значення: викликачу потрібен і факт, і день,
+ * а рахувати їх окремо означало б два різні правила про одне й те саме.
+ */
+export function repairSettledAt(r: SettleableRepair): string | null {
+  if (r.payment_status === "paid" && r.paid_at) return r.paid_at;
+
+  const delivered = (DELIVERED_REPAIR_STATUSES as readonly string[]).includes(r.status);
+  if (r.price <= 0 && delivered && r.completed_at) return r.completed_at;
+
+  return null;
+}
 
 export interface NextStep {
   target: RepairStatus;
