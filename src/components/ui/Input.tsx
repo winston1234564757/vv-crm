@@ -14,6 +14,38 @@ export function fieldTone(hasError?: boolean) {
   return hasError ? "border-danger" : "border-border";
 }
 
+/**
+ * Мітка поля зі знаком обов'язковості.
+ *
+ * Досі `required` мовчки їхало в DOM, і єдиним свідченням, що поле треба
+ * заповнити, була бульбашка браузера після невдалої відправки. На довгій формі
+ * прийому це означало «кнопка не працює» — особливо для `type="file"`, який
+ * блокує сабміт, не показуючи нічого поруч із собою.
+ *
+ * Зірочка `aria-hidden`: сам атрибут `required` на полі скрінрідер уже
+ * озвучує, тож інакше він прочитав би це двічі.
+ */
+export function FieldLabel({
+  htmlFor,
+  required,
+  children,
+}: {
+  htmlFor: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-muted">
+      {children}
+      {required && (
+        <span aria-hidden="true" className="ml-0.5 text-danger">
+          *
+        </span>
+      )}
+    </label>
+  );
+}
+
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
@@ -22,7 +54,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, className, id, ...props },
+  { label, error, hint, className, id, required, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -31,12 +63,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
   return (
     <div className="w-full">
-      <label htmlFor={inputId} className="mb-1.5 block text-xs font-medium text-muted">
+      <FieldLabel htmlFor={inputId} required={required}>
         {label}
-      </label>
+      </FieldLabel>
       <input
         ref={ref}
         id={inputId}
+        required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(fieldClass, fieldTone(!!error), className)}

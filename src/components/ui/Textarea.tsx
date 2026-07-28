@@ -1,6 +1,6 @@
 import { forwardRef, useId } from "react";
 import { cn } from "@/lib/utils/cn";
-import { fieldClass, fieldTone } from "@/components/ui/Input";
+import { fieldClass, fieldTone, FieldLabel } from "@/components/ui/Input";
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string;
@@ -9,7 +9,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { label, error, hint, className, id, rows = 3, ...props },
+  { label, error, hint, className, id, rows = 3, required, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -18,13 +18,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 
   return (
     <div className="w-full">
-      <label htmlFor={areaId} className="mb-1.5 block text-xs font-medium text-muted">
+      <FieldLabel htmlFor={areaId} required={required}>
         {label}
-      </label>
+      </FieldLabel>
       <textarea
         ref={ref}
         id={areaId}
         rows={rows}
+        required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(fieldClass, fieldTone(!!error), "resize-y", className)}

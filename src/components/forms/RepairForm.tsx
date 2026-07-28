@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createRepair, searchCompletedRepairs } from "@/lib/actions/repairs";
 import { createCustomer } from "@/lib/actions/customers";
 import { validatePromoCode } from "@/lib/actions/partners";
@@ -121,6 +121,7 @@ export function RepairForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   const [custError, setCustError] = useState("");
+  const errorRef = useRef<HTMLDivElement>(null);
   const [custNotice, setCustNotice] = useState("");
   const [localCustomers, setLocalCustomers] = useState<Customer[]>(customers);
 
@@ -170,6 +171,16 @@ export function RepairForm({
   // both switched on `isWarranty`, so ticking the warranty box flipped the
   // input between controlled and uncontrolled and could drop what was typed.
   const [price, setPrice] = useState("0");
+
+  /* Вимога «оберіть клієнта» живе на прихованому полі, а приховані поля
+     браузер із валідації виключає — тож вона спрацьовує лише на сервері, і
+     повідомлення про неї з'являється вгорі форми, куди після заповнення вже
+     ніхто не дивиться. Без цієї прокрутки натискання виглядало як «кнопка не
+     працює». */
+  useEffect(() => {
+    if (!state.error && !custError) return;
+    errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [state.error, custError]);
 
   useEffect(() => {
     if (!isWarranty) return;
@@ -367,7 +378,9 @@ export function RepairForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      <InlineError message={state.error || custError} onClose={() => setCustError("")} />
+      <div ref={errorRef}>
+        <InlineError message={state.error || custError} onClose={() => setCustError("")} />
+      </div>
 
       <Section title="Клієнт">
         <SearchSelect
@@ -476,13 +489,12 @@ export function RepairForm({
 
       <Section
         title="Стан при здачі"
-        hint="Фіксує, яким апарат прийшов. Це те, чим ви доведете, що подряпина була до вас."
+        hint="Не обов'язково, але саме цим ви доведете, що подряпина була до вас. Можна дозаповнити пізніше в картці."
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Грейд стану"
             name="device_condition"
-            required
             placeholder="Оберіть стан..."
             options={optionsOf(deviceCondition)}
           />
@@ -503,7 +515,6 @@ export function RepairForm({
             name="device_condition_photos"
             multiple
             accept="image/*"
-            required
             className="w-full text-sm text-ink file:mr-3 file:rounded-[var(--radius-sm)] file:border-0 file:bg-accent file:px-3 file:py-2 file:text-xs file:font-medium file:text-on-accent"
           />
           <p className="mt-1.5 text-xs text-faint">
@@ -604,7 +615,7 @@ export function RepairForm({
             value={isWarranty ? "0" : price}
             onChange={(e) => setPrice(e.target.value)}
             disabled={isWarranty}
-            required={!isWarranty}
+            hint="Можна лишити порожнім і проставити після діагностики"
           />
           <Select label="Гарантія" name="warranty_months" defaultValue="3">
             <option value="3">3 місяці</option>
@@ -620,7 +631,6 @@ export function RepairForm({
             name="source"
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            required
             options={optionsOf(repairSource)}
           />
           {source === "marketplace" && (

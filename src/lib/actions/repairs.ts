@@ -185,7 +185,7 @@ const repairSchema = z.object({
   inventory_device_id: z.string().uuid("Оберіть пристрій").nullable().optional(),
   device_name: z.string().min(2, "Назва пристрою обов'язкова"),
   device_imei: z.string().nullable().optional(),
-  issue: z.string().min(5, "Детально опишіть проблему"),
+  issue: z.string().min(2, "Вкажіть, що з пристроєм"),
   price: z.coerce.number().min(0, "Орієнтовна вартість не може бути від'ємною"),
   warranty_months: z.coerce.number().min(0).default(3),
   notes: z.string().nullable().optional(),

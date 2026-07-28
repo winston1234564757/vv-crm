@@ -1,6 +1,6 @@
 import { forwardRef, useId } from "react";
 import { cn } from "@/lib/utils/cn";
-import { fieldClass, fieldTone } from "@/components/ui/Input";
+import { fieldClass, fieldTone, FieldLabel } from "@/components/ui/Input";
 
 export interface SelectOption {
   value: string;
@@ -30,7 +30,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
  * counter on a phone as often as on the desktop.
  */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, hint, options, placeholder, inline = false, className, id, children, ...props },
+  { label, error, hint, options, placeholder, inline = false, className, id, required, children, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -43,6 +43,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       id={selectId}
       aria-invalid={error ? true : undefined}
       aria-describedby={describedBy}
+      required={required}
       className={cn(
         fieldClass,
         fieldTone(!!error),
@@ -66,9 +67,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 
   return (
     <div className="w-full">
-      <label htmlFor={selectId} className="mb-1.5 block text-xs font-medium text-muted">
+      <FieldLabel htmlFor={selectId} required={required}>
         {label}
-      </label>
+      </FieldLabel>
       {field}
       {error ? (
         <p id={`${selectId}-error`} className="mt-1.5 text-xs text-danger">

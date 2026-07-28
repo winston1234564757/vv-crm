@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useId, useMemo } from "react";
 import { IconSearch, IconChevronDown } from "@/components/icons";
 import { cn } from "@/lib/utils/cn";
-import { fieldClass } from "@/components/ui/Input";
+import { fieldClass, FieldLabel } from "@/components/ui/Input";
 
 interface Option {
   id: string;
@@ -112,9 +112,9 @@ export default function SearchSelect({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <label htmlFor={`${baseId}-trigger`} className="mb-1.5 block text-xs font-medium text-muted">
+      <FieldLabel htmlFor={`${baseId}-trigger`} required={required}>
         {label}
-      </label>
+      </FieldLabel>
 
       <button
         id={`${baseId}-trigger`}
