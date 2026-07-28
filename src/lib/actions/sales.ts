@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { parseError } from "@/lib/utils/errors";
+import { targetRegisterType } from "@/lib/utils/finance";
 import type { ActionState } from "./types";
 
 const saleSchema = z.object({
@@ -85,13 +86,12 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
     
     const regMap = registers?.reduce((acc, r) => ({ ...acc, [r.type]: r.id }), {} as Record<string, string>) || {};
     
-    let targetRegType = "tech";
-    if (parsed.item_category === "accessory") targetRegType = "accessories";
-    else if (parsed.item_category === "service") targetRegType = "repairs";
-    
-    const targetRegisterId = regMap[targetRegType];
+    // Категорія більше не вирішує сама: карткова частина чека належить
+    // рахунку безготівки, готівкова — касі за категорією товару.
+    const cashRegType = targetRegisterType("cash", parsed.item_category);
+    const targetRegisterId = regMap[cashRegType];
     if (!targetRegisterId) {
-      throw new Error(`Касу типу "${targetRegType}" не знайдено в системі.`);
+      throw new Error(`Касу типу "${cashRegType}" не знайдено в системі.`);
     }
 
     // Construct the description based on category
@@ -108,18 +108,43 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
     interface PaymentSplitData {
       amount: number;
       method: "cash" | "card" | "transfer";
+      cash_register_id: string;
     }
+
+    function registerFor(method: string): string {
+      const type = targetRegisterType(method, parsed.item_category);
+      const id = regMap[type];
+      if (!id) throw new Error(`Касу типу "${type}" не знайдено в системі.`);
+      return id;
+    }
+
     const payments: PaymentSplitData[] = [];
     if (parsed.is_split) {
-      if (parsed.cash_amount > 0) payments.push({ amount: parsed.cash_amount, method: "cash" });
-      if (parsed.card_amount > 0) payments.push({ amount: parsed.card_amount, method: "card" });
+      if (parsed.cash_amount > 0) {
+        payments.push({
+          amount: parsed.cash_amount,
+          method: "cash",
+          cash_register_id: registerFor("cash"),
+        });
+      }
+      if (parsed.card_amount > 0) {
+        payments.push({
+          amount: parsed.card_amount,
+          method: "card",
+          cash_register_id: registerFor("card"),
+        });
+      }
 
       const totalSplit = parsed.cash_amount + parsed.card_amount;
       if (Math.abs(totalSplit - parsed.amount) > 1) {
         throw new Error(`Сума частин спліту (${totalSplit} грн) не збігається з сумою до оплати (${parsed.amount} грн)`);
       }
     } else if (parsed.amount > 0) {
-      payments.push({ amount: parsed.amount, method: parsed.method });
+      payments.push({
+        amount: parsed.amount,
+        method: parsed.method,
+        cash_register_id: registerFor(parsed.method),
+      });
     }
 
     // Atomic write: sale header + item stock + payment splits + transactions +
@@ -306,12 +331,17 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
 
       for (const dist of distribution) {
         if (!(dist.amount > 0)) continue;
-        const targetRegisterId = regMap[dist.type];
+
+        const category =
+          dist.type === "tech" ? "device" : dist.type === "accessories" ? "accessory" : "service";
+        const targetRegisterId = regMap[targetRegisterType(p.method, category)];
         if (!targetRegisterId) continue;
 
         const paymentMethodText = p.method === "cash" ? "Готівка" : p.method === "card" ? "Картка" : "Переказ";
         const catText = dist.type === "tech" ? "Техніка" : dist.type === "accessories" ? "Аксесуари" : "Послуги";
 
+        // Рядки лишаються розбитими по категоріях навіть коли всі вони їдуть
+        // на один рахунок: категорія — єдине, що потім пояснює, за що гроші.
         rpcPayments.push({
           amount: dist.amount,
           method: p.method,
