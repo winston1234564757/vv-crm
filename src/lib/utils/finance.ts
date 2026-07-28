@@ -199,12 +199,25 @@ export function targetRegisterType(
   return "tech";
 }
 
+const METHOD_LABELS: Record<string, string> = {
+  cash: "Готівка",
+  card: "Картка",
+  transfer: "Переказ",
+};
+
 /**
  * Підпис способу оплати для чека. Чек буває зі сплітом, тож методів може
  * бути кілька — тоді підписи зводяться в один без повторів.
+ *
+ * Три підписи, а не два, хоча маршрутизація грошей бінарна. Це різні питання:
+ * `targetRegisterType` вирішує, в яку касу лягти, і переказ там справедливо
+ * дорівнює картці — у шухляду не потрапляє ні той, ні та. Але «чим заплатив
+ * клієнт» решта застосунку показує трьома значеннями (`domain-labels`,
+ * картка продажу, фільтр у тій самій таблиці), і зведення переказу до
+ * «Картки» зробило б колонку єдиним місцем, що суперечить сусіднім.
  */
 export function paymentMethodLabel(payments: { method: string }[]): string {
   if (payments.length === 0) return "—";
-  const kinds = new Set(payments.map((p) => (p.method === "cash" ? "Готівка" : "Картка")));
+  const kinds = new Set(payments.map((p) => METHOD_LABELS[p.method] ?? "Інше"));
   return [...kinds].join(" + ");
 }

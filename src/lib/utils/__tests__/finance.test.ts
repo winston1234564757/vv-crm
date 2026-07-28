@@ -193,7 +193,19 @@ describe("Розділення готівки й безготівки", () => {
   it("paymentMethodLabel зводить методи чека без повторів", () => {
     expect(paymentMethodLabel([])).toBe("—");
     expect(paymentMethodLabel([{ method: "cash" }])).toBe("Готівка");
-    expect(paymentMethodLabel([{ method: "card" }, { method: "transfer" }])).toBe("Картка");
     expect(paymentMethodLabel([{ method: "cash" }, { method: "card" }])).toBe("Готівка + Картка");
+    expect(paymentMethodLabel([{ method: "card" }, { method: "card" }])).toBe("Картка");
+  });
+
+  // Маршрутизація грошей бінарна, підпис — ні. Переказ їде на той самий
+  // рахунок, що й картка, але решта застосунку показує його окремим словом,
+  // і колонка в таблиці не має бути єдиним місцем, що каже інакше.
+  it("paymentMethodLabel розрізняє переказ і картку", () => {
+    expect(paymentMethodLabel([{ method: "transfer" }])).toBe("Переказ");
+    expect(paymentMethodLabel([{ method: "card" }, { method: "transfer" }])).toBe("Картка + Переказ");
+  });
+
+  it("paymentMethodLabel не мовчить про невідомий метод", () => {
+    expect(paymentMethodLabel([{ method: "crypto" }])).toBe("Інше");
   });
 });
