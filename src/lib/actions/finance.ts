@@ -68,6 +68,9 @@ const expenseSchema = z.object({
   amount: z.coerce.number().min(1, "Сума витрати має бути більше 0"),
   paid_from_safe_id: z.string().uuid("Оберіть сейф для оплати"),
   description: z.string().optional(),
+  // Сейф тримає дві половини, і витрата мусить сказати, з якої брати.
+  // Замовчування — готівка: це найчастіший випадок за прилавком.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
 });
 
 export async function createExpenseAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -77,6 +80,7 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
       amount: formData.get("amount"),
       paid_from_safe_id: formData.get("paid_from_safe_id"),
       description: formData.get("description") || "",
+      payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = expenseSchema.parse(data);
@@ -93,6 +97,7 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
       paid_from_safe_id: parsed.paid_from_safe_id,
       description: parsed.description || "",
       user_id: user.id,
+      payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;

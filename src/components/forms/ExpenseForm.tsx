@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { createExpenseAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 
 interface ExpenseCategory {
   id: string;
@@ -118,6 +119,8 @@ export function ExpenseForm({
         error={hasOverdraft ? `Сума перевищує доступний баланс сейфу (${selectedSafe?.balance.toLocaleString()} грн)` : undefined}
         placeholder="1000"
       />
+
+      <PaymentMethodPicker />
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Коментар / Деталі (опціонально)</label>
