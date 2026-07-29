@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { withdrawOwnerShareAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 
@@ -101,6 +102,8 @@ export function WithdrawShareForm({
         }
         placeholder="600"
       />
+
+      <PaymentMethodPicker label="Чим забрано" />
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">

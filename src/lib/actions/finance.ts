@@ -224,6 +224,8 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
 }
 
 const topUpSchema = z.object({
+  // Сейф має дві половини — операція мусить сказати, якої стосується.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   safe_id: z.string().uuid("Оберіть сейф для поповнення"),
   amount: z.coerce.number().min(1, "Сума поповнення має бути більше 0"),
   description: z.string().optional(),
@@ -235,6 +237,7 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
       safe_id: formData.get("safe_id"),
       amount: formData.get("amount"),
       description: formData.get("description") || "",
+      payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = topUpSchema.parse(data);
@@ -251,7 +254,8 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
       p_safe_id: parsed.safe_id,
       p_amount: parsed.amount,
       p_desc_text: parsed.description || "Поповнення з особистого гаманця",
-      p_user_id: user.id
+      p_user_id: user.id,
+      p_payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;
@@ -270,6 +274,8 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
 // Те, що це саме сейф ЧП, перевіряє `withdraw_owner_share` — тут відсікаємо
 // лише каси, які приймала стара форма.
 const withdrawSchema = z.object({
+  // Сейф має дві половини — вилучення мусить сказати, якої стосується.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   source_type: z.literal("safe", {
     message: "Частку можна зняти лише з сейфа «Чистий прибуток»",
   }),
@@ -286,6 +292,7 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
       source_id: formData.get("source_id"),
       amount: formData.get("amount"),
       description: formData.get("description") || "",
+      payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = withdrawSchema.parse(data);
@@ -302,6 +309,7 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
       amount: parsed.amount,
       desc_text: parsed.description || "Вилучення частки прибутку співвласника",
       user_id: user.id,
+      payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;

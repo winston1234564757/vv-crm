@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { topUpSafeAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 
@@ -68,6 +69,8 @@ export function TopUpForm({
         onChange={(e) => setAmount(e.target.value)}
         placeholder="1000" 
       />
+
+      <PaymentMethodPicker label="Чим поповнено" />
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Джерело / Призначення (опціонально)</label>
