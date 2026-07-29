@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { createTransfer } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 
@@ -115,6 +116,12 @@ export function TransferForm({
         error={hasOverdraft ? `Сума перевищує доступний баланс (${selectedSource?.balance.toLocaleString()} грн)` : undefined}
         placeholder="1000" 
       />
+
+      {/* Половини є лише в сейфів. Переказ між касами способу не потребує —
+          там усе одно рухається одна цифра. */}
+      {(selectedSource?.kind === "safe" || items.find((i) => i.id === toItem)?.kind === "safe") && (
+        <PaymentMethodPicker label="Яку половину рухаємо" />
+      )}
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Призначення / Опис (опціонально)</label>

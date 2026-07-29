@@ -8,6 +8,9 @@ import { parseError } from "@/lib/utils/errors";
 import type { ActionState } from "./types";
 
 const transferSchema = z.object({
+  // Сейф має дві половини; каса — ні. Для переказу між касами значення просто
+  // не використовується, тож замовчування безпечне.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   from_type: z.enum(["cash_register", "safe"]),
   from_id: z.string().uuid("Оберіть джерело відправлення"),
   to_type: z.enum(["cash_register", "safe"]),
@@ -25,6 +28,7 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
       to_id: formData.get("to_id"),
       amount: formData.get("amount"),
       description: formData.get("description") || "",
+      payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = transferSchema.parse(data);
@@ -50,7 +54,8 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
       to_type: parsed.to_type,
       amount: parsed.amount,
       desc_text: parsed.description || "",
-      user_id: userId
+      user_id: userId,
+      payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;
