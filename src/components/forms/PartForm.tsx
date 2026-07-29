@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { createPart, updatePart } from "@/lib/actions/parts";
 import { Input } from "@/components/ui/Input";
 import type { Database } from "@/types/database";
@@ -193,6 +194,9 @@ export function PartForm({
                   </option>
                 ))}
               </select>
+              <div className="mt-3">
+                <PaymentMethodPicker />
+              </div>
             </div>
           )}
 

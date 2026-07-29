@@ -18,6 +18,8 @@ type ServiceUpdate = Database["public"]["Tables"]["services"]["Update"];
 
 
 const deviceSchema = z.object({
+  // Сейф тримає дві половини, і закупівля мусить сказати, з якої брати.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   type: z.enum(["phone", "tablet", "laptop", "watch", "other"]),
   brand: z.string().min(1, "Бренд обов'язковий"),
   model: z.string().min(1, "Модель обов'язкова"),
@@ -330,7 +332,11 @@ export async function bulkUpdateDevicesTtn(ids: string[], ttn: string): Promise<
 
 export async function receiveDeviceFromTransit(
   deviceId: string,
-  safeId?: string | null
+  safeId?: string | null,
+  /* Спосіб оплати не має значення за замовчуванням «готівка» просто так:
+     ця дія викликається з інтерфейсу, де його питають, і сейф має дві
+     половини — списати треба з тієї, якою справді заплатили. */
+  paymentMethod: "cash" | "cashless" = "cash",
 ): Promise<ActionState> {
   try {
     const supabase = await createClient();
@@ -369,6 +375,7 @@ export async function receiveDeviceFromTransit(
           amount: amount,
           description,
           user_id: user.id,
+          payment_method: paymentMethod,
         });
         if (deductErr) throw deductErr;
       }

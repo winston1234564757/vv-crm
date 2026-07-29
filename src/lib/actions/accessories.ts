@@ -19,6 +19,8 @@ type ServiceUpdate = Database["public"]["Tables"]["services"]["Update"];
 
 
 const accessorySchema = z.object({
+  // Сейф тримає дві половини, і закупівля мусить сказати, з якої брати.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   type: z.enum(ACCESSORY_TYPES),
   name: z.string().min(1, "Назва обов'язкова"),
   price: z.coerce.number().min(0),
@@ -37,6 +39,7 @@ export async function createAccessory(prevState: ActionState | null, formData: F
   try {
     const data = {
       type: formData.get("type"),
+      payment_method: formData.get("payment_method") || "cash",
       name: formData.get("name"),
       price: formData.get("price"),
       cost_price: formData.get("cost_price"),
@@ -125,6 +128,7 @@ export async function createAccessory(prevState: ActionState | null, formData: F
           amount: totalCost,
           description,
           user_id: user.id,
+          payment_method: parsed.payment_method,
         });
         if (rpcErr) throw rpcErr;
       } catch (rpcError) {
@@ -149,6 +153,7 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
   try {
     const data = {
       type: formData.get("type"),
+      payment_method: formData.get("payment_method") || "cash",
       name: formData.get("name"),
       price: formData.get("price"),
       cost_price: formData.get("cost_price"),
@@ -263,6 +268,9 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
               amount: totalCost,
               description,
               user_id: user.id,
+              // Масовий імпорт не питає спосіб оплати — товар заводять
+              // списком, а не по факту платежу. Готівка як типовий випадок.
+              payment_method: "cash",
             });
             if (rpcErr) throw rpcErr;
             processedIds.push(item.id);

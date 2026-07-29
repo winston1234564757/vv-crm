@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { createAccessory, updateAccessory } from "@/lib/actions/accessories";
 import { Input } from "@/components/ui/Input";
 import { accessoryType, optionsOf } from "@/lib/domain-labels";
@@ -137,6 +138,7 @@ export function AccessoryForm({
                 ))}
               </select>
             </div>
+            <PaymentMethodPicker />
           </div>
         )}
       </div>

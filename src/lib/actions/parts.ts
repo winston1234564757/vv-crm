@@ -9,6 +9,8 @@ import type { ActionState } from "./types";
 import { notifyStaffLowStock } from "@/lib/services/telegram";
 
 const partSchema = z.object({
+  // Сейф тримає дві половини, і закупівля мусить сказати, з якої брати.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   name: z.string().min(1, "Назва обов'язкова"),
   part_number: z.string().nullable().optional(),
   type: z.string().min(1, "Тип обов'язковий"),
@@ -113,8 +115,11 @@ export async function updatePart(id: string, prevState: ActionState | null, form
       payment_due_date: formData.get("payment_due_date") || null,
     };
     const parsed = partSchema.parse(data);
+    // `payment_method` описує платіж, а не деталь — колонки під нього в `parts`
+    // немає, тож у запис він не їде.
+    const { payment_method: _method, ...partFields } = parsed;
     const supabase = await createClient();
-    const { error } = await supabase.from("parts").update(parsed).eq("id", id);
+    const { error } = await supabase.from("parts").update(partFields).eq("id", id);
     if (error) throw error;
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
@@ -207,7 +212,11 @@ export async function receivePartFromTransit(
   quantity: number,
   safeId?: string | null,
   paymentStatus: "paid" | "deferred" = "paid",
-  paymentDueDate?: string | null
+  paymentDueDate?: string | null,
+  /* Спосіб оплати не має значення за замовчуванням «готівка» просто так:
+     ця дія викликається з інтерфейсу, де його питають, і сейф має дві
+     половини — списати треба з тієї, якою справді заплатили. */
+  paymentMethod: "cash" | "cashless" = "cash",
 ): Promise<ActionState> {
   try {
     const supabase = await createClient();
@@ -256,6 +265,7 @@ export async function receivePartFromTransit(
           amount: totalCost,
           description,
           user_id: user.id,
+          payment_method: paymentMethod,
         });
         if (deductErr) throw deductErr;
       }
@@ -274,7 +284,11 @@ export async function receivePartFromTransit(
 // ============================================================
 export async function payDeferredPartAction(
   partId: string,
-  safeId: string
+  safeId: string,
+  /* Спосіб оплати не має значення за замовчуванням «готівка» просто так:
+     ця дія викликається з інтерфейсу, де його питають, і сейф має дві
+     половини — списати треба з тієї, якою справді заплатили. */
+  paymentMethod: "cash" | "cashless" = "cash",
 ): Promise<ActionState> {
   try {
     const supabase = await createClient();
@@ -314,6 +328,7 @@ export async function payDeferredPartAction(
       amount: part.debt_amount,
       description,
       user_id: user.id,
+      payment_method: paymentMethod,
     });
     if (rpcErr) throw rpcErr;
 
