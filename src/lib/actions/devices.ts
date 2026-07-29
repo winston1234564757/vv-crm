@@ -167,7 +167,8 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       p_warehouse_location: parsed.warehouse_location,
       p_photo_urls: parsed.photo_urls,
       p_safe_id: chosenSafeId,
-      p_user_id: user.id
+      p_user_id: user.id,
+      p_payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;

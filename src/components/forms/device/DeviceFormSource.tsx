@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/Input";
+import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { DeviceFormData } from "@/lib/types/device.types";
 import type { Database } from "@/types/database";
 
@@ -50,6 +51,7 @@ export function DeviceFormSource({ device, safes = [] }: DeviceFormSourceProps) 
               ))}
             </select>
           </div>
+          <PaymentMethodPicker />
         </div>
       )}
     </div>

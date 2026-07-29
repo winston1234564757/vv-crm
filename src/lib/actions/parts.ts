@@ -85,7 +85,8 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
       p_payment_status: parsed.payment_status,
       p_payment_due_date: parsed.payment_due_date,
       p_safe_id: chosenSafeId,
-      p_user_id: user.id
+      p_user_id: user.id,
+      p_payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;
