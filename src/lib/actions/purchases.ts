@@ -18,6 +18,8 @@ interface InputPurchaseItem {
 }
 
 const purchaseSchema = z.object({
+  // Сейф має дві половини — оплата закупівлі мусить сказати, з якої брати.
+  payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
   supplier_id: z.string().nullable().optional(),
   total_amount: z.coerce.number().min(0, "Сума не може бути від'ємною"),
   status: z.string().optional().default("pending"),
@@ -37,6 +39,7 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
       notes: formData.get("notes") || null,
       payment_type: formData.get("payment_type") || "transit",
       prepaid_safe_id: formData.get("prepaid_safe_id") || null,
+      payment_method: formData.get("payment_method") || "cash",
     };
     const parsed = purchaseSchema.parse(data);
 
@@ -161,6 +164,7 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
         p_id: purchase.id,
         p_safe_id: parsed.prepaid_safe_id,
         user_id: user.id,
+        p_payment_method: parsed.payment_method,
       });
       if (payError) throw payError;
     }
@@ -176,7 +180,14 @@ export async function createPurchase(prevState: ActionState | null, formData: Fo
   }
 }
 
-export async function updatePurchaseStatus(id: string, status: string, safeId?: string | null): Promise<ActionState> {
+export async function updatePurchaseStatus(
+  id: string,
+  status: string,
+  safeId?: string | null,
+  /* Оплата закупівлі списує з конкретної половини сейфа, тож спосіб має
+     приїхати з інтерфейсу, а не вгадуватись тут. */
+  paymentMethod: "cash" | "cashless" = "cash",
+): Promise<ActionState> {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -194,7 +205,8 @@ export async function updatePurchaseStatus(id: string, status: string, safeId?: 
       const { error: rpcError } = await supabase.rpc("pay_purchase_atomic", {
         p_id: id,
         p_safe_id: safeId,
-        user_id: user.id
+        user_id: user.id,
+        p_payment_method: paymentMethod,
       });
       if (rpcError) throw rpcError;
     } else {
