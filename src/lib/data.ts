@@ -5,4 +5,3 @@ export { getRepairs, getRepairsDashboard, getRepairByToken } from "./data-repair
 export { getCustomers, getSalesForHistory } from "./data-customers";
 export { getCashRegisters, getSafes, getFinanceData, getFinanceReport } from "./data-finance";
 export { getDashboardMoney } from "./data-dashboard";
-export { getReportsData } from "./data-reports";

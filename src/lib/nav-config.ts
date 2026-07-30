@@ -99,14 +99,15 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // «Звіти» видалено 30.07.2026: сторінка мала власний грошовий конвеєр повз
+    // profit.ts — без епохи і без ремонтів — і показувала виручку на 5 150 ₴
+    // більшу за правдиву. Те, що вона намагалась показати, дають Продажі
+    // (оборот, середній чек, категорії, методи оплати) і сторінка Днів.
     id: "finance",
     label: "Фінанси",
     icon: IconFinance,
     roles: MONEY_ROLES,
-    items: [
-      { href: "/admin/finance", label: "Фінанси", icon: IconFinance },
-      { href: "/admin/reports", label: "Звіти", icon: IconReport },
-    ],
+    items: [{ href: "/admin/finance", label: "Фінанси", icon: IconFinance }],
   },
   {
     // Not prominent on purpose: the shop hasn't opened yet (24.07.2026), so
