@@ -14,6 +14,7 @@ import {
   comparisonFor,
   deltaPct,
   toDatedRepairs,
+  allocateSaleRevenue,
   type ProfitSale,
   type ProfitSaleItem,
   type ProfitDeviceCost,
@@ -720,5 +721,22 @@ describe("toDatedRepairs", () => {
     expect(out).toHaveLength(1);
     expect(out[0].price).toBe(0);
     expect(out[0].cost).toBe(400);
+  });
+});
+
+describe("allocateSaleRevenue (публічний)", () => {
+  it("розподіляє знижку і сходиться рівно в підсумок чека", () => {
+    const items = [
+      item({ item_type: "accessory", total_price: 1100, unit_cost: 644 }),
+      item({ item_type: "accessory", total_price: 344, unit_cost: 160 }),
+    ];
+    const out = allocateSaleRevenue(items, 1300);
+    expect(out.reduce((s, v) => s + v, 0)).toBe(1300);
+    expect(out).toEqual([990, 310]);
+  });
+
+  it("без знижки віддає позиції як є", () => {
+    const items = [item({ total_price: 100 }), item({ total_price: 250 })];
+    expect(allocateSaleRevenue(items, 350)).toEqual([100, 250]);
   });
 });

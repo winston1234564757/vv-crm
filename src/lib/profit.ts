@@ -166,7 +166,7 @@ function toCategory(itemType: string): ProfitCategory | null {
  * Дробові частини порівнюються цілими чисельниками (`numerator - floorShare
  * * lineTotal`), тому порівняння точне і без похибок double.
  */
-function allocateSaleRevenue(items: ProfitSaleItem[], totalAmount: number): number[] {
+export function allocateSaleRevenue(items: ProfitSaleItem[], totalAmount: number): number[] {
   const lineTotal = items.reduce((s, it) => s + num(it.total_price), 0);
   // Підсумок більший за суму позицій — розподіляти нічого, і догори не
   // тягнемо: невідомо, якій позиції ту гривню віддати, а вигадати означало б

@@ -1,5 +1,7 @@
 import { createClient } from "./supabase/server";
 import { repairSettledAt } from "./repair-flow";
+import { getSettings } from "./data-settings";
+import { allocateSaleRevenue, type ProfitSaleItem } from "./profit";
 import type { ModelAnalyticsItem, StockoutItem, HeatmapRow } from "@/components/dashboard/widget-types";
 
 // Duplicated (not shared) from data-dashboard.ts on purpose — see Task 7 report.
@@ -57,8 +59,15 @@ export interface AnalyticsData {
 export async function getAnalyticsData(): Promise<AnalyticsData> {
   const supabase = await createClient();
   const { start, end } = todayRange();
-  const thirtyDaysAgo = nDaysAgo(30);
-  const ninetyDaysAgo = nDaysAgo(90);
+
+  /* Вікна притиснуті до фінансової епохи. До відкриття магазину чеки писались
+     «з рук»: епоха 21.07, а тридцять днів назад — це 30.06, тож без цієї межі
+     дотестова торгівля лежить усередині кожного вікна і роздуває і виторг, і
+     частку партнерів, і швидкість продажів. Межа одна на всю систему. */
+  const epoch = (await getSettings()).finance_epoch;
+  const floorIso = (iso: string) => (epoch && epoch > iso ? epoch : iso);
+  const thirtyDaysAgo = floorIso(nDaysAgo(30));
+  const ninetyDaysAgo = floorIso(nDaysAgo(90));
 
   const [
     newCustomersRes,
@@ -93,13 +102,21 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
       .gte("updated_at", thirtyDaysAgo),
     // Partner Sales (B2B channel)
     supabase.from("sales").select("total_amount, partner_id").gte("created_at", thirtyDaysAgo),
-    // Partner Repairs (B2B channel)
+    /* Ремонт заробляється на видачі (`repairSettledAt`), тож і вікно по ній.
+       За `created_at` ремонт, прийнятий сорок днів тому й виданий учора, у
+       тридцятиденне вікно не потрапляв би — хоча гроші зайшли всередині нього. */
     supabase
       .from("repairs")
       .select("price, partner_id, status, completed_at")
-      .gte("created_at", thirtyDaysAgo),
-    // Sales Velocity Matrix / Cross-sell / Refurbishment margin sale prices
-    supabase.from("sale_items").select("item_id, item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
+      .is("inventory_device_id", null)
+      .gte("completed_at", thirtyDaysAgo),
+    /* `total_amount` чека потрібен, щоб рознести знижку по позиціях: у
+       `sale_items.total_price` лежить ціна ДО знижки, і підсумовувати її як
+       виторг означає завищувати його на всю знижку. */
+    supabase
+      .from("sale_items")
+      .select("item_id, item_type, total_price, unit_cost, quantity, sales!inner(created_at, id, total_amount)")
+      .gte("sales.created_at", thirtyDaysAgo),
     // Customer Retention Rate (Sales 90d)
     supabase.from("sales").select("customer_id").gte("created_at", ninetyDaysAgo),
     // Customer Retention Rate (Repairs 90d)
@@ -171,49 +188,75 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
   const totalRevenue30Days = totalSales30Days + totalRepairs30Days;
   const partnerVolumeShare = totalRevenue30Days > 0 ? Math.round((partnerRevenueTotal / totalRevenue30Days) * 100) : 0;
 
-  // Sales velocity
-  const salesVelocity = { device: 0, accessory: 0, part: 0, service: 0 };
-  (saleItems30DaysRes.data ?? []).forEach((item: any) => {
-    if (item.item_type in salesVelocity) {
-      salesVelocity[item.item_type as keyof typeof salesVelocity] += item.total_price;
-    }
-  });
-
-  // Cross-sell
-  const saleGroups = new Map<string, Array<{ item_type: string; total_price: number }>>();
-  (saleItems30DaysRes.data ?? []).forEach((item: any) => {
-    const saleId = item.sales?.id;
-    if (saleId) {
-      if (!saleGroups.has(saleId)) saleGroups.set(saleId, []);
-      saleGroups.get(saleId)!.push({
-        item_type: item.item_type,
-        total_price: item.total_price,
+  /* Позиції групуються по чеках, і знижка кожного чека розноситься по його
+     позиціях тим самим `allocateSaleRevenue`, що рахує P&L. Інакше «швидкість
+     продажів» і «виторг з допродажів» називались би виторгом, а показували б
+     суму цінників. */
+  interface AnalyticsLine {
+    item_type: string;
+    revenue: number;
+  }
+  const linesBySale = new Map<string, AnalyticsLine[]>();
+  {
+    const raw = new Map<string, { total_amount: number; items: ProfitSaleItem[]; types: string[] }>();
+    for (const row of (saleItems30DaysRes.data ?? []) as any[]) {
+      const sale = row.sales;
+      if (!sale?.id) continue;
+      const bucket: { total_amount: number; items: ProfitSaleItem[]; types: string[] } = raw.get(
+        sale.id,
+      ) ?? {
+        total_amount: sale.total_amount ?? 0,
+        items: [],
+        types: [],
+      };
+      bucket.items.push({
+        item_type: row.item_type,
+        item_id: row.item_id,
+        quantity: row.quantity ?? 1,
+        total_price: row.total_price ?? 0,
+        unit_cost: row.unit_cost ?? 0,
       });
+      bucket.types.push(row.item_type);
+      raw.set(sale.id, bucket);
     }
-  });
+    for (const [saleId, b] of raw) {
+      const revenues = allocateSaleRevenue(b.items, b.total_amount);
+      linesBySale.set(
+        saleId,
+        b.types.map((item_type, i) => ({ item_type, revenue: revenues[i] })),
+      );
+    }
+  }
 
-  let totalCoreSales = 0; // sales containing device or service
-  let crossSalesCount = 0; // sales containing (device/service) AND accessory
-  let crossSellRevenue30Days = 0; // total revenue of accessories in cross-sales
-
-  saleGroups.forEach((items) => {
-    const hasDeviceOrService = items.some((i) => i.item_type === "device" || i.item_type === "service");
-    const hasAccessory = items.some((i) => i.item_type === "accessory");
-
-    if (hasDeviceOrService) {
-      totalCoreSales++;
-      if (hasAccessory) {
-        crossSalesCount++;
-        items.forEach((i) => {
-          if (i.item_type === "accessory") {
-            crossSellRevenue30Days += i.total_price;
-          }
-        });
+  const salesVelocity = { device: 0, accessory: 0, part: 0, service: 0 };
+  for (const lines of linesBySale.values()) {
+    for (const l of lines) {
+      if (l.item_type in salesVelocity) {
+        salesVelocity[l.item_type as keyof typeof salesVelocity] += l.revenue;
       }
     }
-  });
+  }
 
-  const crossSellConversionRate = totalCoreSales > 0 ? Math.round((crossSalesCount / totalCoreSales) * 100) : 0;
+  let totalCoreSales = 0; // чеки, де є техніка або послуга
+  let crossSalesCount = 0; // з них ті, де є ще й аксесуар
+  let crossSellRevenue30Days = 0; // виторг аксесуарів у таких чеках
+
+  for (const lines of linesBySale.values()) {
+    const hasDeviceOrService = lines.some(
+      (l) => l.item_type === "device" || l.item_type === "service",
+    );
+    if (!hasDeviceOrService) continue;
+    totalCoreSales++;
+    const hasAccessory = lines.some((l) => l.item_type === "accessory");
+    if (!hasAccessory) continue;
+    crossSalesCount++;
+    for (const l of lines) {
+      if (l.item_type === "accessory") crossSellRevenue30Days += l.revenue;
+    }
+  }
+
+  const crossSellConversionRate =
+    totalCoreSales > 0 ? Math.round((crossSalesCount / totalCoreSales) * 100) : 0;
   const crossSellDealsCount = crossSalesCount;
 
   // Customer retention
