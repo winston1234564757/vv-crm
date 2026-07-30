@@ -239,27 +239,6 @@ export async function getSales(limit?: number, ids?: string[]): Promise<SaleWith
   });
 }
 
-export async function getSalesStats() {
-  const supabase = await createClient();
-  
-  // Get all sales total_amount
-  const { data, error } = await supabase
-    .from("sales")
-    .select("total_amount");
-
-  if (error) throw error;
-
-  const totalSales = data?.length ?? 0;
-  const totalRevenue = data?.reduce((sum, s) => sum + s.total_amount, 0) ?? 0;
-  const averageCheck = totalSales > 0 ? Math.round(totalRevenue / totalSales) : 0;
-
-  return {
-    totalSales,
-    totalRevenue,
-    averageCheck
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Server-side pagination & analytics
 //
