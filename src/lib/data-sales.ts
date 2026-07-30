@@ -12,6 +12,12 @@ export interface SaleWithDetails {
   id: string;
   customer_id: string | null;
   total_amount: number;
+  /**
+   * ВІДСОТОК, не гривні: `total_amount = subtotal − round(subtotal × discount/100)`.
+   * Годиться показати («Знижка 10%»), але рахувати гроші з нього не можна —
+   * знижка в гривнях це `сума позицій − total_amount`, і лише вона вірна для
+   * обох шляхів продажу (POS кладе позиції до знижки, швидкий продаж — після).
+   */
   discount: number;
   notes: string | null;
   created_by: string;
@@ -415,31 +421,64 @@ export interface SalesAnalyticsResult {
   count: number;
   warrantyCount: number;
   avgCheck: number;
+  /**
+   * Сума `byCategory` — знаменник для відсотків у розбивці, не окреме число
+   * для екрана. Дорівнює `revenue`: RPC розподіляє знижку чека по позиціях,
+   * тож категорії сходяться з оборотом. Плитки з цим числом більше немає —
+   * вона була сумою позицій ДО знижок і читалась як розбіжність із оборотом.
+   */
   itemsTotal: number;
   byCategory: Array<{ key: string; value: number }>;
   byPayment: Array<{ key: string; value: number }>;
   bySeller: Array<{ key: string; value: number }>;
   trend: Array<{ bucket: string; value: number }>;
+  /**
+   * Фактичний початок вікна після підняття до епохи, або `null` якщо запитане
+   * вікно й так починалось після відкриття. UI підписує ним період, щоб
+   * «30 днів», які насправді рахують дев'ять, не виглядали як тридцять.
+   */
+  flooredFrom: string | null;
 }
 
+/**
+ * Зведення для шапки сторінки Продажів.
+ *
+ * Нижня межа піднімається до `finance_epoch` — так само, як це вже робив
+ * список операцій під цими плитками. Без цього два числа на одному екрані
+ * рахували різне: у списку було 33 операції від відкриття, а в плитці 36,
+ * бо в «30 днів» потрапляли ще й дотестові продажі «з рук» на 6 350 ₴.
+ */
 export async function getSalesAnalytics(
   from: Date | null,
   to: Date | null,
   bucket: SalesBucket = "day",
 ): Promise<SalesAnalyticsResult> {
+  const empty: SalesAnalyticsResult = {
+    revenue: 0, count: 0, warrantyCount: 0, avgCheck: 0, itemsTotal: 0,
+    byCategory: [], byPayment: [], bySeller: [], trend: [], flooredFrom: null,
+  };
+
+  const epochIso = (await getSettings()).finance_epoch;
+  const epoch = epochIso ? new Date(epochIso) : null;
+  const epochValid = epoch && !Number.isNaN(epoch.getTime()) ? epoch : null;
+
+  /* «Увесь час» (`from === null`) теж починається з відкриття: без межі туди
+     затікає та сама дотестова торгівля. */
+  const start = epochValid && (!from || epochValid > from) ? epochValid : from;
+  const flooredFrom = epochValid && (!from || epochValid > from) ? epochValid.toISOString() : null;
+
+  // Вікно цілком до відкриття — наприклад «Минулий місяць» у перший місяць
+  // роботи. Нулі чесніші за дотестові числа, і базу смикати нема за чим.
+  if (start && to && start >= to) return { ...empty, flooredFrom };
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("sales_analytics", {
-    p_from: from?.toISOString(),
+    p_from: start?.toISOString(),
     p_to: to?.toISOString(),
     p_bucket: bucket,
   });
   if (error) throw new Error(error.message);
 
-  const empty: SalesAnalyticsResult = {
-    revenue: 0, count: 0, warrantyCount: 0, avgCheck: 0, itemsTotal: 0,
-    byCategory: [], byPayment: [], bySeller: [], trend: [],
-  };
-
   // sales_analytics returns jsonb, so its shape is opaque to the generated types.
-  return { ...empty, ...((data as Partial<SalesAnalyticsResult> | null) ?? {}) };
+  return { ...empty, ...((data as Partial<SalesAnalyticsResult> | null) ?? {}), flooredFrom };
 }

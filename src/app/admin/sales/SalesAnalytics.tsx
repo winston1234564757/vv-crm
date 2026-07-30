@@ -3,6 +3,7 @@
 import { useMemo, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { eachDayOfInterval, eachHourOfInterval, format, parseISO } from "date-fns";
+import { uk } from "date-fns/locale";
 import { StatCard } from "@/components/ui/StatCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/utils/cn";
@@ -77,15 +78,21 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
 
   // SQL only returns buckets that had sales. Fill the gaps so the chart does not
   // imply activity on days that were actually empty.
+  //
+  // Вісь починається з `flooredFrom`, а не з формального початку періоду: до
+  // відкриття магазину даних немає за визначенням, і десяток порожніх
+  // стовпчиків попереду читався б як провал у продажах, а не як «нас ще не було».
   const buckets = useMemo(() => {
-    const { from, to, bucket } = periodRange(period);
+    const { from: rawFrom, to, bucket } = periodRange(period);
+    const floored = data.flooredFrom ? parseISO(data.flooredFrom) : null;
+    const from = floored && (!rawFrom || floored > rawFrom) ? floored : rawFrom;
     const byKey = new Map<string, number>();
     for (const t of data.trend) {
       const d = parseISO(t.bucket);
       byKey.set(format(d, bucket === "hour" ? "yyyy-MM-dd HH" : bucket === "day" ? "yyyy-MM-dd" : "yyyy-MM"), Number(t.value));
     }
 
-    if (!from || !to) {
+    if (!from || !to || from > to) {
       return data.trend.map((t) => ({
         label: format(parseISO(t.bucket), "MM.yyyy"),
         value: Number(t.value),
@@ -100,17 +107,36 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
       label: format(d, bucket === "hour" ? "HH" : "dd.MM"),
       value: byKey.get(format(d, bucket === "hour" ? "yyyy-MM-dd HH" : "yyyy-MM-dd")) ?? 0,
     }));
-  }, [data.trend, period]);
+  }, [data.trend, data.flooredFrom, period]);
 
   const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
   const hasTrend = buckets.some((b) => b.value > 0);
 
   return (
     <div className={cn("space-y-5 transition-opacity", isPending && "opacity-60")}>
-      <Tabs tabs={PERIOD_TABS} value={period} onValueChange={setPeriod} aria-label="Період" />
+      <div className="space-y-2">
+        <Tabs tabs={PERIOD_TABS} value={period} onValueChange={setPeriod} aria-label="Період" />
+        {data.flooredFrom && (
+          <p className="text-xs text-muted">
+            Рахуємо від відкриття,{" "}
+            <span className="tabular">
+              {format(parseISO(data.flooredFrom), "d MMMM", { locale: uk })}
+            </span>{" "}
+            — торгівля до цієї дати в підсумки не входить.
+          </p>
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-4">
-        <StatCard label="Оборот за період" value={`${data.revenue.toLocaleString()} ₴`} />
+      {/* Грошова плитка на сторінці одна. Була ще «Продано на суму» — сума
+          позицій ДО знижок, — і поруч із оборотом вона читалась як розбіжність
+          у 144 ₴, хоча міряла інше. Тепер знижку розподіляє сам RPC, обидва
+          числа збігались би до гривні, і друга плитка лишалась би дублем. */}
+      <div className="grid grid-cols-1 gap-4 md:gap-5 md:grid-cols-3">
+        <StatCard
+          label="Оборот за період"
+          value={`${data.revenue.toLocaleString()} ₴`}
+          sub="Чеки і ремонти, вже зі знижками"
+        />
         <StatCard
           label="Операцій"
           tone="info"
@@ -118,7 +144,6 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
           sub={`${data.warrantyCount} ${pluralUk(data.warrantyCount, "гарантійний", "гарантійні", "гарантійних")}`}
         />
         <StatCard label="Середній чек" tone="accent" value={`${data.avgCheck.toLocaleString()} ₴`} />
-        <StatCard label="Продано на суму" tone="success" value={`${data.itemsTotal.toLocaleString()} ₴`} sub="Позиції в чеках і ремонти" />
       </div>
 
       <div className="card p-5">
