@@ -4,20 +4,12 @@ import { cn } from "@/lib/utils/cn";
 import { uah } from "@/lib/utils/money";
 import { pluralUk } from "@/lib/utils/plural";
 import { LEDGER_MAX_DAYS } from "@/lib/profit";
+import { dateTimeShort } from "@/lib/utils/day";
 import type { DashboardMoney } from "@/lib/data-dashboard";
 
 /** Пошта як ім'я нечитабельна в таблиці — лишаємо частину до «@». */
 function shortName(name: string): string {
   return name.split("@")[0];
-}
-
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /** Скільки зняттів показуємо, перш ніж згорнути решту в підпис. */
@@ -119,13 +111,10 @@ export function ShareCard({
         </tbody>
       </table>
 
-      {ledger.advances > 0 && (
-        <p className="text-[11px] text-warning">
-          З них {uah(ledger.advances)} узято ще з каси, повз сейф. Ці гроші нарахування не
-          збільшують — вони враховані як аванс, тому залишок може бути від'ємним, доки розподіл
-          не наздожене.
-        </p>
-      )}
+      {/* Пояснення про аванси (взяте з каси повз сейф) прибрано на прохання
+          власників: правило вони знають, а окремий абзац щодня повторював те
+          саме. Самі аванси нікуди не поділись — вони й далі зменшують залишок,
+          а конкретне зняття позначене підписом «аванс» у списку нижче. */}
 
       <p className="text-[11px] text-muted">
         Зароблено чистими{" "}
@@ -143,7 +132,7 @@ export function ShareCard({
           {shown.map((w) => (
             <div key={w.id} className="flex items-baseline justify-between gap-2 text-[11px]">
               <span className="min-w-0 truncate text-muted">
-                <span className="tabular">{shortDate(w.at)}</span>
+                <span className="tabular">{dateTimeShort(w.at)}</span>
                 <span className="mx-1.5 text-faint">·</span>
                 {shortName(w.ownerName)}
                 {w.isAdvance && <span className="ml-1.5 text-warning">аванс</span>}

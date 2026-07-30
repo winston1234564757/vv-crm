@@ -4,6 +4,40 @@
  * навігація в UI збігалася з вікнами, за якими сервер рахує гроші.
  */
 
+/**
+ * Часовий пояс магазину.
+ *
+ * Потрібен явно, бо серверні компоненти рендеряться там, де стоїть рантайм, а
+ * не там, де стоїть магазин: на Vercel це UTC, тож `toLocaleTimeString` без
+ * поясу показував чек, пробитий о 12:03, як 09:03. Локально (Windows, Київ)
+ * баг не видно взагалі — саме тому він і доїхав у прод.
+ *
+ * `dayKey`/`resolveRange` навмисно лишаються в локальному часі рантайму: вони
+ * ріжуть грошові вікна, і переводити їх на пояс магазину — окрема зміна, яка
+ * зсуває всі числа. Тут — лише те, що показується людині.
+ */
+export const SHOP_TIME_ZONE = "Europe/Kyiv";
+
+/** `ГГ:ХХ` за часом магазину. */
+export function timeHM(iso: string): string {
+  return new Date(iso).toLocaleTimeString("uk-UA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: SHOP_TIME_ZONE,
+  });
+}
+
+/** `ДД.ММ, ГГ:ХХ` за часом магазину — для щільних списків. */
+export function dateTimeShort(iso: string): string {
+  return new Date(iso).toLocaleDateString("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: SHOP_TIME_ZONE,
+  });
+}
+
 /** Локальний `YYYY-MM-DD` для дати. */
 export function dayKey(d: Date): string {
   const y = d.getFullYear();

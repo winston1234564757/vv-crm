@@ -18,6 +18,13 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash: "Готівка", card: "Картка", transfer: "Переказ",
 };
 
+/* Продавець приходить рядком `profiles.full_name`, а це поки що пошта — цілу
+   адресу колонка все одно обрізає посередині домену. Ключ лишається як є, бо
+   він же ідентифікує рядок; коротшає лише підпис. */
+function sellerLabels(rows: Array<{ key: string; value: number }>): Record<string, string> {
+  return Object.fromEntries(rows.map((r) => [r.key, r.key.split("@")[0]]));
+}
+
 function Breakdown({ title, rows, total, empty, labels }: {
   title: string;
   rows: Array<{ key: string; value: number }>;
@@ -151,7 +158,7 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
         {/* Тільки товарні продажі: оплата ремонту йде в касу без поділу на
             готівку/картку, тож сума тут менша за оборот. */}
         <Breakdown title="За методом оплати" rows={data.byPayment} total={data.byPayment.reduce((s, r) => s + r.value, 0)} empty="Немає оплат за період" labels={PAYMENT_LABELS} />
-        <Breakdown title="За продавцями" rows={data.bySeller} total={data.revenue} empty="Немає продажів за період" />
+        <Breakdown title="За продавцями" rows={data.bySeller} total={data.revenue} empty="Немає продажів за період" labels={sellerLabels(data.bySeller)} />
       </div>
     </div>
   );

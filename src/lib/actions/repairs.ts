@@ -283,6 +283,11 @@ export async function createRepair(prevState: ActionState | null, formData: Form
       estimated_completion: parsed.estimated_completion,
       warranty_for_repair_id: parsed.warranty_for_repair_id,
       status: "received",
+      /* Хто прийняв — той і майстер: у `repairs` немає `created_by`, тож
+         `assigned_to` це єдиний слід людини на ремонті. Поле не заповнювалось
+         НІКОЛИ, і через це аналітика продажів зводила виторг усіх ремонтів у
+         рядок «Невідомо» — не збій даних, а порожня колонка. */
+      assigned_to: user.id,
     }).select("id, tracking_token, public_token").single();
 
     if (error) throw error;

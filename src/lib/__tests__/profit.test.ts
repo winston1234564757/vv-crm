@@ -391,7 +391,7 @@ function dSale(created_at: string, items: ProfitSaleItem[], discount: number | n
 }
 
 function dRepair(settled_at: string, price: number, cost: number): DatedRepair {
-  return { settled_at, price, cost, external_sc_cost: 0 };
+  return { id: `rep-${settled_at}-${price}`, settled_at, price, cost, external_sc_cost: 0 };
 }
 
 function dExpense(
@@ -645,6 +645,7 @@ describe("toDatedRepairs", () => {
   const end = new Date("2026-07-29T00:00:00Z");
 
   const row = (over: Partial<RepairPnlRow> = {}): RepairPnlRow => ({
+    id: "rep-1",
     price: 1800,
     cost: 950,
     external_sc_cost: 0,

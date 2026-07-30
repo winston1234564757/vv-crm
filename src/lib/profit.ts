@@ -411,6 +411,8 @@ export interface DatedSale extends ProfitSale {
 }
 
 export interface DatedRepair extends ProfitRepair {
+  /** `repairs.id` — щоб чек ремонту можна було показати в списку операцій. */
+  id: string;
   /**
    * День, яким ремонт лягає в період: дата повної оплати, а для робіт без
    * рахунку — дата видачі. Рахує `repairSettledAt`; сюди приходить уже
@@ -497,11 +499,13 @@ export function chartWindow(
 }
 
 /** Рядок ремонту так, як його треба вибрати з бази для P&L. */
-export interface RepairPnlRow extends ProfitRepair, SettleableRepair {}
+export interface RepairPnlRow extends ProfitRepair, SettleableRepair {
+  id: string;
+}
 
 /** Поля, які мусить містити SELECT ремонтів для P&L. Один рядок на всі місця. */
 export const REPAIR_PNL_COLUMNS =
-  "status, price, cost, external_sc_cost, payment_status, paid_at, completed_at";
+  "id, status, price, cost, external_sc_cost, payment_status, paid_at, completed_at";
 
 /**
  * Відбирає ремонти, закриті всередині `[start, end)`, і проставляє їм день.
@@ -520,6 +524,7 @@ export function toDatedRepairs(
     const settled = repairSettledAt(r);
     if (!settled || !inWindow(settled, start, end)) continue;
     out.push({
+      id: r.id,
       settled_at: settled,
       price: r.price,
       cost: r.cost,
