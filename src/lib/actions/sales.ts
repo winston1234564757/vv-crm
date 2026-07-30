@@ -178,7 +178,6 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
-    revalidatePath("/admin/reports");
     revalidatePath("/admin/accessories");
 
     return { success: true, data: { saleId: newSaleId as unknown as string } };
@@ -198,7 +197,6 @@ export async function reconcileSaleWithMonobank(saleId: string, monobankPaymentI
 
     revalidatePath("/admin");
     revalidatePath("/admin/finance");
-    revalidatePath("/admin/reports");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
@@ -383,7 +381,6 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
-    revalidatePath("/admin/reports");
     revalidatePath("/admin/accessories");
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
@@ -474,7 +471,6 @@ export async function deleteSaleAction(saleId: string): Promise<ActionState> {
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
-    revalidatePath("/admin/reports");
     revalidatePath("/admin/accessories");
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
