@@ -650,26 +650,19 @@ import { readFileSync } from "node:fs";
  * він рахує партнерські суми напряму, але тільки над рядками, які вже
  * відфільтровані епохою, і жоден із них не називається виторгом магазину.
  * Якщо колись назветься — тест має впасти, і це правильно.
+ *
+ * `data-day.ts` у списку немає свідомо: файл з'явиться у слайсі 2, і додати
+ * його має той слайс. Рядок із `try/catch` на неіснуючий файл був би тестом,
+ * який нічого не стверджує, — гірше за відсутній.
  */
-const GUARDED = [
-  "src/lib/data-dashboard.ts",
-  "src/lib/data-sales.ts",
-  "src/lib/data-day.ts",
-];
+const GUARDED = ["src/lib/data-dashboard.ts", "src/lib/data-sales.ts"];
 
 const RAW_SUM = /reduce\([\s\S]{0,120}\.(total_amount|total_price)\b/g;
 
 describe("виторг рахується лише через profit.ts", () => {
   for (const file of GUARDED) {
     it(`${file} не підсумовує total_amount/total_price напряму`, () => {
-      let src: string;
-      try {
-        src = readFileSync(file, "utf8");
-      } catch {
-        // Файл ще не створено (з'явиться в слайсі 2) — правило його дочекається.
-        return;
-      }
-      expect(src.match(RAW_SUM)).toBeNull();
+      expect(readFileSync(file, "utf8").match(RAW_SUM)).toBeNull();
     });
   }
 });
@@ -681,9 +674,9 @@ describe("виторг рахується лише через profit.ts", () => 
 npx vitest run src/lib/__tests__/no-raw-revenue-sum.test.ts 2>&1 | tail -20
 ```
 
-Expected: PASS для всіх трьох. Якщо `data-dashboard.ts` або `data-sales.ts`
-падає — це справжня знахідка: у плані її не було, зупинитись і повідомити з
-показом рядка, що спрацював.
+Expected: PASS для обох. Якщо `data-dashboard.ts` або `data-sales.ts` падає —
+це справжня знахідка: у плані її не було, зупинитись і повідомити з показом
+рядка, що спрацював.
 
 - [ ] **Step 3: Довести, що тест ловить регресію**
 
