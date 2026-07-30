@@ -5,6 +5,7 @@ import {
   parseSalesSort,
   parseSalesDir,
   parseSalesScope,
+  parseMinAmount,
 } from "@/lib/data-sales";
 import { SalesTable } from "./table";
 import { SalesAnalytics } from "./SalesAnalytics";
@@ -35,6 +36,7 @@ export default async function SalesPage({
   const sort = parseSalesSort(one("sort"));
   const dir = parseSalesDir(one("dir"));
   const scope = parseSalesScope(one("scope"));
+  const minAmount = parseMinAmount(one("min"));
 
   // Search, filtering, paging and aggregation all run in Postgres.
   const [pageData, analytics] = await Promise.all([
@@ -47,6 +49,7 @@ export default async function SalesPage({
       sort,
       dir,
       scope,
+      minAmount,
     }),
     getSalesAnalytics(from, to, bucket),
   ]);
@@ -76,6 +79,7 @@ export default async function SalesPage({
           sort={sort}
           dir={dir}
           scope={scope}
+          minAmount={minAmount}
         />
       </StandardCard>
     </div>

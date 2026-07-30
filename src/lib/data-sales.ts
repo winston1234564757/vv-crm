@@ -1,6 +1,12 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "./utils/supabase";
 import { getSettings } from "./data-settings";
+import {
+  DEFAULT_SALES_SCOPE as SCOPE_DEFAULT,
+  type SalesDir,
+  type SalesScope,
+  type SalesSort,
+} from "./sales-list-params";
 
 export interface SaleWithDetails {
   id: string;
@@ -257,40 +263,17 @@ export async function getSalesStats() {
 // item-name / payment / seller resolution above stays in one place.
 // ---------------------------------------------------------------------------
 
-/** За чим упорядкований список операцій. */
-export type SalesSort = "date" | "amount";
-export type SalesDir = "asc" | "desc";
-
-/**
- * Межа вибірки: `since_open` — від фінансової епохи (`finance_epoch` у
- * settings), `all` — від початку бази.
- *
- * Епоха тут не косметика. До відкриття магазину чеки писались «з рук», і за
- * сумою вони перебивають половину справжніх: сортування за сумою без цієї межі
- * підняло б їх у топ. Межа одна на всю систему — та сама, що виключає ті чеки
- * з грошових розрахунків, тож другої дати ніде не з'являється.
- */
-/*
- * `ever`, а не `all`: рядок `all` у цій сторінці зарезервований як «фільтр
- * вимкнено» — `push()` у таблиці викидає з URL будь-який параметр зі значенням
- * `all`. Назви цим словом межу вибірки, і «Увесь час» тихо скидався б назад до
- * «Від відкриття», бо параметр не доїжджав би до сервера.
- */
-export type SalesScope = "since_open" | "ever";
-
-export const DEFAULT_SALES_SCOPE: SalesScope = "since_open";
-
-export function parseSalesSort(v: string | undefined): SalesSort {
-  return v === "amount" ? "amount" : "date";
-}
-
-export function parseSalesDir(v: string | undefined): SalesDir {
-  return v === "asc" ? "asc" : "desc";
-}
-
-export function parseSalesScope(v: string | undefined): SalesScope {
-  return v === "ever" ? "ever" : DEFAULT_SALES_SCOPE;
-}
+/* Розбір параметрів списку — у `sales-list-params`: його читає і клієнтська
+   таблиця, а цей модуль тягне серверний Supabase. Ре-експорт, щоб виклики
+   сторінки не роздвоювались на два імпорти. */
+export {
+  DEFAULT_SALES_SCOPE,
+  parseSalesSort,
+  parseSalesDir,
+  parseSalesScope,
+  parseMinAmount,
+} from "./sales-list-params";
+export type { SalesSort, SalesDir, SalesScope } from "./sales-list-params";
 
 export interface SalesPageParams {
   page?: number;
@@ -301,6 +284,8 @@ export interface SalesPageParams {
   sort?: SalesSort;
   dir?: SalesDir;
   scope?: SalesScope;
+  /** Нижній поріг суми операції, включно. `null`/відсутній — без порогу. */
+  minAmount?: number | null;
 }
 
 /**
@@ -348,7 +333,7 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
   const requestedPage = Math.max(params.page ?? 1, 1);
   const sort = params.sort ?? "date";
   const dir = params.dir ?? "desc";
-  const scope = params.scope ?? DEFAULT_SALES_SCOPE;
+  const scope = params.scope ?? SCOPE_DEFAULT;
 
   /* Епоха читається тут, а не приходить параметром: сторінці не потрібно знати
      дату, їй достатньо сказати «від відкриття». `finance_epoch` може бути не
@@ -367,6 +352,7 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     p_from: epoch ?? undefined,
     p_sort: sort,
     p_dir: dir,
+    p_min_amount: params.minAmount ?? undefined,
   });
   if (error) throw new Error(error.message);
   const hits = supabaseCast<TransactionHit[]>(data ?? []);

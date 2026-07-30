@@ -9,14 +9,9 @@ import Drawer from "@/components/ui/Drawer";
 import { Badge } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils/cn";
-import type {
-  SaleWithDetails,
-  SalesRow,
-  SoldRepair,
-  SalesSort,
-  SalesDir,
-  SalesScope,
-} from "@/lib/data-sales";
+import { parseMinAmount } from "@/lib/sales-list-params";
+import type { SalesSort, SalesDir, SalesScope } from "@/lib/sales-list-params";
+import type { SaleWithDetails, SalesRow, SoldRepair } from "@/lib/data-sales";
 import { labelOf, paymentStatus as domainPaymentStatus } from "@/lib/domain-labels";
 import { paymentMethodLabel } from "@/lib/utils/finance";
 import Link from "next/link";
@@ -42,6 +37,7 @@ interface SalesTableProps {
   sort: SalesSort;
   dir: SalesDir;
   scope: SalesScope;
+  minAmount: number | null;
 }
 
 /**
@@ -55,13 +51,23 @@ interface SalesTableProps {
  */
 /**
  * Порожній результат при обмеженій вибірці — це найчастіше не «нічого немає», а
- * «шукане старше за відкриття магазину». Без цієї підказки залишається думати,
- * що чек загубився.
+ * «шукане не проходить межу»: або старше за відкриття магазину, або дешевше за
+ * поріг. Без цієї підказки залишається думати, що чек загубився.
+ *
+ * Обидві причини разом, а не перша знайдена: коли активні й поріг, і межа дати,
+ * прибрати одну ще не означає побачити рядок, і підказка про одну лише
+ * відправила б шукати не там.
  */
-function EmptyScopeHint() {
+function EmptyHint({ scope, minAmount }: { scope: SalesScope; minAmount: number | null }) {
+  const reasons = [
+    minAmount !== null && `лише від ${minAmount} ₴`,
+    scope === "since_open" && "лише від відкриття магазину",
+  ].filter((r): r is string => !!r);
+
+  if (reasons.length === 0) return null;
   return (
     <span className="mt-1 block text-xs text-faint">
-      Показані лише чеки від відкриття магазину — спробуй «Увесь час»
+      Показані {reasons.join(" і ")} — послаб фільтри, якщо чек має бути тут
     </span>
   );
 }
@@ -81,7 +87,7 @@ function rowDate(row: SalesRow) {
   return row.kind === "sale" ? row.sale.created_at : row.repair.completed_at;
 }
 
-export function SalesTable({ rows, total, page, pageSize, pageCount, query, category, payment, sort, dir, scope }: SalesTableProps) {
+export function SalesTable({ rows, total, page, pageSize, pageCount, query, category, payment, sort, dir, scope, minAmount }: SalesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,9 +95,25 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
   const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
   const [selectedRepair, setSelectedRepair] = useState<SoldRepair | null>(null);
 
-  // Local mirror so typing stays responsive while the server catches up.
+  /* Локальні дзеркала пропсів: без них кожне натискання клавіші їхало б у базу
+     окремим запитом, а поле перемальовувалось би з сервера посеред набору.
+     Поріг тримаємо рядком, а не числом — щоб поле можна було очистити в нуль
+     символів, а не в «0», який фільтрує так само, як відсутність порогу.
+
+     Синхронізація зі пропсом — присвоєнням під час рендера, а не в `useEffect`.
+     Так React радить «підганяти стан під зміну пропса»: він перерендерює
+     одразу, без зайвого проходу з промальовкою, і саме цю різницю ловить
+     react-hooks («Avoid calling setState directly within an effect»). Побічний
+     бонус: дебаунс нижче бачить уже синхронізовану чернетку, тож не встигає
+     запланувати запит на значення, яке щойно приїхало з сервера. */
   const [draftQuery, setDraftQuery] = useState(query);
-  useEffect(() => setDraftQuery(query), [query]);
+  const [draftMin, setDraftMin] = useState(minAmount === null ? "" : String(minAmount));
+  const [applied, setApplied] = useState({ query, minAmount });
+  if (applied.query !== query || applied.minAmount !== minAmount) {
+    setApplied({ query, minAmount });
+    if (applied.query !== query) setDraftQuery(query);
+    if (applied.minAmount !== minAmount) setDraftMin(minAmount === null ? "" : String(minAmount));
+  }
 
   const push = useCallback(
     (patch: Record<string, string | null>) => {
@@ -113,6 +135,15 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
     const t = setTimeout(() => push({ q: draftQuery || null }), 350);
     return () => clearTimeout(t);
   }, [draftQuery, query, push]);
+
+  /* Той самий дебаунс для порогу. Порівнюємо з уже застосованим значенням, а не
+     з попереднім чернетковим: інакше набір «3 → 30 → 300» дав би три запити. */
+  useEffect(() => {
+    const parsed = parseMinAmount(draftMin || undefined);
+    if (parsed === minAmount) return;
+    const t = setTimeout(() => push({ min: parsed === null ? null : String(parsed) }), 350);
+    return () => clearTimeout(t);
+  }, [draftMin, minAmount, push]);
 
   function summarize(sale: SaleWithDetails) {
     return sale.items.length > 0
@@ -150,6 +181,22 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
           />
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Поріг участі в розіграші: показує лише чеки від указаної суми.
+              `inputMode=numeric` — щоб на телефоні одразу відкривалась цифрова
+              клавіатура, поле заповнюють біля каси. */}
+          <label className="flex items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm text-muted focus-within:border-accent transition-colors">
+            <span className="whitespace-nowrap text-xs">від</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draftMin}
+              onChange={(e) => setDraftMin(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="0"
+              aria-label="Показувати чеки від суми, ₴"
+              className="w-14 bg-transparent text-base md:text-sm tabular text-ink placeholder-faint outline-none"
+            />
+            <span className="text-xs">₴</span>
+          </label>
           <select value={category} onChange={(e) => push({ cat: e.target.value })} className={selectClass}>
             <option value="all">Всі категорії</option>
             <option value="device">Техніка</option>
@@ -213,7 +260,7 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
           {empty ? (
             <p className="py-12 text-center text-sm text-muted">
               Продажів не знайдено
-              {scope === "since_open" && <EmptyScopeHint />}
+              <EmptyHint scope={scope} minAmount={minAmount} />
             </p>
           ) : (
             rows.map((row) => {
@@ -304,7 +351,7 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-sm text-muted">
                     Продажів не знайдено
-                    {scope === "since_open" && <EmptyScopeHint />}
+                    <EmptyHint scope={scope} minAmount={minAmount} />
                   </td>
                 </tr>
               ) : (
