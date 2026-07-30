@@ -1,5 +1,11 @@
 import StandardCard from "@/components/ui/StandardCard";
-import { getSalesPage, getSalesAnalytics } from "@/lib/data-sales";
+import {
+  getSalesPage,
+  getSalesAnalytics,
+  parseSalesSort,
+  parseSalesDir,
+  parseSalesScope,
+} from "@/lib/data-sales";
 import { SalesTable } from "./table";
 import { SalesAnalytics } from "./SalesAnalytics";
 import { parsePeriod, periodRange } from "./period";
@@ -23,6 +29,13 @@ export default async function SalesPage({
   const period = parsePeriod(one("period"));
   const { from, to, bucket } = periodRange(period);
 
+  /* Сортування й межа вибірки живуть в URL, а не в стані компонента: так
+     відсортований список можна переслати посиланням — для розіграшу це і є
+     головне, бо «топ чеків» мусить бути однаковим у всіх, хто його дивиться. */
+  const sort = parseSalesSort(one("sort"));
+  const dir = parseSalesDir(one("dir"));
+  const scope = parseSalesScope(one("scope"));
+
   // Search, filtering, paging and aggregation all run in Postgres.
   const [pageData, analytics] = await Promise.all([
     getSalesPage({
@@ -31,6 +44,9 @@ export default async function SalesPage({
       query: one("q"),
       category: one("cat"),
       payment: one("pay"),
+      sort,
+      dir,
+      scope,
     }),
     getSalesAnalytics(from, to, bucket),
   ]);
@@ -57,6 +73,9 @@ export default async function SalesPage({
           query={one("q") ?? ""}
           category={one("cat") ?? "all"}
           payment={one("pay") ?? "all"}
+          sort={sort}
+          dir={dir}
+          scope={scope}
         />
       </StandardCard>
     </div>

@@ -1,5 +1,6 @@
 import { createClient } from "./supabase/server";
 import { supabaseCast } from "./utils/supabase";
+import { getSettings } from "./data-settings";
 
 export interface SaleWithDetails {
   id: string;
@@ -256,12 +257,50 @@ export async function getSalesStats() {
 // item-name / payment / seller resolution above stays in one place.
 // ---------------------------------------------------------------------------
 
+/** За чим упорядкований список операцій. */
+export type SalesSort = "date" | "amount";
+export type SalesDir = "asc" | "desc";
+
+/**
+ * Межа вибірки: `since_open` — від фінансової епохи (`finance_epoch` у
+ * settings), `all` — від початку бази.
+ *
+ * Епоха тут не косметика. До відкриття магазину чеки писались «з рук», і за
+ * сумою вони перебивають половину справжніх: сортування за сумою без цієї межі
+ * підняло б їх у топ. Межа одна на всю систему — та сама, що виключає ті чеки
+ * з грошових розрахунків, тож другої дати ніде не з'являється.
+ */
+/*
+ * `ever`, а не `all`: рядок `all` у цій сторінці зарезервований як «фільтр
+ * вимкнено» — `push()` у таблиці викидає з URL будь-який параметр зі значенням
+ * `all`. Назви цим словом межу вибірки, і «Увесь час» тихо скидався б назад до
+ * «Від відкриття», бо параметр не доїжджав би до сервера.
+ */
+export type SalesScope = "since_open" | "ever";
+
+export const DEFAULT_SALES_SCOPE: SalesScope = "since_open";
+
+export function parseSalesSort(v: string | undefined): SalesSort {
+  return v === "amount" ? "amount" : "date";
+}
+
+export function parseSalesDir(v: string | undefined): SalesDir {
+  return v === "asc" ? "asc" : "desc";
+}
+
+export function parseSalesScope(v: string | undefined): SalesScope {
+  return v === "ever" ? "ever" : DEFAULT_SALES_SCOPE;
+}
+
 export interface SalesPageParams {
   page?: number;
   pageSize?: number;
   query?: string;
   category?: string;
   payment?: string;
+  sort?: SalesSort;
+  dir?: SalesDir;
+  scope?: SalesScope;
 }
 
 /**
@@ -292,6 +331,8 @@ interface TransactionHit {
   kind: "sale" | "repair";
   row_id: string;
   occurred_at: string;
+  /** Сума операції: `total_amount` продажу або `price` ремонту. */
+  amount: number;
   total_count: number;
 }
 
@@ -305,7 +346,17 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
   const supabase = await createClient();
   const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 100);
   const requestedPage = Math.max(params.page ?? 1, 1);
+  const sort = params.sort ?? "date";
+  const dir = params.dir ?? "desc";
+  const scope = params.scope ?? DEFAULT_SALES_SCOPE;
 
+  /* Епоха читається тут, а не приходить параметром: сторінці не потрібно знати
+     дату, їй достатньо сказати «від відкриття». `finance_epoch` може бути не
+     заданий — тоді межі просто немає, і поведінка та сама, що в `all`. */
+  const epoch = scope === "since_open" ? (await getSettings()).finance_epoch : null;
+
+  // Порядок і межа — у Postgres, і це принципово: пагінація серверна, тож
+  // сортування в React упорядкувало б лише поточну сторінку, а не всі операції.
   // @ts-expect-error - search_transactions is missing from database.ts types
   const { data, error } = await supabase.rpc("search_transactions", {
     p_query: params.query?.trim() || undefined,
@@ -313,6 +364,9 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     p_payment: params.payment && params.payment !== "all" ? params.payment : undefined,
     p_limit: pageSize,
     p_offset: (requestedPage - 1) * pageSize,
+    p_from: epoch ?? undefined,
+    p_sort: sort,
+    p_dir: dir,
   });
   if (error) throw new Error(error.message);
   const hits = supabaseCast<TransactionHit[]>(data ?? []);
@@ -332,9 +386,10 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     getSoldRepairs(repairIds),
   ]);
 
-  /* Порядок задає Postgres — це єдине місце, де обидва джерела відсортовані за
-     спільною датою. Перебираємо hits, а не склеюємо два масиви, інакше
-     хронологія розсипалась би на межі сторінки. */
+  /* Порядок задає Postgres — це єдине місце, де обидва джерела впорядковані
+     спільним ключем (датою або сумою). Перебираємо hits, а не склеюємо два
+     масиви: `getSales` віддає свої рядки за власним `created_at desc`, тож
+     склейка зламала б і хронологію на межі сторінки, і сортування за сумою. */
   const byId = new Map<string, SalesRow>();
   for (const s of sales) byId.set(s.id, { kind: "sale", sale: s });
   for (const r of repairs) byId.set(r.id, { kind: "repair", repair: r });

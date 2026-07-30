@@ -3,13 +3,20 @@
 import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { IconSearch } from "@/components/icons";
+import { IconSearch, IconChevronDown } from "@/components/icons";
 import { SaleDetailView } from "@/components/SaleDetailView";
 import Drawer from "@/components/ui/Drawer";
 import { Badge } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils/cn";
-import type { SaleWithDetails, SalesRow, SoldRepair } from "@/lib/data-sales";
+import type {
+  SaleWithDetails,
+  SalesRow,
+  SoldRepair,
+  SalesSort,
+  SalesDir,
+  SalesScope,
+} from "@/lib/data-sales";
 import { labelOf, paymentStatus as domainPaymentStatus } from "@/lib/domain-labels";
 import { paymentMethodLabel } from "@/lib/utils/finance";
 import Link from "next/link";
@@ -32,6 +39,37 @@ interface SalesTableProps {
   query: string;
   category: string;
   payment: string;
+  sort: SalesSort;
+  dir: SalesDir;
+  scope: SalesScope;
+}
+
+/**
+ * Наступний стан сортування за кліком по «Сумі»: спадання → зростання →
+ * назад до дати.
+ *
+ * Третій крок обов'язковий. Без нього дата — стан, у який уже не повернутись
+ * кліком, і щоб побачити свіжі чеки треба чистити URL руками. Найбільший чек
+ * першим — теж навмисно: сортування додавали під розіграш, і корисний бік у
+ * нього рівно один.
+ */
+/**
+ * Порожній результат при обмеженій вибірці — це найчастіше не «нічого немає», а
+ * «шукане старше за відкриття магазину». Без цієї підказки залишається думати,
+ * що чек загубився.
+ */
+function EmptyScopeHint() {
+  return (
+    <span className="mt-1 block text-xs text-faint">
+      Показані лише чеки від відкриття магазину — спробуй «Увесь час»
+    </span>
+  );
+}
+
+function nextSort(sort: SalesSort, dir: SalesDir): { sort: SalesSort | null; dir: SalesDir | null } {
+  if (sort !== "amount") return { sort: "amount", dir: "desc" };
+  if (dir === "desc") return { sort: "amount", dir: "asc" };
+  return { sort: null, dir: null };
 }
 
 /** Ключ рядка. Id продажу й id ремонту живуть у різних таблицях — префікс розводить їх. */
@@ -43,7 +81,7 @@ function rowDate(row: SalesRow) {
   return row.kind === "sale" ? row.sale.created_at : row.repair.completed_at;
 }
 
-export function SalesTable({ rows, total, page, pageSize, pageCount, query, category, payment }: SalesTableProps) {
+export function SalesTable({ rows, total, page, pageSize, pageCount, query, category, payment, sort, dir, scope }: SalesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,6 +127,14 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
   }
 
   const empty = rows.length === 0;
+  const byAmount = sort === "amount";
+
+  /* Клік по «Сумі» на десктопі й select на мобільному крутять один і той самий
+     стан в URL — це не два механізми, а два входи в один. */
+  function toggleAmountSort() {
+    const next = nextSort(sort, dir);
+    push({ sort: next.sort, dir: next.dir });
+  }
 
   return (
     <>
@@ -125,6 +171,39 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
             <option value="card">Картка</option>
             <option value="transfer">Переказ</option>
           </select>
+          {/* Сортування дублюється селектом, бо на мобільному таблиці з
+              заголовками немає взагалі — там картки, і клікати по «Сумі» ніде. */}
+          <select
+            value={byAmount ? `amount_${dir}` : "date"}
+            onChange={(e) => {
+              const v = e.target.value;
+              push(
+                v === "date"
+                  ? { sort: null, dir: null }
+                  : { sort: "amount", dir: v === "amount_asc" ? "asc" : "desc" },
+              );
+            }}
+            className={selectClass}
+            aria-label="Сортування"
+          >
+            <option value="date">Спочатку свіжі</option>
+            <option value="amount_desc">Сума: від найбільшої</option>
+            <option value="amount_asc">Сума: від найменшої</option>
+          </select>
+          {/* Межа вибірки. За замовчуванням — від відкриття магазину: до нього
+              чеки писались «з рук», і за сумою вони перебивають справжні, тож у
+              топі розіграшу їм не місце. Перемикач видимий, а не захований у
+              коді — інакше зникнення старих чеків читалось би як втрата даних. */}
+          <select
+            value={scope}
+            onChange={(e) => push({ scope: e.target.value === "ever" ? "ever" : null })}
+            className={selectClass}
+            aria-label="Період"
+            title="До відкриття магазину чеки писались з рук — за замовчуванням вони не показуються"
+          >
+            <option value="since_open">Від відкриття</option>
+            <option value="ever">Увесь час</option>
+          </select>
         </div>
       </div>
 
@@ -132,7 +211,10 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
         {/* Мобільний список карток */}
         <div className="grid grid-cols-1 gap-3 md:hidden">
           {empty ? (
-            <p className="py-12 text-center text-sm text-muted">Продажів не знайдено</p>
+            <p className="py-12 text-center text-sm text-muted">
+              Продажів не знайдено
+              {scope === "since_open" && <EmptyScopeHint />}
+            </p>
           ) : (
             rows.map((row) => {
               const isRepair = row.kind === "repair";
@@ -191,13 +273,39 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
                 <th className="pb-2 pr-4 font-medium">Клієнт</th>
                 <th className="pb-2 pr-4 font-medium">Товари</th>
                 <th className="pb-2 pr-4 font-medium">Метод оплати</th>
-                <th className="pb-2 pr-4 font-medium text-right">Сума</th>
+                <th
+                  className="pb-2 pr-4 font-medium text-right"
+                  aria-sort={byAmount ? (dir === "desc" ? "descending" : "ascending") : "none"}
+                >
+                  <button
+                    type="button"
+                    onClick={toggleAmountSort}
+                    className={cn(
+                      "ml-auto flex items-center gap-1 font-medium transition-colors cursor-pointer hover:text-ink",
+                      byAmount ? "text-ink" : "text-muted",
+                    )}
+                    title="Сортувати за сумою"
+                  >
+                    Сума
+                    <IconChevronDown
+                      size={13}
+                      className={cn(
+                        "transition-transform",
+                        byAmount ? "text-accent" : "text-faint",
+                        byAmount && dir === "asc" && "rotate-180",
+                      )}
+                    />
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
               {empty ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm text-muted">Продажів не знайдено</td>
+                  <td colSpan={6} className="py-12 text-center text-sm text-muted">
+                    Продажів не знайдено
+                    {scope === "since_open" && <EmptyScopeHint />}
+                  </td>
                 </tr>
               ) : (
                 rows.map((row) => {
