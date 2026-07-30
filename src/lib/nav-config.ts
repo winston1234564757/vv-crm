@@ -110,9 +110,10 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ href: "/admin/finance", label: "Фінанси", icon: IconFinance }],
   },
   {
-    // Not prominent on purpose: the shop hasn't opened yet (24.07.2026), so
-    // there's nothing here worth surfacing for at least a month. Standalone
-    // + owner-only keeps it out of the main tab flow.
+    // Не на видноті навмисно: тут виторг партнерів, маржа рефербішменту й
+    // капітал у ремонті — цифри для власника, не для щоденної роботи
+    // персоналу. Standalone + owner-only тримає розділ поза основним потоком
+    // вкладок.
     id: "analytics",
     label: "Аналітика",
     icon: IconReport,

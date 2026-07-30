@@ -23,14 +23,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function AnalyticsClient({ data }: { data: AnalyticsData }) {
+export function AnalyticsClient({ data, epochLabel }: { data: AnalyticsData; epochLabel: string | null }) {
   const router = useRouter();
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Аналітика"
-        subtitle="Дані накопичуються з 24 липня 2026 — до того в базі лише продажі з рук"
+        subtitle={epochLabel ? `Дані накопичуються з ${epochLabel} — до того в базі лише продажі з рук` : undefined}
       />
 
       <Section title="Клієнти">

@@ -4,10 +4,8 @@ import { getSettings } from "./data-settings";
 import { allocateSaleRevenue, type ProfitSaleItem } from "./profit";
 import type { ModelAnalyticsItem, StockoutItem, HeatmapRow } from "@/components/dashboard/widget-types";
 
-// Duplicated (not shared) from data-dashboard.ts on purpose — see Task 7 report.
-// getRealtimeDashboardData still computes these same figures for the dashboard
-// today; Task 8 rewrites/removes that function, so this file intentionally
-// does not depend on it.
+// Межі поточної доби та «n днів тому» в локальному часі — використовуються
+// нижче для вікон запитів (перед притисканням до фінансової епохи).
 function todayRange() {
   const s = new Date();
   s.setHours(0, 0, 0, 0);
@@ -65,7 +63,7 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
      дотестова торгівля лежить усередині кожного вікна і роздуває і виторг, і
      частку партнерів, і швидкість продажів. Межа одна на всю систему. */
   const epoch = (await getSettings()).finance_epoch;
-  const floorIso = (iso: string) => (epoch && epoch > iso ? epoch : iso);
+  const floorIso = (iso: string) => (epoch && new Date(epoch).getTime() > new Date(iso).getTime() ? epoch : iso);
   const thirtyDaysAgo = floorIso(nDaysAgo(30));
   const ninetyDaysAgo = floorIso(nDaysAgo(90));
 

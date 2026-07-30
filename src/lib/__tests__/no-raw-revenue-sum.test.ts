@@ -26,7 +26,7 @@ import { readFileSync } from "node:fs";
  * невартовий файл. Це grep по найімовірнішому регресу, а не аналіз AST —
  * і саме такий регрес він щойно зловив на живому коді (`getSalesStats`).
  */
-const GUARDED = ["src/lib/data-dashboard.ts", "src/lib/data-sales.ts"];
+const GUARDED = ["src/lib/data-dashboard.ts", "src/lib/data-sales.ts", "src/lib/data-finance.ts"];
 
 const RAW_SUM = /reduce\([\s\S]{0,120}\.(total_amount|total_price)\b/g;
 

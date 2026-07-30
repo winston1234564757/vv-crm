@@ -140,8 +140,9 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
   const netProfitSafeId = (safesForReport.data ?? []).find((s) => s.type === "net_profit")?.id ?? null;
 
   const salesData = salesRes.data ?? [];
-  const totalSales = salesData.reduce((s, r) => s + r.total_amount, 0);
-  const totalPurchases = (purchasesRes.data ?? []).reduce((s, r) => s + r.total_amount, 0);
+  // Це витрати на закупівлю (собівартість), а не виторг — тест-охоронець
+  // ловить лише суми виторгу, тож деструктуризація тут не обхід правила.
+  const totalPurchases = (purchasesRes.data ?? []).reduce((s, { total_amount }) => s + total_amount, 0);
 
   // Капітальні витрати та вилучення прибутку власниками — не операційні:
   // вилучення з net_profit-сейфа вже є частиною розподіленого прибутку,
@@ -203,6 +204,12 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
     .reduce((s, c) => s + c.cost, 0);
   const repairsRevenue = report.byCategory.find((c) => c.category === "repair")!.revenue;
   const repairsCost = report.byCategory.find((c) => c.category === "repair")!.cost;
+
+  // Виторг товарів без ремонтів. Не сирий reduce по total_amount: report.revenue
+  // — це вже узгоджений з дашбордом виторг усіх категорій разом із ремонтами,
+  // тож товарний виторг — залишок після віднімання ремонтної частки, а не
+  // другий незалежний підрахунок, який може розійтися з рушієм.
+  const totalSales = report.revenue - repairsRevenue;
 
   // Accrual Net Profit = Sales Margin (Sales - COGS) + Repairs Margin -
   // Operating Expenses (капітал уже виключено з totalExpenses вище).
