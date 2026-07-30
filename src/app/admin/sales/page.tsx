@@ -5,7 +5,6 @@ import {
   parseSalesSort,
   parseSalesDir,
   parseSalesScope,
-  parseMinAmount,
 } from "@/lib/data-sales";
 import { SalesTable } from "./table";
 import { SalesAnalytics } from "./SalesAnalytics";
@@ -31,12 +30,12 @@ export default async function SalesPage({
   const { from, to, bucket } = periodRange(period);
 
   /* Сортування й межа вибірки живуть в URL, а не в стані компонента: так
-     відсортований список можна переслати посиланням — для розіграшу це і є
-     головне, бо «топ чеків» мусить бути однаковим у всіх, хто його дивиться. */
+     відсортований список можна переслати посиланням, і всі побачать однаковий
+     порядок. Плюс пагінація серверна — сортувати в React означало б упорядкувати
+     лише поточні 25 рядків. */
   const sort = parseSalesSort(one("sort"));
   const dir = parseSalesDir(one("dir"));
   const scope = parseSalesScope(one("scope"));
-  const minAmount = parseMinAmount(one("min"));
 
   // Search, filtering, paging and aggregation all run in Postgres.
   const [pageData, analytics] = await Promise.all([
@@ -49,7 +48,6 @@ export default async function SalesPage({
       sort,
       dir,
       scope,
-      minAmount,
     }),
     getSalesAnalytics(from, to, bucket),
   ]);
@@ -79,7 +77,6 @@ export default async function SalesPage({
           sort={sort}
           dir={dir}
           scope={scope}
-          minAmount={minAmount}
         />
       </StandardCard>
     </div>

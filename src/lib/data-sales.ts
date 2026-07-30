@@ -277,7 +277,6 @@ export {
   parseSalesSort,
   parseSalesDir,
   parseSalesScope,
-  parseMinAmount,
 } from "./sales-list-params";
 export type { SalesSort, SalesDir, SalesScope } from "./sales-list-params";
 
@@ -290,8 +289,6 @@ export interface SalesPageParams {
   sort?: SalesSort;
   dir?: SalesDir;
   scope?: SalesScope;
-  /** Нижній поріг суми операції, включно. `null`/відсутній — без порогу. */
-  minAmount?: number | null;
 }
 
 /**
@@ -358,7 +355,6 @@ export async function getSalesPage(params: SalesPageParams = {}): Promise<{
     p_from: epoch ?? undefined,
     p_sort: sort,
     p_dir: dir,
-    p_min_amount: params.minAmount ?? undefined,
   });
   if (error) throw new Error(error.message);
   const hits = supabaseCast<TransactionHit[]>(data ?? []);
