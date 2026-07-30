@@ -96,7 +96,7 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
     // Partner Repairs (B2B channel)
     supabase
       .from("repairs")
-      .select("price, partner_id, status, payment_status, paid_at, completed_at")
+      .select("price, partner_id, status, completed_at")
       .gte("created_at", thirtyDaysAgo),
     // Sales Velocity Matrix / Cross-sell / Refurbishment margin sale prices
     supabase.from("sale_items").select("item_id, item_type, total_price, sales!inner(created_at, id)").gte("sales.created_at", thirtyDaysAgo),
@@ -155,9 +155,8 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
   const partnerSalesTotal = (partnerSalesRes.data ?? [])
     .filter((s) => s.partner_id !== null)
     .reduce((sum, s) => sum + s.total_amount, 0);
-  // Заробленим ремонт стає за тим самим правилом, що й у P&L: оплачений або
-  // без рахунку і виданий. Статусу тут замало — передоплачений ремонт лежить
-  // у `received` і гроші за нього вже в касі.
+  // Заробленим ремонт стає за тим самим правилом, що й у P&L: на видачі
+  // клієнту. Правило одне на всю систему — див. `repairSettledAt`.
   const settledRepairs30Days = (partnerRepairsRes.data ?? []).filter(
     (r) => repairSettledAt(r) !== null,
   );

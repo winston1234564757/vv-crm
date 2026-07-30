@@ -5,17 +5,24 @@ import { timeHM } from "@/lib/utils/day";
 import type { DashboardMoney } from "@/lib/data-dashboard";
 
 /**
- * Усі операції за сьогодні — товарні чеки і закриті ремонти в одному списку,
- * так само як їх показує сторінка Продажів. Виторг угорі рахується за всіма
+ * Усі операції за сьогодні — товарні чеки і видані ремонти в одному списку,
+ * тим самим днем, що й на сторінці Продажів. Виторг угорі рахується за всіма
  * категоріями, тож він збігається з hero: раніше картка ремонти виключала і
  * два числа на одному екрані законно розходились.
  *
- * Ремонт стає рядком за датою закриття (оплата, а для безкоштовних — видача),
- * а не за датою прийому: саме тоді гроші зайшли.
+ * Ремонт стає рядком у день видачі клієнту, а не прийому чи оплати: робота
+ * здана — виторг наш (`repairSettledAt`).
+ *
+ * Через це розбивка має третій доданок. Ремонт, виданий у борг, — виторг, за
+ * яким каса порожня; без окремого «у борг» він сів би в готівку залишком, і
+ * картка показувала б гроші, яких у касі нема.
  *
  * Суми в рядках — це збережений підсумок чека (для ремонту — його ціна), тож
  * вони можуть не скластися у виторг угорі на розмір знижки. Це навмисно:
  * рядок відповідає на «що пробили», а верхня цифра — на «скільки заробили».
+ *
+ * Список повний — усі операції дня, без «і ще N». У завантажений день він
+ * прокручується всередині картки, щоб не розтягувати ряд бенто сусідам.
  */
 export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] }) {
   return (
@@ -34,17 +41,23 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
         {today.count > 0 && (
           <span className="text-xs text-muted">
             {uah(today.cashRevenue)} готівкою · {uah(today.cardRevenue)} карткою
+            {today.debt > 0 && (
+              <>
+                {" · "}
+                <span className="font-semibold tabular text-danger">{uah(today.debt)}</span> у борг
+              </>
+            )}
           </span>
         )}
       </CardStat>
 
       {today.count === 0 ? (
         <p className="text-xs leading-relaxed text-muted">
-          Сьогодні ще нічого не пробили. Кожен чек і закритий ремонт з&apos;явиться тут із часом і
+          Сьогодні ще нічого не пробили. Кожен чек і виданий ремонт з&apos;явиться тут із часом і
           сумою — свіжий зверху.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="max-h-72 divide-y divide-border overflow-y-auto pr-1">
           {today.receipts.map((r) => (
             <li
               key={`${r.kind}-${r.id}`}
@@ -61,11 +74,6 @@ export function TodaySalesCard({ today }: { today: DashboardMoney["todaySales"] 
               </span>
             </li>
           ))}
-          {today.count > today.receipts.length && (
-            <li className="pt-2 text-[11px] text-faint">
-              і ще {today.count - today.receipts.length}
-            </li>
-          )}
         </ul>
       )}
     </BentoCell>

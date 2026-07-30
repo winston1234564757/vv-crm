@@ -49,7 +49,17 @@ export interface ProfitSaleItem {
  * знижку розподілили по позиціях того самого чека.
  */
 export interface ProfitSale {
-  discount: number | null;
+  /**
+   * Підсумок чека — рівно стільки грошей зайшло в касу. Це і є виторг чека;
+   * позиції лише кажуть, як його розкласти по категоріях.
+   *
+   * `discount` тут навмисно немає. Воно є в базі, але означає ВІДСОТОК, і два
+   * шляхи продажу пишуть позиції по-різному: POS кладе в `total_price` ціну до
+   * знижки, швидкий продаж — уже після. Одне поле, два сенси — рахувати з
+   * нього виторг не можна. Різниця «позиції мінус підсумок» вірна в обох
+   * випадках, тож знижка виводиться з даних, а не читається зі стовпця.
+   */
+  total_amount: number;
   items: ProfitSaleItem[];
 }
 
@@ -130,7 +140,19 @@ function toCategory(itemType: string): ProfitCategory | null {
 /**
  * Розподіляє знижку чека по його позиціях пропорційно до `total_price`.
  * Повертає масив виторгу за позицію, паралельний до `items`, ціле число
- * гривень на кожен елемент, сума яких точно дорівнює `lineTotal - discount`.
+ * гривень на кожен елемент, сума яких точно дорівнює `total_amount` чека.
+ *
+ * Знижка = «сума позицій мінус підсумок чека», а не стовпець `sales.discount`.
+ * Той стовпець зберігає ВІДСОТОК (POS: `total = subtotal − round(subtotal ×
+ * pct/100)`), а раніше тут він віднімався як гривні: чек зі знижкою 10% на
+ * 1 444 ₴ давав 1 434 ₴ виторгу замість 1 300 ₴, які реально зайшли в касу.
+ * Помилка тиха — `discount` ніколи не більший за 100, тож захист нижче не
+ * спрацьовував і число виглядало правдоподібно.
+ *
+ * Різниця з підсумком вірна для обох шляхів продажу: у POS позиції лежать до
+ * знижки (різниця = знижка), у швидкому продажі — вже після (різниця = 0, і
+ * віднімати нічого не треба). Заразом вона ловить будь-який інший розрив між
+ * шапкою чека і його рядками, хай звідки б він узявся.
  *
  * Метод найбільших залишків (Гамільтона): кожній позиції спершу дістається
  * ціла частина її точної частки знижки, а те, що лишилось нерозподіленим
@@ -144,19 +166,20 @@ function toCategory(itemType: string): ProfitCategory | null {
  * Дробові частини порівнюються цілими чисельниками (`numerator - floorShare
  * * lineTotal`), тому порівняння точне і без похибок double.
  */
-function allocateSaleRevenue(items: ProfitSaleItem[], discount: number | null): number[] {
+function allocateSaleRevenue(items: ProfitSaleItem[], totalAmount: number): number[] {
   const lineTotal = items.reduce((s, it) => s + num(it.total_price), 0);
-  // У БД немає CHECK (discount >= 0) — від'ємне значення обрізаємо до нуля,
-  // інакше воно роздує виторг замість того, щоб його зменшити.
-  const rawDiscount = Math.max(0, num(discount));
+  // Підсумок більший за суму позицій — розподіляти нічого, і догори не
+  // тягнемо: невідомо, якій позиції ту гривню віддати, а вигадати означало б
+  // завищити маржу навмання. Такий чек лишається на сумі своїх рядків.
+  const rawDiscount = Math.max(0, lineTotal - Math.max(0, num(totalAmount)));
 
   if (!rawDiscount || lineTotal === 0) {
     return items.map((it) => num(it.total_price));
   }
 
-  // Знижка більша за суму позицій чека — це або помилка каси, або
-  // акційний чек, продубльований на нуль. Виторг у мінус не йде: урізаємо
-  // знижку до суми позицій, найгірший випадок — нульовий виторг з чека.
+  // Підсумок нульовий або від'ємний — акційний чек чи помилка каси. Виторг у
+  // мінус не йде: урізаємо знижку до суми позицій, найгірший випадок —
+  // нульовий виторг з чека.
   const clampedDiscount = Math.min(rawDiscount, lineTotal);
 
   const numerators = items.map((it) => clampedDiscount * num(it.total_price));
@@ -197,7 +220,7 @@ export function computeProfit(
   );
 
   for (const sale of sales) {
-    const revenues = allocateSaleRevenue(sale.items, sale.discount);
+    const revenues = allocateSaleRevenue(sale.items, sale.total_amount);
     sale.items.forEach((item, i) => {
       const cat = toCategory(item.item_type);
       if (!cat) return;
@@ -406,17 +429,15 @@ export function previousRange(
 export interface DatedSale extends ProfitSale {
   id: string;
   created_at: string;
-  /** Збережений підсумок чека. Для списку чеків; гроші рахує рушій, не це поле. */
-  total_amount: number;
 }
 
 export interface DatedRepair extends ProfitRepair {
   /** `repairs.id` — щоб чек ремонту можна було показати в списку операцій. */
   id: string;
   /**
-   * День, яким ремонт лягає в період: дата повної оплати, а для робіт без
-   * рахунку — дата видачі. Рахує `repairSettledAt`; сюди приходить уже
-   * готове значення, бо правило одне на всю систему.
+   * День, яким ремонт лягає в період: дата видачі клієнту. Рахує
+   * `repairSettledAt`; сюди приходить уже готове значення, бо правило одне на
+   * всю систему.
    */
   settled_at: string;
 }
@@ -505,7 +526,7 @@ export interface RepairPnlRow extends ProfitRepair, SettleableRepair {
 
 /** Поля, які мусить містити SELECT ремонтів для P&L. Один рядок на всі місця. */
 export const REPAIR_PNL_COLUMNS =
-  "id, status, price, cost, external_sc_cost, payment_status, paid_at, completed_at";
+  "id, status, price, cost, external_sc_cost, completed_at";
 
 /**
  * Відбирає ремонти, закриті всередині `[start, end)`, і проставляє їм день.

@@ -41,9 +41,18 @@ function item(over: Partial<ProfitSaleItem> = {}): ProfitSaleItem {
   };
 }
 
-/** Один чек з переданих позицій. За замовчуванням без знижки. */
-function sale(items: ProfitSaleItem[], discount: number | null = 0): ProfitSale {
-  return { discount, items };
+function lineTotal(items: ProfitSaleItem[]): number {
+  return items.reduce((s, it) => s + it.total_price, 0);
+}
+
+/**
+ * Один чек із переданих позицій. `paid` — підсумок чека, тобто скільки грошей
+ * реально зайшло; за замовчуванням дорівнює сумі позицій, тобто без знижки.
+ * Знижка задається саме так — меншим підсумком, а не окремим полем: у базі
+ * `sales.discount` зберігає відсоток, і рушій його не читає.
+ */
+function sale(items: ProfitSaleItem[], paid: number = lineTotal(items)): ProfitSale {
+  return { total_amount: paid, items };
 }
 
 describe("itemCost", () => {
@@ -203,17 +212,28 @@ describe("computeProfit", () => {
       expect(res.profit).toBe(1477);
     });
 
-    it("also treats a null discount as no discount", () => {
+    // Регресія на живих даних: чек від 28.07 мав позицій на 1 444 ₴ і
+    // `discount = 10`, що означає 10%. Рушій читав це як 10 ₴ і давав
+    // 1 434 ₴ виторгу замість 1 300 ₴, які зайшли в касу.
+    it("takes the sale total as revenue, not the line total minus the percent column", () => {
       const res = computeProfit(
-        [sale([item({ total_price: 100, unit_cost: 30 })], null)],
+        [
+          sale(
+            [
+              item({ item_type: "accessory", total_price: 1100, unit_cost: 644 }),
+              item({ item_type: "accessory", total_price: 344, unit_cost: 160 }),
+            ],
+            1300,
+          ),
+        ],
         DEV,
         [],
       );
-      expect(res.revenue).toBe(100);
+      expect(res.revenue).toBe(1300);
     });
 
     it("splits a discount across two categories in proportion to their line values", () => {
-      // Чек на 1000 (700 техніка + 300 аксесуар) зі знижкою 100.
+      // Чек на 1000 (700 техніка + 300 аксесуар), у касу зайшло 900.
       const res = computeProfit(
         [
           sale(
@@ -221,7 +241,7 @@ describe("computeProfit", () => {
               item({ item_type: "device", item_id: "redmi-a5", total_price: 700, unit_cost: 1000 }),
               item({ item_type: "accessory", total_price: 300, unit_cost: 100 }),
             ],
-            100,
+            900,
           ),
         ],
         DEV,
@@ -240,7 +260,7 @@ describe("computeProfit", () => {
               item({ item_type: "device", item_id: "redmi-a5", total_price: 700, unit_cost: 0 }),
               item({ item_type: "accessory", total_price: 300, unit_cost: 0 }),
             ],
-            100,
+            900,
           ),
         ],
         DEV,
@@ -252,7 +272,8 @@ describe("computeProfit", () => {
     });
 
     it("keeps the categories summing to the total when the split doesn't divide evenly", () => {
-      // 3 і 4 не діляться на знижку 1 без остачі — остача йде найбільшій позиції.
+      // Позицій на 9, у касу зайшло 8 — знижка 1 не ділиться на 2/3/4 без
+      // остачі, і остача йде найбільшій позиції.
       const res = computeProfit(
         [
           sale(
@@ -261,7 +282,7 @@ describe("computeProfit", () => {
               item({ item_type: "accessory", total_price: 3, unit_cost: 0 }),
               item({ item_type: "service", total_price: 4, unit_cost: 0 }),
             ],
-            1,
+            8,
           ),
         ],
         DEV,
@@ -285,7 +306,7 @@ describe("computeProfit", () => {
         [],
       );
       const withDiscount = computeProfit(
-        [sale([item({ item_type: "accessory", total_price: 1000, unit_cost: 400 })], 200)],
+        [sale([item({ item_type: "accessory", total_price: 1000, unit_cost: 400 })], 800)],
         DEV,
         [],
       );
@@ -303,6 +324,7 @@ describe("computeProfit", () => {
       const accessories = Array.from({ length: 8 }, () =>
         item({ item_type: "accessory", total_price: 1, unit_cost: 0 }),
       );
+      // Позицій на 10, у касу зайшло 5 — знижка розкладається на дев'ять рядків.
       const res = computeProfit(
         [
           sale(
@@ -319,10 +341,11 @@ describe("computeProfit", () => {
       expect(res.revenue).toBe(5);
     });
 
-    it("clamps a negative discount to zero instead of inflating revenue", () => {
-      // У БД немає CHECK (discount >= 0) — від'ємне значення досяжне.
+    it("does not inflate revenue when the total exceeds the lines", () => {
+      // Шапка чека більша за його рядки — розподіляти нема чого, і догори не
+      // тягнемо: невідомо, якій позиції ту гривню віддати.
       const res = computeProfit(
-        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], -50)],
+        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], 350)],
         DEV,
         [],
       );
@@ -330,12 +353,11 @@ describe("computeProfit", () => {
       expect(res.profit).toBe(200);
     });
 
-    it("clamps a discount bigger than the line total instead of going negative", () => {
-      // Знижка більша за суму чека — помилка каси чи побитий чек. Виторг
-      // ніколи не йде в мінус: урізаємо знижку до суми позицій, найгірший
-      // випадок — нульовий виторг з чека, а не від'ємний.
+    it("clamps a negative sale total instead of going negative", () => {
+      // Від'ємний підсумок — помилка каси чи побитий чек. Виторг ніколи не йде
+      // в мінус: найгірший випадок — нуль з чека, а не від'ємне число.
       const res = computeProfit(
-        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], 500)],
+        [sale([item({ item_type: "accessory", total_price: 300, unit_cost: 100 })], -200)],
         DEV,
         [],
       );
@@ -385,9 +407,13 @@ describe("resolveRange", () => {
 
 // ─── Датасет і зрізи ────────────────────────────────────────────────────────
 
-/** Чек із міткою часу. `total_amount` тут декоративний — гроші рахує рушій. */
-function dSale(created_at: string, items: ProfitSaleItem[], discount: number | null = 0): DatedSale {
-  return { id: created_at, created_at, total_amount: 0, discount, items };
+/** Чек із міткою часу. Без знижки, якщо `paid` не задано явно. */
+function dSale(
+  created_at: string,
+  items: ProfitSaleItem[],
+  paid: number = lineTotal(items),
+): DatedSale {
+  return { id: created_at, created_at, total_amount: paid, items };
 }
 
 function dRepair(settled_at: string, price: number, cost: number): DatedRepair {
@@ -638,8 +664,8 @@ describe("deltaPct", () => {
   });
 });
 
-// `toDatedRepairs` — єдина брама між базою і P&L. SQL-фільтр по датах грубий
-// (тягне обидві дати закриття), тож точність вікна тримається саме тут.
+// `toDatedRepairs` — єдина брама між базою і P&L. SQL-фільтр по даті видачі
+// грубий (без статусу), тож точність вікна тримається саме тут.
 describe("toDatedRepairs", () => {
   const start = new Date("2026-07-28T00:00:00Z");
   const end = new Date("2026-07-29T00:00:00Z");
@@ -649,59 +675,45 @@ describe("toDatedRepairs", () => {
     price: 1800,
     cost: 950,
     external_sc_cost: 0,
-    status: "received",
-    payment_status: "paid",
-    paid_at: "2026-07-28T07:13:37Z",
-    completed_at: null,
+    status: "handed_over",
+    completed_at: "2026-07-28T12:00:00Z",
     ...over,
   });
 
-  it("бере передоплачений ремонт, який ще навіть не в роботі", () => {
+  it("бере виданий у вікні ремонт", () => {
     const out = toDatedRepairs([row()], start, end);
     expect(out).toHaveLength(1);
-    expect(out[0].settled_at).toBe("2026-07-28T07:13:37Z");
+    expect(out[0].settled_at).toBe("2026-07-28T12:00:00Z");
     expect(out[0].price).toBe(1800);
     expect(out[0].cost).toBe(950);
   });
 
-  // Рядок пройшов грубий SQL-фільтр по `completed_at`, але заплатили за нього
-  // раніше — у це вікно він не належить.
-  it("відкидає оплачений до вікна, хоч і виданий усередині", () => {
+  it("відкидає виданий поза вікном", () => {
+    const out = toDatedRepairs([row({ completed_at: "2026-07-20T10:00:00Z" })], start, end);
+    expect(out).toEqual([]);
+  });
+
+  // Гроші могли зайти передоплатою всередині вікна — виторгом вони стануть
+  // тільки на видачі, і вже в тому дні.
+  it("відкидає ще не виданий ремонт", () => {
     const out = toDatedRepairs(
-      [
-        row({
-          paid_at: "2026-07-20T10:00:00Z",
-          completed_at: "2026-07-28T12:00:00Z",
-          status: "handed_over",
-        }),
-      ],
+      [row({ status: "in_progress", completed_at: null })],
       start,
       end,
     );
     expect(out).toEqual([]);
   });
 
-  it("відкидає незакриті ремонти", () => {
-    const out = toDatedRepairs(
-      [row({ payment_status: "unpaid", paid_at: null })],
-      start,
-      end,
-    );
+  // Рядок пройшов грубий SQL-фільтр по даті, але видачі не було — скасований
+  // ремонт не заробляє нічого.
+  it("відкидає скасований із проставленою датою", () => {
+    const out = toDatedRepairs([row({ status: "cancelled" })], start, end);
     expect(out).toEqual([]);
   });
 
   it("проводить гарантійну переробку з її собівартістю", () => {
     const out = toDatedRepairs(
-      [
-        row({
-          price: 0,
-          cost: 400,
-          payment_status: "unpaid",
-          paid_at: null,
-          status: "handed_over",
-          completed_at: "2026-07-28T15:00:00Z",
-        }),
-      ],
+      [row({ price: 0, cost: 400, completed_at: "2026-07-28T15:00:00Z" })],
       start,
       end,
     );

@@ -131,11 +131,9 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
       .from("repairs")
       .select(REPAIR_PNL_COLUMNS)
       .is("inventory_device_id", null)
-      // Грубий фільтр по обох датах закриття; точний відбір — `toDatedRepairs`.
-      .or(
-        `and(paid_at.gte.${startStr},paid_at.lt.${endStr}),` +
-          `and(completed_at.gte.${startStr},completed_at.lt.${endStr})`,
-      ),
+      // Ремонт закривається видачею; точний відбір — `toDatedRepairs`.
+      .gte("completed_at", startStr)
+      .lt("completed_at", endStr),
     supabase.from("safes").select("id, type"),
   ]);
 
@@ -182,11 +180,11 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
   }
 
   // 3. Собівартість (COGS) і маржа ремонтів — уся арифметика в lib/profit,
-  // щоб Фінанси й дашборд рахували її однаково. Знижка живе на чеку, а не
-  // на позиції, тому передаємо чеки цілком — profit.ts сам розподілить її
-  // по позиціях цього самого чека.
+  // щоб Фінанси й дашборд рахували її однаково. Знижка живе на чеку, а не на
+  // позиції, тому передаємо чек цілком: `total_amount` каже, скільки грошей
+  // зайшло, а позиції — як розкласти їх по категоріях.
   const profitSales: ProfitSale[] = salesData.map((sale) => ({
-    discount: sale.discount,
+    total_amount: sale.total_amount,
     items: supabaseCast<ProfitSaleItem[]>(sale.sale_items ?? []),
   }));
 

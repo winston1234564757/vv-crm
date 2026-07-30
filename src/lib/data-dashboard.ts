@@ -32,9 +32,6 @@ import {
 
 export { PARTNER_SHARE };
 
-/** Скільки останніх чеків показуємо в картці «Продажі сьогодні». */
-const TODAY_RECEIPTS_SHOWN = 4;
-
 export interface OwnerShare {
   id: string;
   name: string;
@@ -129,7 +126,7 @@ export interface DashboardMoney {
    * не коштують, а виторг тут той самий, що в hero — це один розрахунок.
    */
   todaySales: {
-    /** Товарні чеки ПЛЮС закриті сьогодні ремонти — усі операції дня. */
+    /** Товарні чеки ПЛЮС видані сьогодні платні ремонти — усі операції дня. */
     count: number;
     /**
      * Виторг дня за всіма категоріями, включно з ремонтами — те саме число,
@@ -138,20 +135,31 @@ export interface DashboardMoney {
      */
     revenue: number;
     /**
-     * Розбивка виторгу дня на готівку й безготівку.
+     * Розбивка виторгу дня: готівка, безготівка, борг.
      *
-     * Складається з двох джерел, бо їх у базі два: у продажів це
-     * `payment_splits` чека, у ремонтів — каса, в яку лягла оплата
-     * (`transactions.reference_type = 'repair_payment'`), бо методу платежу в
-     * ремонті немає взагалі. Без другого джерела ремонт, оплачений карткою,
-     * тихо їхав би в готівку — рутинний випадок для сервісу, не крайній.
+     * Джерел два, бо їх у базі два: у продажів це `payment_splits` чека, у
+     * ремонтів — каса, в яку лягла оплата (`transactions.reference_type =
+     * 'repair_payment'`), бо методу платежу в ремонті немає взагалі. Без
+     * другого джерела ремонт, оплачений карткою, тихо їхав би в готівку —
+     * рутинний випадок для сервісу, не крайній.
      *
-     * `cashRevenue = revenue − cardRevenue`, притиснуто знизу до нуля:
-     * підстраховка на округлення розподіленої знижки або рефанд у межах дня.
+     * Готівка продажів рахується залишком (`− cardRevenue`), щоб поглинути
+     * розподілену знижку; готівка ремонтів — прямою сумою платежів у грошові
+     * каси. Що не покрите ні тим, ні тим, — це `debt`.
      */
     cashRevenue: number;
     cardRevenue: number;
-    /** Найновіші першими, обрізано до `TODAY_RECEIPTS_SHOWN`. */
+    /**
+     * Виторг дня, за який гроші ще не прийшли: ремонт видали в борг. Нуль у
+     * звичайний день. Не можна складати в готівку — каси за ним порожні.
+     */
+    debt: number;
+    /**
+     * Усі операції дня, найновіші першими — без обрізки. Раніше сюди їхали
+     * лише чотири останні, і в завантажений день картка мовчки ховала решту
+     * за «і ще N»; список коротший за день — це не картка дня.
+     * `receipts.length === count` завжди.
+     */
     receipts: { id: string; at: string; amount: number; kind: "sale" | "repair" }[];
   };
   /**
@@ -205,7 +213,7 @@ async function loadDataset(
       : supabase
           .from("sales")
           .select(
-            "id, created_at, total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price), payment_splits(amount, method)",
+            "id, created_at, total_amount, sale_items(item_type, item_id, quantity, unit_cost, total_price), payment_splits(amount, method)",
           )
           .gte("created_at", startStr)
           .lt("created_at", endStr),
@@ -215,13 +223,10 @@ async function loadDataset(
           .from("repairs")
           .select(REPAIR_PNL_COLUMNS)
           .is("inventory_device_id", null)
-          // Грубий фільтр: ремонт міг закритись оплатою або видачею, тож
-          // тягнемо обидві дати, а точне рішення лишається за
-          // `toDatedRepairs` — там одне правило на всю систему.
-          .or(
-            `and(paid_at.gte.${startStr},paid_at.lt.${endStr}),` +
-              `and(completed_at.gte.${startStr},completed_at.lt.${endStr})`,
-          ),
+          // Ремонт закривається видачею, тож грубий фільтр — по її даті.
+          // Статус перевіряє `toDatedRepairs`: там одне правило на всю систему.
+          .gte("completed_at", startStr)
+          .lt("completed_at", endStr),
     empty
       ? Promise.resolve({ data: [] })
       : supabase
@@ -237,7 +242,6 @@ async function loadDataset(
       id: string;
       created_at: string;
       total_amount: number;
-      discount: number | null;
       sale_items: ProfitSaleItem[] | null;
       payment_splits: { amount: number; method: string }[] | null;
     }[]
@@ -268,7 +272,6 @@ async function loadDataset(
     id: s.id,
     created_at: s.created_at,
     total_amount: s.total_amount,
-    discount: s.discount,
     items: s.sale_items ?? [],
   }));
 
@@ -483,10 +486,14 @@ export async function getDashboardMoney(
   const todaySaleRows = ds.sales.filter((s) => inToday(s.created_at));
   const todayRepairRows = ds.repairs.filter((r) => inToday(r.settled_at));
 
-  // Усі операції дня в одному списку: товарний чек і закритий ремонт для
-  // касира — те саме «пробили», і сторінка Продажів їх уже показує разом.
-  // Ремонт лягає в день своєю датою закриття (`settled_at`, див.
-  // `repairSettledAt`), а не датою прийому.
+  // Усі операції дня в одному списку: товарний чек і виданий ремонт для
+  // касира — те саме «пробили», і сторінка Продажів їх уже показує разом,
+  // тепер тим самим днем видачі (`settled_at`, див. `repairSettledAt`).
+  //
+  // Ремонти з ціною 0 у список не йдуть — так само як їх не показує сторінка
+  // Продажів. Гарантійна переробка не чек: у виторг вона додає нуль, а рядок
+  // «0 ₴» і зайва одиниця в лічильнику чеків тільки шумлять. У P&L вона
+  // лишається — там від неї є собівартість.
   const todayReceipts = [
     ...todaySaleRows.map((s) => ({
       id: s.id,
@@ -494,12 +501,14 @@ export async function getDashboardMoney(
       amount: s.total_amount,
       kind: "sale" as const,
     })),
-    ...todayRepairRows.map((r) => ({
-      id: r.id,
-      at: r.settled_at,
-      amount: r.price,
-      kind: "repair" as const,
-    })),
+    ...todayRepairRows
+      .filter((r) => r.price > 0)
+      .map((r) => ({
+        id: r.id,
+        at: r.settled_at,
+        amount: r.price,
+        kind: "repair" as const,
+      })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   // Безготівка продажів — зі спліт-оплат чека.
@@ -512,15 +521,19 @@ export async function getDashboardMoney(
     0,
   );
 
-  // Безготівка ремонтів — за касою, в яку лягла оплата: у ремонті немає поля
-  // способу платежу, тож тип каси — єдине, що дані про це знають. Ремонт
-  // потрапляє в день або оплаченим повністю (сума платежів = ціна), або з
-  // ціною 0 — тож база тут та сама, що й у виторгу, а не приблизна.
+  // Спосіб оплати ремонту — за касою, в яку лягли гроші: поля методу в ремонті
+  // немає взагалі, тож тип каси це єдине, що дані про це знають.
+  //
+  // Платежі НЕ фільтруються по сьогодні навмисно. Ремонт визнається виторгом на
+  // видачі, а передоплата за нього могла зайти раніше — рядок відповідає на
+  // «чим за це заплатили», а не «скільки фізично впало в касу сьогодні». На
+  // друге питання відповідає «Гроші в наявності», і воно рахується з кас.
   const cashlessRegisterIds = new Set(
     loaded.cashRegisters.filter((c) => isCashless(c.type)).map((c) => c.id),
   );
   let repairCardRevenue = 0;
-  if (todayRepairRows.length > 0 && cashlessRegisterIds.size > 0) {
+  let repairCashRevenue = 0;
+  if (todayRepairRows.length > 0) {
     const { data: repairPayments } = await supabase
       .from("transactions")
       .select("amount, to_id")
@@ -531,18 +544,27 @@ export async function getDashboardMoney(
       );
     for (const p of repairPayments ?? []) {
       if (p.to_id && cashlessRegisterIds.has(p.to_id)) repairCardRevenue += p.amount;
+      else repairCashRevenue += p.amount;
     }
   }
 
-  const todayCardRevenue = salesCardRevenue + repairCardRevenue;
-  // Виторг картки — усі категорії, як у hero. Ремонти більше не виключаються:
-  // картка називається «Продажі сьогодні», але відповідає на «скільки сьогодні
-  // заробили», а не «скільки з них не ремонтами».
+  // Виторг — усі категорії, як у hero: картка називається «Продажі сьогодні»,
+  // але відповідає на «скільки сьогодні заробили», а не «скільки з них не
+  // ремонтами».
   const todayRevenue = today.profit.revenue;
-  // Притиснуто до нуля лише як підстраховка на округлення розподіленої
-  // знижки чи рефанд у межах дня — база вже узгоджена з `cardRevenue`, тож
-  // від'ємне значення тут означати мало б лише копійчану похибку заокруглення.
-  const todayCashRevenue = Math.max(0, todayRevenue - todayCardRevenue);
+  const repairRevenue =
+    today.profit.byCategory.find((c) => c.category === "repair")?.revenue ?? 0;
+
+  // Готівка продажів — залишком: він поглинає розподілену знижку, якої в
+  // спліт-оплатах немає. Притиснуто до нуля на випадок копійчаного заокруглення.
+  const salesCashRevenue = Math.max(0, todayRevenue - repairRevenue - salesCardRevenue);
+
+  const todayCardRevenue = salesCardRevenue + repairCardRevenue;
+  const todayCashRevenue = salesCashRevenue + repairCashRevenue;
+  // Виданий у борг ремонт — теж виторг (гроші зароблені на видачі), але каса за
+  // ним порожня. Без окремого рядка цей борг сів би в «готівку» залишком і
+  // картка показувала б у касі гроші, яких там нема.
+  const todayDebt = Math.max(0, todayRevenue - todayCardRevenue - todayCashRevenue);
 
   const partnerLedger = buildLedger({
     // Чистими від епохи: денний ряд уже покриває саме це вікно. Довідково —
@@ -576,7 +598,8 @@ export async function getDashboardMoney(
       revenue: todayRevenue,
       cardRevenue: todayCardRevenue,
       cashRevenue: todayCashRevenue,
-      receipts: todayReceipts.slice(0, TODAY_RECEIPTS_SHOWN),
+      debt: todayDebt,
+      receipts: todayReceipts,
     },
     partnerShare,
     partnerLedger,

@@ -136,85 +136,57 @@ describe("outstanding", () => {
   });
 });
 
-// Правило визнання виторгу. Раніше ним був список статусів, і передоплачений
-// ремонт не потрапляв у прибуток узагалі — саме так загубився PS5 Slim,
-// оплачений у день прийому.
+// Правило визнання виторгу: ремонт заробляється видачею клієнту. Ціна й статус
+// оплати на це не впливають — ні передоплата не робить ремонт закритим, ні борг
+// не заважає йому закритись.
 describe("repairSettledAt", () => {
   const base = {
-    price: 1800,
-    payment_status: "unpaid" as string | null,
-    paid_at: null as string | null,
     completed_at: null as string | null,
     status: "received",
   };
 
-  it("закриває оплачений ремонт датою оплати, а не видачі", () => {
+  it("закриває ремонт датою видачі", () => {
     expect(
-      repairSettledAt({
-        ...base,
-        payment_status: "paid",
-        paid_at: "2026-07-28T07:13:37Z",
-        status: "received",
-      }),
-    ).toBe("2026-07-28T07:13:37Z");
+      repairSettledAt({ status: "handed_over", completed_at: "2026-07-27T12:00:00Z" }),
+    ).toBe("2026-07-27T12:00:00Z");
   });
 
-  it("бере дату оплати навіть коли ремонт уже видано", () => {
-    expect(
-      repairSettledAt({
-        ...base,
-        payment_status: "paid",
-        paid_at: "2026-07-25T09:09:03Z",
-        completed_at: "2026-07-25T18:25:21Z",
-        status: "handed_over",
-      }),
-    ).toBe("2026-07-25T09:09:03Z");
+  // Гроші вже в касі й видно їх у «Гроші в наявності», але заробленими вони
+  // стають, коли пристрій пішов. Інакше виторг і рядок на сторінці Продажів
+  // лежали б у різних днях.
+  it("не закриває передоплачений, поки його не видали", () => {
+    expect(repairSettledAt({ ...base, status: "in_progress" })).toBeNull();
   });
 
-  it("не закриває частково оплачений", () => {
-    expect(repairSettledAt({ ...base, payment_status: "partial" })).toBeNull();
-  });
-
-  // Дебіторка, а не виторг: блок уваги ловить такий ремонт окремим правилом.
-  it("не закриває виданий без оплати", () => {
+  // Дзеркало попереднього: виторг є, каси за ним нема. Борг окремо показує
+  // рядок «у борг» у розбивці дня.
+  it("закриває виданий у борг", () => {
     expect(
-      repairSettledAt({
-        ...base,
-        status: "handed_over",
-        completed_at: "2026-07-27T12:00:00Z",
-      }),
-    ).toBeNull();
+      repairSettledAt({ status: "handed_over", completed_at: "2026-07-27T12:00:00Z" }),
+    ).toBe("2026-07-27T12:00:00Z");
   });
 
   // Без цієї гілки собівартість гарантійної переробки зникла б із P&L.
   it("закриває роботу без рахунку датою видачі", () => {
     expect(
-      repairSettledAt({
-        ...base,
-        price: 0,
-        status: "handed_over",
-        completed_at: "2026-07-27T12:00:00Z",
-      }),
+      repairSettledAt({ status: "handed_over", completed_at: "2026-07-27T12:00:00Z" }),
     ).toBe("2026-07-27T12:00:00Z");
-  });
-
-  it("не закриває роботу без рахунку, поки її не видали", () => {
-    expect(repairSettledAt({ ...base, price: 0, status: "in_progress" })).toBeNull();
   });
 
   it("архівний completed рахується виданим", () => {
     expect(
-      repairSettledAt({
-        ...base,
-        price: 0,
-        status: "completed",
-        completed_at: "2026-07-20T10:00:00Z",
-      }),
+      repairSettledAt({ status: "completed", completed_at: "2026-07-20T10:00:00Z" }),
     ).toBe("2026-07-20T10:00:00Z");
   });
 
-  // Дата — єдине свідчення, що гроші прийшли. Статус без неї не рахуємо.
-  it("не закриває paid без дати оплати", () => {
-    expect(repairSettledAt({ ...base, payment_status: "paid", paid_at: null })).toBeNull();
+  // Дата — єдине свідчення, що видача була. Статус без неї не рахуємо.
+  it("не закриває handed_over без дати видачі", () => {
+    expect(repairSettledAt({ ...base, status: "handed_over" })).toBeNull();
+  });
+
+  it("не закриває скасований", () => {
+    expect(
+      repairSettledAt({ status: "cancelled", completed_at: "2026-07-27T12:00:00Z" }),
+    ).toBeNull();
   });
 });
