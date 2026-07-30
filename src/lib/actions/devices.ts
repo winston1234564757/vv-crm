@@ -466,7 +466,10 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
       parsed.photo_urls = existingDevice?.photo_urls || [];
     }
 
-    const updatePayload: DeviceUpdate = { ...parsed };
+    // `payment_method` описує платіж, а не пристрій — колонки під нього в
+    // `devices` немає, тож у запис він не їде.
+    const { payment_method: _method, ...deviceFields } = parsed;
+    const updatePayload: DeviceUpdate = { ...deviceFields };
 
     // Отримуємо поточний стан пристрою для обробки списання деталей
     const { data: existingDeviceData } = await supabase

@@ -183,7 +183,11 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       delete (parsed as any).photo_urls;
     }
 
-    const { error } = await supabase.from("accessories").update(parsed as AccessoryUpdate).eq("id", id);
+    // `payment_method` описує платіж, а не аксесуар — колонки під нього в
+    // `accessories` немає, тож у запис він не їде.
+    const { payment_method: _method, ...accessoryFields } = parsed;
+
+    const { error } = await supabase.from("accessories").update(accessoryFields as AccessoryUpdate).eq("id", id);
     if (error) throw error;
 
     revalidatePath("/admin/accessories");
