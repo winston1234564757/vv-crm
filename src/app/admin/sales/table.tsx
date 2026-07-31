@@ -422,11 +422,15 @@ export function SalesTable({ rows, total, page, pageSize, pageCount, query, cate
               </div>
             </div>
 
+            {/* Пошук по id, а не перехід у Ремонти: сторінка Ремонтів
+                `searchParams` не читає взагалі, тож `?q=` там нікуди не веде.
+                `search_transactions` матчить ремонт по `r.id::text`, тож ця
+                адреса відкриває саме його. */}
             <Link
-              href={`/admin/repairs?q=${selectedRepair.id}`}
+              href={`/admin/sales?q=${selectedRepair.id}`}
               className="inline-flex items-center rounded-[var(--radius-md)] border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover"
             >
-              Відкрити в Ремонтах
+              Знайти цю операцію
             </Link>
           </div>
         )}
