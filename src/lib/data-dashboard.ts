@@ -455,6 +455,9 @@ export async function getDashboardMoney(
       })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
+  // Виторг — усі категорії, як у hero: картка називається «Продажі сьогодні»,
+  // але відповідає на «скільки сьогодні заробили», а не «скільки з них не
+  // ремонтами».
   const todayRevenue = today.profit.revenue;
   const repairRevenue =
     today.profit.byCategory.find((c) => c.category === "repair")?.revenue ?? 0;
