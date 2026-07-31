@@ -28,8 +28,10 @@ import type { DayPoint } from "@/lib/profit";
  * Тултіп власний: дефолтний у recharts приходить із власним світлим фоном і
  * на інвертованій плиті виглядає як чужий елемент.
  *
- * Клік по точці відкриває той день — це заміна стрілкам «← день →», які
- * прибрали разом із рештою дублюючих контролів періоду.
+ * Клік по точці відкриває сторінку того дня (`/admin/days/<день>`) — повний
+ * зріз із операціями, витратами й рухом грошей. Раніше клік вмикав режим
+ * `?day=` на самому дашборді, але той застосовувався лише до hero й таблиці
+ * категорій, а операційні картки лишались на сьогодні.
  */
 
 const MIN_POINTS = 3;
@@ -74,13 +76,9 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
 
   if (series.length < MIN_POINTS) return null;
 
-  const todayKey = series[series.length - 1]?.day;
-
   function openDay(day: string | undefined) {
     if (!day) return;
-    // Сьогодні — це просто пресет `today`, без надлишкового `&day=`.
-    const href = day === todayKey ? "/admin?range=today" : `/admin?range=today&day=${day}`;
-    startTransition(() => router.replace(href));
+    startTransition(() => router.push(`/admin/days/${day}`));
   }
 
   return (

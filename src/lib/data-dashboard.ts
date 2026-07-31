@@ -7,7 +7,6 @@ import {
   comparisonFor,
   dailySeries,
   datasetWindowStart,
-  dayRange,
   floorAtEpoch,
   resolveRange,
   sliceExpenses,
@@ -244,16 +243,9 @@ export async function revenueSplit(
   };
 }
 
-/**
- * @param day необов'язковий ключ `YYYY-MM-DD` — коли заданий, головні цифри
- *   (`profit`/`expenses`) рахуються за цей конкретний день замість вікна
- *   пресету. Використовується денною навігацією на вкладці «Сьогодні». Решта
- *   (todayProfit, monthProfit, partnerShare, ledger) завжди прив'язані до `now`.
- */
 export async function getDashboardMoney(
   preset: RangePreset,
   userId?: string,
-  day?: string | null,
 ): Promise<DashboardMoney> {
   const supabase = await createClient();
   const now = new Date();
@@ -291,7 +283,7 @@ export async function getDashboardMoney(
     : capStart;
 
   const rawStart = new Date(
-    Math.min(datasetWindowStart(preset, now, day).getTime(), ledgerStart.getTime()),
+    Math.min(datasetWindowStart(preset, now).getTime(), ledgerStart.getTime()),
   );
   const window = floorAtEpoch(rawStart, todayRange.end, epoch);
 
@@ -349,7 +341,7 @@ export async function getDashboardMoney(
     };
   };
 
-  const mainRange = day ? dayRange(day) : resolveRange(preset, now);
+  const mainRange = resolveRange(preset, now);
   const main = sliceMoney(mainRange.start, mainRange.end);
   const today = sliceMoney(todayRange.start, todayRange.end);
   const week = sliceMoney(resolveRange("7d", now).start, resolveRange("7d", now).end);
@@ -373,7 +365,7 @@ export async function getDashboardMoney(
   // Графік показує вікно ОБРАНОГО періоду, а не незмінні останні тридцять днів.
   // Ріжемо вже порахований `daily` за ключами днів: другий прохід по датасету
   // дав би ті самі числа, лише повільніше.
-  const rawChart = chartWindow(preset, now, day);
+  const rawChart = chartWindow(preset, now);
   const chartWin = floorAtEpoch(rawChart.start, rawChart.end, epoch);
   const fromKey = dayKey(chartWin.start);
   const toKey = dayKey(new Date(chartWin.end.getTime() - 1));
@@ -494,7 +486,7 @@ export async function getDashboardMoney(
     monthProfit: month.profit.profit,
     todayProfit: today.profit.profit,
     monthExpenses: month.expenses,
-    comparison: day ? null : comparisonFor(ds, preset, now, epoch),
+    comparison: comparisonFor(ds, preset, now, epoch),
     series,
     daily,
     todaySales: {

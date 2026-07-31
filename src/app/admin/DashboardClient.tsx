@@ -18,11 +18,9 @@ import type { DashboardMoney } from "@/lib/data-dashboard";
 import type { OperationsData } from "@/lib/data-operations";
 import type { SalesTargets } from "@/lib/data-settings";
 import type { RangePreset } from "@/lib/profit";
-import { dayLabel } from "@/lib/utils/day";
 
 interface DashboardClientProps {
   preset: RangePreset;
-  selectedDay: string | null;
   attention: AttentionGroup[];
   /** `null` для ролей без доступу до грошей — дані навіть не читались з бази. */
   money: DashboardMoney | null;
@@ -58,7 +56,6 @@ interface DashboardClientProps {
  */
 export function DashboardClient({
   preset,
-  selectedDay,
   attention,
   money,
   operations,
@@ -92,7 +89,7 @@ export function DashboardClient({
             profit={money.profit}
             comparison={money.comparison}
             series={money.series}
-            dayLabel={selectedDay ? dayLabel(selectedDay) : "Сьогодні"}
+            dayLabel="Сьогодні"
           />
         )}
 
