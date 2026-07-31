@@ -76,7 +76,18 @@ export interface DayReport {
   profit: ProfitResult;
   split: RevenueSplit;
   operations: DayOperationRow[];
+  /**
+   * Операційні витрати — без капітальних закупів і без вилучень із сейфа
+   * чистого прибутку. Саме ці два числа йдуть у «Витрати» і «Чистими», так
+   * само, як у списку днів і на дашборді.
+   */
   expenses: DayExpenseRow[];
+  /**
+   * Витрати, виключені з операційних: капітальні закупи й вилучення частки
+   * власником. Гроші з каси пішли, тож ховати їх зі сторінки не можна, але в
+   * «Чистими» вони не входять — рахувати вдруге означало б подвійний рахунок.
+   */
+  otherExpenses: DayExpenseRow[];
   /** Реальні рухи; автоматичні розподіли по сейфах лежать окремо. */
   moves: DayMoveRow[];
   distributions: { count: number; total: number };
@@ -100,7 +111,8 @@ const DELTA_LOOKBACK_DAYS = 30;
 async function netProfitSafe(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<string | null> {
-  const { data } = await supabase.from("safes").select("id, type");
+  const { data, error } = await supabase.from("safes").select("id, type");
+  if (error) throw error;
   return (data ?? []).find((s) => s.type === "net_profit")?.id ?? null;
 }
 
@@ -215,9 +227,15 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     repairRevenue,
   );
 
+  /* Один виклик на всю функцію: те саме значення йде і в dailySeries (для
+     дельти проти попереднього дня), і нижче — в розбивку витрат дня на
+     операційні й решту. Два окремі запити тут дали б шанс, щоб один з них
+     колись мовчки розійшовся з іншим. */
+  const netProfitSafeId = await netProfitSafe(supabase);
+
   const series = dailySeries(loaded.dataset, window.start, window.end, {
     capitalCategoryId: settings.capital_category_id,
-    netProfitSafeId: await netProfitSafe(supabase),
+    netProfitSafeId,
   });
   const prevKey = previousWorkingDay(day, series);
   const prevPoint = prevKey ? series.find((p) => p.day === prevKey) : undefined;
@@ -254,13 +272,13 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
           .from("sales")
           .select("id, notes, customers(name), payment_splits(method)")
           .in("id", daySales.map((s) => s.id))
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     dayRepairs.length > 0
       ? supabase
           .from("repairs")
           .select("id, device_name, issue, payment_status, customers(name)")
           .in("id", dayRepairs.map((r) => r.id))
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("expenses")
       .select("id, amount, description, category_id, paid_from_safe_id, created_at")
@@ -275,6 +293,15 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       .order("created_at", { ascending: false }),
     supabase.from("safes").select("id, name"),
   ]);
+
+  // Зламаний запит і порожній день раніше виглядали однаково — жоден з цих
+  // шести результатів не перевірявся на помилку.
+  if (saleDetailRes.error) throw saleDetailRes.error;
+  if (repairDetailRes.error) throw repairDetailRes.error;
+  if (expensesRes.error) throw expensesRes.error;
+  if (catRes.error) throw catRes.error;
+  if (txRes.error) throw txRes.error;
+  if (safesRes.error) throw safesRes.error;
 
   const saleMeta = new Map(
     supabaseCast<
@@ -321,14 +348,28 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   const safeNames = new Map((safesRes.data ?? []).map((s) => [s.id, s.name]));
   const registerNames = new Map(loaded.cashRegisters.map((c) => [c.id, c.name]));
 
-  const expenses: DayExpenseRow[] = (expensesRes.data ?? []).map((e) => ({
-    id: e.id,
-    at: e.created_at,
-    amount: e.amount,
-    title: e.description || "Витрата",
-    category: (e.category_id && catNames.get(e.category_id)) || "Без категорії",
-    safe: (e.paid_from_safe_id && safeNames.get(e.paid_from_safe_id)) || "—",
-  }));
+  /* Ті самі два винятки, що й у sliceExpenses/dailySeries (lib/profit.ts), і
+     рахуємо тими самими двома id — capitalCategoryId/netProfitSafeId вище:
+     капітальна категорія — разові вкладення, не операційна витрата; сейф
+     чистого прибутку — вилучення частки власником, уже пораховане як
+     розподілений прибуток. Порахувати їх у «Витрати» вдруге — подвійний
+     рахунок, і саме через це список днів і сторінка дня раніше показували
+     різні цифри для того самого дня. */
+  const expenses: DayExpenseRow[] = [];
+  const otherExpenses: DayExpenseRow[] = [];
+  for (const e of expensesRes.data ?? []) {
+    const row: DayExpenseRow = {
+      id: e.id,
+      at: e.created_at,
+      amount: e.amount,
+      title: e.description || "Витрата",
+      category: (e.category_id && catNames.get(e.category_id)) || "Без категорії",
+      safe: (e.paid_from_safe_id && safeNames.get(e.paid_from_safe_id)) || "—",
+    };
+    const isCapital = !!(settings.capital_category_id && e.category_id === settings.capital_category_id);
+    const isNetProfitWithdrawal = !!(netProfitSafeId && e.paid_from_safe_id === netProfitSafeId);
+    (isCapital || isNetProfitWithdrawal ? otherExpenses : expenses).push(row);
+  }
 
   const sideName = (type: string, id: string | null) => {
     if (type === "cash_register") return (id && registerNames.get(id)) || "Каса";
@@ -358,6 +399,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     split,
     operations,
     expenses,
+    otherExpenses,
     moves,
     distributions: {
       count: distributionRows.length,

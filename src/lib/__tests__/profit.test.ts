@@ -602,12 +602,6 @@ describe("chartWindow", () => {
     }
   });
 
-  it("ends a picked day's window on that day, not on today", () => {
-    const { start, end } = chartWindow("today", now, "2026-07-15");
-    expect(start.toISOString()).toBe(new Date("2026-07-02T00:00:00").toISOString());
-    expect(end.toISOString()).toBe(new Date("2026-07-16T00:00:00").toISOString());
-  });
-
   it("stays inside the fetched dataset for every preset", () => {
     for (const preset of RANGE_PRESETS) {
       expect(datasetWindowStart(preset, now).getTime()).toBeLessThanOrEqual(

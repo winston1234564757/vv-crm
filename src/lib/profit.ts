@@ -472,18 +472,14 @@ export interface ProfitDataset {
  * довгого місяця (31 січня → 1 листопада, 92 дні), і будь-яка кругла
  * константа тут або зайва, або тихо ріже базу порівняння раз на рік.
  */
-export function datasetWindowStart(
-  preset: RangePreset,
-  now: Date,
-  day?: string | null,
-): Date {
+export function datasetWindowStart(preset: RangePreset, now: Date): Date {
   const starts = [
     resolveRange(preset, now).start,
     previousRange(preset, now).start,
     resolveRange("today", now).start,
     resolveRange("7d", now).start,
     resolveRange("month", now).start,
-    chartWindow(preset, now, day).start,
+    chartWindow(preset, now).start,
   ];
 
   return new Date(Math.min(...starts.map((d) => d.getTime())));
@@ -494,23 +490,15 @@ export function datasetWindowStart(
  *
  * Графік має показувати те саме, що й цифри над ним: перемикаєш «Цей місяць» —
  * бачиш дні цього місяця, а не незмінні останні тридцять. Виняток один —
- * «Сьогодні» (і конкретний обраний день): один день це одна точка, тож замість
- * неї малюємо `TREND_DAYS` днів, що закінчуються цим днем. Тоді графік
- * відповідає на «як цей день виглядає на тлі решти», а не на «скільки саме
- * сьогодні», — це вже написано великими цифрами поруч.
+ * «Сьогодні»: один день це одна точка, тож замість неї малюємо `TREND_DAYS`
+ * днів, що закінчуються сьогодні. Тоді графік відповідає на «як сьогодні
+ * виглядає на тлі решти», а не на «скільки саме сьогодні», — це вже написано
+ * великими цифрами поруч.
  */
 export function chartWindow(
   preset: RangePreset,
   now: Date,
-  day?: string | null,
 ): { start: Date; end: Date } {
-  if (day) {
-    const d = dayRange(day);
-    const start = new Date(d.start);
-    start.setDate(start.getDate() - (TREND_DAYS - 1));
-    return { start, end: d.end };
-  }
-
   const range = resolveRange(preset, now);
   if (preset !== "today") return range;
 

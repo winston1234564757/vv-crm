@@ -139,6 +139,31 @@ export function DayClient({ report }: { report: DayReport }) {
               </span>
             </p>
           </div>
+
+          {report.otherExpenses.length > 0 && (
+            <div className="space-y-1 border-t border-border pt-3 text-xs">
+              <p className="text-muted">
+                Не операційні — капітальні закупи й вилучення частки власником,
+                у «Чистими» не входять
+              </p>
+              <ul className="divide-y divide-border">
+                {report.otherExpenses.map((e) => (
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected({ kind: "expense", row: e })}
+                      className="flex w-full items-baseline justify-between gap-3 py-1.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-ink">{e.title}</span>
+                      <span className="shrink-0 font-medium tabular text-muted">
+                        −{uah(e.amount)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </BentoCell>
 
         <BentoCell span={8} title="Звідки прибуток">
@@ -347,12 +372,11 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Клієнт" value={selected.row.customer} />
               <Field label="Оплата" value={selected.row.payment} />
             </div>
+            {/* Обидва види операцій — на Продажі: search_transactions матчить
+                ремонти по r.id::text так само, як чеки, а /admin/repairs
+                узагалі не читає ?q=. */}
             <Link
-              href={
-                selected.row.kind === "sale"
-                  ? `/admin/sales?q=${selected.row.id}`
-                  : `/admin/repairs?q=${selected.row.id}`
-              }
+              href={`/admin/sales?q=${selected.row.id}`}
               className="inline-block text-sm font-medium text-accent-ink transition-colors hover:text-accent"
             >
               Відкрити повністю →
