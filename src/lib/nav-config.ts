@@ -107,7 +107,10 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Фінанси",
     icon: IconFinance,
     roles: MONEY_ROLES,
-    items: [{ href: "/admin/finance", label: "Фінанси", icon: IconFinance }],
+    items: [
+      { href: "/admin/finance", label: "Фінанси", icon: IconFinance },
+      { href: "/admin/days", label: "Дні", icon: IconReport },
+    ],
   },
   {
     // Не на видноті навмисно: тут виторг партнерів, маржа рефербішменту й
