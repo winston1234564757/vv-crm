@@ -2,7 +2,7 @@ import { createClient } from "./supabase/server";
 import { isCashless, splitByKind } from "@/lib/utils/finance";
 import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
-import { loadDataset } from "./profit-dataset";
+import { loadDataset, type LoadedDataset } from "./profit-dataset";
 import {
   comparisonFor,
   dailySeries,
@@ -15,6 +15,8 @@ import {
   chartWindow,
   LEDGER_MAX_DAYS,
   type Comparison,
+  type DatedRepair,
+  type DatedSale,
   type DayPoint,
   type ProfitResult,
   type RangePreset,
@@ -166,6 +168,80 @@ export interface DashboardMoney {
   sources: { id: string; name: string; type: "safe" | "cash_register"; balance: number }[];
   /** Єдине дозволене джерело зняття частки. `null` — сейфа ЧП немає. */
   netProfitSafeId: string | null;
+}
+
+export interface RevenueSplit {
+  cashRevenue: number;
+  cardRevenue: number;
+  /**
+   * Виторг, за який гроші ще не прийшли: ремонт видали в борг. Нуль у
+   * звичайний день. Не можна складати в готівку — каси за ним порожні.
+   */
+  debt: number;
+}
+
+/**
+ * Розбивка виторгу вікна: готівка, безготівка, борг.
+ *
+ * Джерел два, бо їх у базі два: у продажів це `payment_splits` чека, у
+ * ремонтів — каса, в яку лягла оплата (`transactions.reference_type =
+ * 'repair_payment'`), бо методу платежу в ремонті немає взагалі. Без другого
+ * джерела ремонт, оплачений карткою, тихо їхав би в готівку.
+ *
+ * Платежі ремонтів НЕ фільтруються по вікну навмисно. Ремонт визнається
+ * виторгом на видачі, а передоплата могла зайти раніше — розбивка відповідає
+ * на «чим за це заплатили», а не «скільки фізично впало в касу того дня». На
+ * друге питання відповідає «Гроші в наявності», і воно рахується з кас.
+ *
+ * Готівка продажів — залишком, щоб поглинути розподілену знижку, якої в
+ * спліт-оплатах немає. Готівка ремонтів — прямою сумою платежів.
+ */
+export async function revenueSplit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  loaded: LoadedDataset,
+  saleRows: DatedSale[],
+  repairRows: DatedRepair[],
+  totalRevenue: number,
+  repairRevenue: number,
+): Promise<RevenueSplit> {
+  const salesCardRevenue = saleRows.reduce(
+    (s, r) =>
+      s +
+      (loaded.paymentSplitsBySale.get(r.id) ?? [])
+        .filter((p) => p.method !== "cash")
+        .reduce((a, p) => a + p.amount, 0),
+    0,
+  );
+
+  const cashlessRegisterIds = new Set(
+    loaded.cashRegisters.filter((c) => isCashless(c.type)).map((c) => c.id),
+  );
+  let repairCardRevenue = 0;
+  let repairCashRevenue = 0;
+  if (repairRows.length > 0) {
+    const { data: repairPayments } = await supabase
+      .from("transactions")
+      .select("amount, to_id")
+      .eq("reference_type", "repair_payment")
+      .in(
+        "reference_id",
+        repairRows.map((r) => r.id),
+      );
+    for (const p of repairPayments ?? []) {
+      if (p.to_id && cashlessRegisterIds.has(p.to_id)) repairCardRevenue += p.amount;
+      else repairCashRevenue += p.amount;
+    }
+  }
+
+  const salesCashRevenue = Math.max(0, totalRevenue - repairRevenue - salesCardRevenue);
+  const cardRevenue = salesCardRevenue + repairCardRevenue;
+  const cashRevenue = salesCashRevenue + repairCashRevenue;
+
+  return {
+    cardRevenue,
+    cashRevenue,
+    debt: Math.max(0, totalRevenue - cardRevenue - cashRevenue),
+  };
 }
 
 /**
@@ -379,60 +455,17 @@ export async function getDashboardMoney(
       })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
-  // Безготівка продажів — зі спліт-оплат чека.
-  const salesCardRevenue = todaySaleRows.reduce(
-    (s, r) =>
-      s +
-      (loaded.paymentSplitsBySale.get(r.id) ?? [])
-        .filter((p) => p.method !== "cash")
-        .reduce((a, p) => a + p.amount, 0),
-    0,
-  );
-
-  // Спосіб оплати ремонту — за касою, в яку лягли гроші: поля методу в ремонті
-  // немає взагалі, тож тип каси це єдине, що дані про це знають.
-  //
-  // Платежі НЕ фільтруються по сьогодні навмисно. Ремонт визнається виторгом на
-  // видачі, а передоплата за нього могла зайти раніше — рядок відповідає на
-  // «чим за це заплатили», а не «скільки фізично впало в касу сьогодні». На
-  // друге питання відповідає «Гроші в наявності», і воно рахується з кас.
-  const cashlessRegisterIds = new Set(
-    loaded.cashRegisters.filter((c) => isCashless(c.type)).map((c) => c.id),
-  );
-  let repairCardRevenue = 0;
-  let repairCashRevenue = 0;
-  if (todayRepairRows.length > 0) {
-    const { data: repairPayments } = await supabase
-      .from("transactions")
-      .select("amount, to_id")
-      .eq("reference_type", "repair_payment")
-      .in(
-        "reference_id",
-        todayRepairRows.map((r) => r.id),
-      );
-    for (const p of repairPayments ?? []) {
-      if (p.to_id && cashlessRegisterIds.has(p.to_id)) repairCardRevenue += p.amount;
-      else repairCashRevenue += p.amount;
-    }
-  }
-
-  // Виторг — усі категорії, як у hero: картка називається «Продажі сьогодні»,
-  // але відповідає на «скільки сьогодні заробили», а не «скільки з них не
-  // ремонтами».
   const todayRevenue = today.profit.revenue;
   const repairRevenue =
     today.profit.byCategory.find((c) => c.category === "repair")?.revenue ?? 0;
-
-  // Готівка продажів — залишком: він поглинає розподілену знижку, якої в
-  // спліт-оплатах немає. Притиснуто до нуля на випадок копійчаного заокруглення.
-  const salesCashRevenue = Math.max(0, todayRevenue - repairRevenue - salesCardRevenue);
-
-  const todayCardRevenue = salesCardRevenue + repairCardRevenue;
-  const todayCashRevenue = salesCashRevenue + repairCashRevenue;
-  // Виданий у борг ремонт — теж виторг (гроші зароблені на видачі), але каса за
-  // ним порожня. Без окремого рядка цей борг сів би в «готівку» залишком і
-  // картка показувала б у касі гроші, яких там нема.
-  const todayDebt = Math.max(0, todayRevenue - todayCardRevenue - todayCashRevenue);
+  const split = await revenueSplit(
+    supabase,
+    loaded,
+    todaySaleRows,
+    todayRepairRows,
+    todayRevenue,
+    repairRevenue,
+  );
 
   const partnerLedger = buildLedger({
     // Чистими від епохи: денний ряд уже покриває саме це вікно. Довідково —
@@ -464,9 +497,9 @@ export async function getDashboardMoney(
     todaySales: {
       count: todayReceipts.length,
       revenue: todayRevenue,
-      cardRevenue: todayCardRevenue,
-      cashRevenue: todayCashRevenue,
-      debt: todayDebt,
+      cardRevenue: split.cardRevenue,
+      cashRevenue: split.cashRevenue,
+      debt: split.debt,
       receipts: todayReceipts,
     },
     partnerShare,
