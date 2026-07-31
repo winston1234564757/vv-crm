@@ -113,7 +113,7 @@ export function DayClient({ report }: { report: DayReport }) {
         <BentoCell span={4} title="Гроші дня">
           <CardStat value={uah(split.cashRevenue)} unit="готівкою">
             <span className="text-xs text-muted">
-              {uah(split.cardRevenue)} карткою
+              <span className="tabular">{uah(split.cardRevenue)}</span> карткою
               {split.debt > 0 && (
                 <>
                   {" · "}
@@ -313,7 +313,7 @@ export function DayClient({ report }: { report: DayReport }) {
               {report.distributions.count > 0 && (
                 <li className="py-2.5 text-[11px] text-faint">
                   Розподілено по сейфах — <span className="tabular">{uah(report.distributions.total)}</span>,{" "}
-                  {report.distributions.count}{" "}
+                  <span className="tabular">{report.distributions.count}</span>{" "}
                   {pluralUk(report.distributions.count, "переказ", "перекази", "переказів")}.
                   Це автоматика після продажів вище, не окремі події.
                 </li>
