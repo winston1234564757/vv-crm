@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { cn } from "@/lib/utils/cn";
@@ -13,8 +14,15 @@ import type { DayRow } from "@/lib/data-day";
  * дірка в списку читалась би як втрата даних. Але нульовий рядок блідий, щоб
  * око чіплялось за робочі дні.
  *
- * Рядок — `<button>`, а не `<div>` з `onClick`: інакше сторінка мертва з
- * клавіатури.
+ * Перехід у день — справжній `<Link>` у першій клітинці, а не кнопка з
+ * `router.push`: посилання нативно дає ctrl/cmd-клік «відкрити в новій
+ * вкладці», ПКМ «копіювати адресу» і роботу без JS. Кнопка все це відбирає, а
+ * повертає лише те, що й так є в посилання.
+ *
+ * `onClick` на всьому `<tr>` — зручність для миші поверх посилання, а не
+ * заміна йому: клікабельним виглядає весь рядок, тож нехай весь рядок і
+ * працює. Клік по самому посиланню гасить спливання, інакше `router.push`
+ * спрацював би двічі.
  */
 export function DaysTable({ rows }: { rows: DayRow[] }) {
   const router = useRouter();
@@ -52,16 +60,16 @@ export function DaysTable({ rows }: { rows: DayRow[] }) {
                 onClick={() => startTransition(() => router.push(`/admin/days/${r.day}`))}
               >
                 <td className="py-2.5">
-                  <button
-                    type="button"
-                    className="text-left capitalize outline-none focus-visible:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startTransition(() => router.push(`/admin/days/${r.day}`));
-                    }}
+                  <Link
+                    href={`/admin/days/${r.day}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn(
+                      "capitalize outline-none focus-visible:underline",
+                      quiet ? "text-muted" : "text-ink",
+                    )}
                   >
-                    <span className={quiet ? "text-muted" : "text-ink"}>{dayLabel(r.day)}</span>
-                  </button>
+                    {dayLabel(r.day)}
+                  </Link>
                 </td>
                 <td className={cn("py-2.5 text-right tabular", quiet ? "text-faint" : "text-ink")}>
                   {uah(r.revenue)}
