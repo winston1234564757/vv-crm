@@ -549,7 +549,7 @@ Expected: усі 13 тестів зелені.
 npx tsc --noEmit && npx vitest run --silent 2>&1 | tail -4
 ```
 
-Expected: 366 тестів (353 + 13).
+Expected: 367 тестів (353 + 14).
 
 ```bash
 git add src/lib/day-report.ts src/lib/__tests__/day-report.test.ts
@@ -982,7 +982,7 @@ Expected: без виводу. Якщо Supabase-типи скаржаться �
 npx vitest run --silent 2>&1 | tail -4
 ```
 
-Expected: 366 тестів зелені. Guard-тест виторгу поки не охоплює `data-day.ts` — це Task 8.
+Expected: 367 тестів зелені. Guard-тест виторгу поки не охоплює `data-day.ts` — це Task 8.
 
 - [ ] **Step 4: Коміт**
 
@@ -1178,7 +1178,7 @@ export function DaysTable({ rows }: { rows: DayRow[] }) {
 npx tsc --noEmit && npx vitest run --silent 2>&1 | tail -4 && npx next build --webpack 2>&1 | grep -E "admin/days|Compiled|error" | head -5
 ```
 
-Expected: `tsc` чисто, 366 тестів, у маршрутах з'явився `/admin/days`.
+Expected: `tsc` чисто, 367 тестів, у маршрутах з'явився `/admin/days`.
 
 - [ ] **Step 5: Коміт**
 
@@ -1653,7 +1653,7 @@ export function DayClient({ report }: { report: DayReport }) {
 npx tsc --noEmit && npx vitest run --silent 2>&1 | tail -4 && npx next build --webpack 2>&1 | grep -E "admin/days|error" | head -5
 ```
 
-Expected: `tsc` чисто, 366 тестів, у маршрутах `/admin/days/[day]`.
+Expected: `tsc` чисто, 367 тестів, у маршрутах `/admin/days/[day]`.
 
 - [ ] **Step 4: Коміт**
 
@@ -1739,7 +1739,7 @@ grep -rn "selectedDay\|?day=\|range=today&day" src/ || echo "чисто"
 npx tsc --noEmit && npx vitest run --silent 2>&1 | tail -4
 ```
 
-Expected: греп порожній, `tsc` чисто, 366 тестів.
+Expected: греп порожній, `tsc` чисто, 367 тестів.
 
 - [ ] **Step 6: Коміт**
 
@@ -1811,7 +1811,7 @@ Expected: 4 тести зелені.
 npx tsc --noEmit && npx vitest run --silent 2>&1 | tail -4
 ```
 
-Expected: 367 тестів.
+Expected: 368 тестів.
 
 ```bash
 git add src/lib/__tests__/no-raw-revenue-sum.test.ts
@@ -1840,7 +1840,7 @@ rm -rf .next && npx next build --webpack 2>&1 | tail -4
 npx vitest run --silent 2>&1 | tail -4
 ```
 
-Expected: збірка проходить, 367 тестів.
+Expected: збірка проходить, 368 тестів.
 
 - [ ] **Step 2: Пуш і деплой**
 
