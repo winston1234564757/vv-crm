@@ -5,6 +5,7 @@ import { loadDataset } from "./profit-dataset";
 import { revenueSplit, type RevenueSplit } from "./data-dashboard";
 import { dayKey } from "./utils/day";
 import {
+  allocateSaleRevenue,
   computeProfit,
   dailySeries,
   dayRange,
@@ -221,8 +222,24 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   const prevKey = previousWorkingDay(day, series);
   const prevPoint = prevKey ? series.find((p) => p.day === prevKey) : undefined;
 
+  /* Погодинний розклад бере ВИЗНАНИЙ виторг, а не збережену суму чека: інакше
+     стовпчики склались би в число, відмінне від `profit.revenue` на тій самій
+     сторінці. Розбіжність вилазить у крайньому випадку, який `profit.ts`
+     описує окремо — підсумок чека більший за суму його позицій: рушій тоді
+     фіксує виторг на позиціях і догори не тягне, а сира сума тягнула б.
+     Тому продажі проходять через `allocateSaleRevenue`, і сума по всіх
+     годинах дорівнює виторгу дня за побудовою.
+
+     Ціна ремонту — уже визнаний виторг: `computeProfit` бере її як є.
+
+     Рядки в списку операцій навмисно лишаються на збереженій сумі — там це
+     відповідь на «що пробили», а не на «скільки заробили». */
   const ops: DayOperation[] = [
-    ...daySales.map((s) => ({ at: s.created_at, amount: s.total_amount, kind: "sale" as const })),
+    ...daySales.map((s) => ({
+      at: s.created_at,
+      amount: allocateSaleRevenue(s.items, s.total_amount).reduce((a, b) => a + b, 0),
+      kind: "sale" as const,
+    })),
     ...dayRepairs
       .filter((r) => r.price > 0)
       .map((r) => ({ at: r.settled_at, amount: r.price, kind: "repair" as const })),
