@@ -410,9 +410,18 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Час" value={<span className="tabular">{timeHM(selected.row.at)}</span>} />
               <Field label="Звідки" value={selected.row.from} />
               <Field label="Куди" value={selected.row.to} />
+              {selected.row.by && <Field label="Хто провів" value={selected.row.by} />}
             </div>
             {selected.row.description && (
               <Field label="Опис" value={selected.row.description} />
+            )}
+            {selected.row.href && (
+              <Link
+                href={selected.row.href}
+                className="inline-block text-sm font-medium text-accent-ink transition-colors hover:text-accent"
+              >
+                Знайти цю операцію →
+              </Link>
             )}
           </div>
         )}

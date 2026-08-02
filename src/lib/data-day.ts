@@ -69,6 +69,15 @@ export interface DayMoveRow {
   to: string;
   kind: string;
   description: string;
+  /** Хто провів. Порожньо, якщо автор невідомий. */
+  by: string;
+  /**
+   * Куди веде рух. Для чека, ремонту й закупівлі це пошук по id на сторінці
+   * Продажів: `search_transactions` матчить обидва види по `id::text`, а
+   * сторінка Ремонтів `searchParams` не читає взагалі.
+   * `null` — прив'язки немає, вести нікуди.
+   */
+  href: string | null;
 }
 
 export interface DayReport {
@@ -287,7 +296,9 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     supabase.from("expense_categories").select("id, name"),
     supabase
       .from("transactions")
-      .select("id, amount, from_type, from_id, to_type, to_id, reference_type, description, created_at")
+      .select(
+        "id, amount, from_type, from_id, to_type, to_id, reference_type, reference_id, description, created_at, created_by",
+      )
       .gte("created_at", startStr)
       .lt("created_at", endStr)
       .order("created_at", { ascending: false }),
@@ -380,6 +391,22 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   };
 
   const allMoves = txRes.data ?? [];
+
+  /* Імена авторів — окремим запитом після транзакцій: до їх завантаження
+     невідомо, кого питати. Порожній список id не запитуємо взагалі. */
+  const authorIds = [
+    ...new Set(allMoves.map((t) => t.created_by).filter((v): v is string => !!v)),
+  ];
+  const authorNames = new Map<string, string>();
+  if (authorIds.length > 0) {
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", authorIds);
+    if (error) throw new Error(error.message);
+    for (const p of profiles ?? []) authorNames.set(p.id, p.full_name ?? "");
+  }
+
   const distributionRows = allMoves.filter((t) => t.reference_type === "distribution");
   const moves: DayMoveRow[] = allMoves
     .filter((t) => t.reference_type !== "distribution")
@@ -391,6 +418,11 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       to: sideName(t.to_type, t.to_id),
       kind: MOVE_LABELS[t.reference_type ?? ""] ?? t.reference_type ?? "Рух",
       description: t.description ?? "",
+      by: (t.created_by && authorNames.get(t.created_by)) || "",
+      href:
+        t.reference_id && ["sale", "repair_payment", "inventory"].includes(t.reference_type ?? "")
+          ? `/admin/sales?q=${t.reference_id}`
+          : null,
     }));
 
   return {
