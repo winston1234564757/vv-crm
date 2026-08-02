@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Drawer from "@/components/ui/Drawer";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { SaleDetailView } from "@/components/SaleDetailView";
 import { RepairDetailView } from "@/components/RepairDetailView";
 import { EditRepairForm } from "@/components/forms/EditRepairForm";
@@ -27,10 +28,14 @@ interface FinanceTransactionsTableProps {
   purchases: PurchaseRow[];
 }
 
-const typeColors: Record<string, string> = {
-  sale: "var(--color-cyan)",
-  expense: "var(--color-rose)",
-  distribution: "var(--color-violet)",
+/* Тони бейджа семантичні, а не декоративні: надходження — гроші прийшли,
+   витрата — пішли, розподіл — переклали між своїми рахунками. Раніше тут була
+   категоріальна палітра з інлайн-стилями (cyan / rose / violet), яка означала
+   те саме, але повз дизайн-систему. */
+const typeTones: Record<string, BadgeTone> = {
+  sale: "success",
+  expense: "danger",
+  distribution: "neutral",
 };
 
 const typeLabels: Record<string, string> = {
@@ -183,12 +188,12 @@ export function FinanceTransactionsTable({
   return (
     <>
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Рух коштів</h2>
+        <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">Рух коштів</h2>
         <div className="mt-4">
           {/* Мобільні картки транзакцій */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
             {transactions.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-secondary">Немає транзакцій</p>
+              <p className="py-12 text-center text-sm text-muted">Немає транзакцій</p>
             ) : (
               transactions.map((t) => {
                 const hasRef = !!t.reference_type && !!t.reference_id;
@@ -197,57 +202,47 @@ export function FinanceTransactionsTable({
                   <div
                     key={t.id}
                     onClick={() => handleRowClick(t)}
-                    className={`rounded-2xl border border-warm-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors ${
+                    className={`rounded-2xl border border-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors ${
                       hasRef
-                        ? "cursor-pointer border-violet/20 hover:border-violet/40 bg-violet/[0.01]"
+                        ? "cursor-pointer border-accent/20 hover:border-accent/40 bg-accent/[0.01]"
                         : "hover:border-border-strong"
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-text-secondary font-mono">{t.date}</span>
+                        <span className="text-xs text-muted">{t.date}</span>
                         {hasRef && (
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-violet" title="Пов'язана транзакція" />
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" title="Пов'язана транзакція" />
                         )}
                       </div>
-                      <span
-                        className="rounded-lg px-2 py-0.5 text-[10px] font-medium uppercase"
-                        style={{
-                          background: `color-mix(in oklch, ${
-                            typeColors[t.type] ?? "var(--color-iris)"
-                          } 18%, transparent)`,
-                          color: typeColors[t.type] ?? "var(--color-iris)",
-                        }}
-                      >
-                        {typeLabels[t.type] ?? t.type}
-                      </span>
+                      <Badge tone={typeTones[t.type] ?? "neutral"}>{typeLabels[t.type] ?? t.type}</Badge>
                     </div>
 
-                    <div className="text-xs text-text-secondary flex flex-col gap-1 border-t border-border pt-2.5">
+                    <div className="text-xs text-muted flex flex-col gap-1 border-t border-border pt-2.5">
                       <div className="flex justify-between">
                         <span>Від:</span>
-                        <span className="text-text-primary font-medium">{t.from || "—"}</span>
+                        <span className="text-ink font-medium">{t.from || "—"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>До:</span>
-                        <span className="text-text-primary font-semibold">{t.to}</span>
+                        <span className="text-ink font-semibold">{t.to}</span>
                       </div>
                     </div>
 
                     {t.description && (
-                      <p className="text-xxs text-text-secondary bg-warm-surface p-2 rounded-lg border border-warm-border/60 line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] text-muted bg-hover p-2 rounded-lg border border-border line-clamp-2 leading-relaxed">
                         {t.description}
                       </p>
                     )}
 
                     <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
-                      <span className="font-bold text-text-primary text-sm">{t.amount.toLocaleString()} грн</span>
+                      <span className="font-bold text-ink text-sm">{t.amount.toLocaleString()} грн</span>
                       <div onClick={(e) => e.stopPropagation()}>
                         {!isSystem ? (
                           <button
                             disabled={deletingId === t.id}
                             onClick={() => handleDeleteTransaction(t.id)}
-                            className="text-rose hover:text-rose/85 disabled:opacity-50 p-2 cursor-pointer transition-colors inline-flex items-center justify-center rounded-xl bg-rose/5 hover:bg-rose/10"
+                            className="text-danger hover:text-danger/85 disabled:opacity-50 p-2 cursor-pointer transition-colors inline-flex items-center justify-center rounded-xl bg-danger/5 hover:bg-danger/10"
                             title="Видалити"
                           >
                             {deletingId === t.id ? (
@@ -257,7 +252,7 @@ export function FinanceTransactionsTable({
                             )}
                           </button>
                         ) : (
-                          <span className="text-[10px] text-text-secondary/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
+                          <span className="text-[10px] text-muted/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
                         )}
                       </div>
                     </div>
@@ -271,7 +266,7 @@ export function FinanceTransactionsTable({
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
+                <tr className="border-b border-border text-left text-xs font-medium text-muted">
                   <th className="pb-2 pr-4">Дата</th>
                   <th className="pb-2 pr-4">Від</th>
                   <th className="pb-2 pr-4">До</th>
@@ -288,36 +283,28 @@ export function FinanceTransactionsTable({
                     <tr
                       key={t.id}
                       onClick={() => handleRowClick(t)}
-                      className={`border-b border-iris/5 text-text-primary transition-colors ${
+                      className={`border-b border-border text-ink transition-colors ${
                         hasRef
-                          ? "cursor-pointer hover:bg-violet/[0.04] active:bg-violet/[0.08]"
-                          : "hover:bg-warm-surface/20"
+                          ? "cursor-pointer hover:bg-accent/[0.04] active:bg-accent/[0.08]"
+                          : "hover:bg-hover"
                       }`}
                     >
-                      <td className="py-3 pr-4 text-xs text-text-secondary whitespace-nowrap">
+                      <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
                         <span className="flex items-center gap-1.5">
                           {t.date}
                           {hasRef && (
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-violet" title="Пов'язана сума" />
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" title="Пов'язана сума" />
                           )}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-text-secondary">{t.from}</td>
+                      <td className="py-3 pr-4 text-muted">{t.from}</td>
                       <td className="py-3 pr-4 font-medium">{t.to}</td>
                       <td className="py-3 pr-4">
-                        <span
-                          className="rounded-lg px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
-                          style={{
-                            background: `color-mix(in oklch, ${
-                              typeColors[t.type] ?? "var(--color-iris)"
-                            } 18%, transparent)`,
-                            color: typeColors[t.type] ?? "var(--color-iris)",
-                          }}
-                        >
+                        <Badge tone={typeTones[t.type] ?? "neutral"}>
                           {typeLabels[t.type] ?? t.type}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="py-3 pr-4 text-text-secondary text-xs max-w-[200px] truncate" title={t.description}>
+                      <td className="py-3 pr-4 text-muted text-xs max-w-[200px] truncate" title={t.description}>
                         {t.description}
                       </td>
                       <td className="py-3 text-right font-medium whitespace-nowrap">
@@ -328,7 +315,7 @@ export function FinanceTransactionsTable({
                           <button
                             disabled={deletingId === t.id}
                             onClick={() => handleDeleteTransaction(t.id)}
-                            className="text-rose hover:text-rose/85 disabled:opacity-50 p-1 cursor-pointer transition-colors inline-flex items-center justify-center align-middle"
+                            className="text-danger hover:text-danger/85 disabled:opacity-50 p-1 cursor-pointer transition-colors inline-flex items-center justify-center align-middle"
                             title="Видалити"
                           >
                             {deletingId === t.id ? (
@@ -338,7 +325,7 @@ export function FinanceTransactionsTable({
                             )}
                           </button>
                         ) : (
-                          <span className="text-[10px] text-text-secondary/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
+                          <span className="text-[10px] text-muted/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
                         )}
                       </td>
                     </tr>
@@ -346,7 +333,7 @@ export function FinanceTransactionsTable({
                 })}
                 {transactions.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm text-text-secondary">
+                    <td colSpan={7} className="py-12 text-center text-sm text-muted">
                       Немає транзакцій
                     </td>
                   </tr>
@@ -410,14 +397,14 @@ export function FinanceTransactionsTable({
         {selectedTransaction && (
           <div className="space-y-6 text-xs p-1">
             {/* Top Summary Card */}
-            <div className="rounded-2xl bg-violet/5 border border-violet/10 p-5 flex justify-between items-center">
+            <div className="rounded-2xl bg-accent/5 border border-accent/10 p-5 flex justify-between items-center">
               <div>
-                <p className="text-text-secondary">Транзакція</p>
-                <p className="text-sm font-mono font-bold text-text-primary mt-1">#{selectedTransaction.id.substring(0, 8)}</p>
+                <p className="text-muted">Транзакція</p>
+                <p className="text-sm font-semibold tabular text-ink mt-1">#{selectedTransaction.id.substring(0, 8)}</p>
               </div>
               <div className="text-right">
-                <p className="text-text-secondary">Сума операції</p>
-                <p className="text-lg font-extrabold text-violet mt-1">{selectedTransaction.amount.toLocaleString()} ₴</p>
+                <p className="text-muted">Сума операції</p>
+                <p className="text-lg font-extrabold text-accent-ink mt-1">{selectedTransaction.amount.toLocaleString()} ₴</p>
               </div>
             </div>
 
@@ -425,38 +412,32 @@ export function FinanceTransactionsTable({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Main Info */}
               <div className="card p-5 space-y-3">
-                <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 font-medium">Загальна інформація</h4>
+                <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">Загальна інформація</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between py-1">
-                    <span className="text-text-secondary">Тип:</span>
-                    <span
-                      className="rounded-lg px-2 py-0.5 text-[11px] font-medium"
-                      style={{
-                        background: `color-mix(in oklch, ${typeColors[selectedTransaction.type] ?? "var(--color-iris)"} 18%, transparent)`,
-                        color: typeColors[selectedTransaction.type] ?? "var(--color-iris)",
-                      }}
-                    >
+                    <span className="text-muted">Тип:</span>
+                    <Badge tone={typeTones[selectedTransaction.type] ?? "neutral"}>
                       {typeLabels[selectedTransaction.type] ?? selectedTransaction.type}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-text-secondary">Дата створення:</span>
-                    <span className="font-medium text-text-primary">{selectedTransaction.date}</span>
+                    <span className="text-muted">Дата створення:</span>
+                    <span className="font-medium text-ink">{selectedTransaction.date}</span>
                   </div>
                 </div>
               </div>
 
               {/* Route of Funds */}
               <div className="card p-5 space-y-3">
-                <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 font-medium">Маршрут коштів</h4>
+                <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">Маршрут коштів</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between py-1">
-                    <span className="text-text-secondary">Звідки (Відправник):</span>
-                    <span className="font-semibold text-text-primary">{selectedTransaction.from}</span>
+                    <span className="text-muted">Звідки (Відправник):</span>
+                    <span className="font-semibold text-ink">{selectedTransaction.from}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-text-secondary">Куди (Отримувач):</span>
-                    <span className="font-semibold text-text-primary">{selectedTransaction.to}</span>
+                    <span className="text-muted">Куди (Отримувач):</span>
+                    <span className="font-semibold text-ink">{selectedTransaction.to}</span>
                   </div>
                 </div>
               </div>
@@ -464,8 +445,8 @@ export function FinanceTransactionsTable({
               {/* Description Card */}
               {selectedTransaction.description && (
                 <div className="card p-5 space-y-3 md:col-span-2">
-                  <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 font-medium">Опис операції</h4>
-                  <p className="text-text-secondary leading-relaxed bg-warm-bg rounded-xl p-3 border border-warm-border/50 text-xs">
+                  <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">Опис операції</h4>
+                  <p className="text-muted leading-relaxed bg-hover rounded-xl p-3 border border-border/50 text-xs">
                     {selectedTransaction.description}
                   </p>
                 </div>
@@ -475,12 +456,12 @@ export function FinanceTransactionsTable({
               {selectedTransaction.reference_type && ["device", "accessory", "part", "expense"].includes(selectedTransaction.reference_type) && relatedEntity && (
                 <div className="md:col-span-2">
                   {relatedEntity.loading ? (
-                    <div className="card p-5 flex items-center justify-center gap-2 text-text-secondary">
-                      <IconSpinner size={16} className="animate-spin text-violet" />
+                    <div className="card p-5 flex items-center justify-center gap-2 text-muted">
+                      <IconSpinner size={16} className="animate-spin text-accent-ink" />
                       <span>Завантаження деталей об'єкта...</span>
                     </div>
                   ) : relatedEntity.error ? (
-                    <div className="card p-5 border border-rose/20 bg-rose/[0.01] text-rose flex items-center gap-2">
+                    <div className="card p-5 border border-danger/20 bg-danger/[0.01] text-danger flex items-center gap-2">
                       <IconWarning size={16} />
                       <span>{relatedEntity.error}</span>
                     </div>
@@ -492,15 +473,15 @@ export function FinanceTransactionsTable({
             </div>
 
             {/* Danger Zone */}
-            <div className="card p-5 border border-rose/20 bg-rose/[0.02] flex justify-between items-center">
+            <div className="card p-5 border border-danger/20 bg-danger/[0.02] flex justify-between items-center">
               <div>
-                <p className="font-semibold text-rose text-sm">Небезпечна зона</p>
-                <p className="text-[10px] text-text-secondary mt-0.5">Повне анулювання операції та коригування балансів</p>
+                <p className="font-semibold text-danger text-sm">Небезпечна зона</p>
+                <p className="text-[10px] text-muted mt-0.5">Повне анулювання операції та коригування балансів</p>
               </div>
               <button
                 disabled={deletingId === selectedTransaction.id}
                 onClick={() => handleDeleteTransaction(selectedTransaction.id)}
-                className="btn-press rounded-xl bg-rose hover:bg-rose/90 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+                className="btn-press rounded-xl bg-danger hover:bg-danger/90 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
               >
                 {deletingId === selectedTransaction.id ? (
                   <>
@@ -526,43 +507,43 @@ function renderRelatedEntityCard(type: string, data: any) {
   if (type === "part") {
     const isLowStock = data.stock <= data.min_stock;
     return (
-      <div className="card p-5 space-y-3 border-l-4 border-l-cyan bg-cyan/[0.01]">
-        <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 flex items-center gap-1.5 font-medium">
-          <span className="text-cyan flex items-center"><IconBox size={14} /></span>
+      <div className="card border border-border bg-surface p-5 space-y-3">
+        <h4 className="font-semibold text-ink border-b border-border pb-2 flex items-center gap-1.5 font-medium">
+          <span className="text-info flex items-center"><IconBox size={14} /></span>
           Закуплена деталь (Інвентар)
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
-            <p className="text-text-secondary">Назва деталі:</p>
-            <p className="font-bold text-text-primary text-sm mt-0.5">{data.name}</p>
+            <p className="text-muted">Назва деталі:</p>
+            <p className="font-bold text-ink text-sm mt-0.5">{data.name}</p>
           </div>
           {data.compatible_with && (
             <div>
-              <p className="text-text-secondary">Сумісність:</p>
-              <p className="font-medium text-text-primary mt-0.5">{data.compatible_with}</p>
+              <p className="text-muted">Сумісність:</p>
+              <p className="font-medium text-ink mt-0.5">{data.compatible_with}</p>
             </div>
           )}
           <div>
-            <p className="text-text-secondary">Собівартість:</p>
-            <p className="font-semibold text-text-primary mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
+            <p className="text-muted">Собівартість:</p>
+            <p className="font-semibold text-ink mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
           </div>
           <div>
-            <p className="text-text-secondary">Поточний склад:</p>
-            <p className={`font-semibold mt-0.5 flex items-center gap-1.5 ${isLowStock ? 'text-rose' : 'text-emerald'}`}>
+            <p className="text-muted">Поточний склад:</p>
+            <p className={`font-semibold mt-0.5 flex items-center gap-1.5 ${isLowStock ? 'text-danger' : 'text-success'}`}>
               {isLowStock && <IconWarning size={12} />}
               {data.stock} шт. (мін: {data.min_stock} шт.)
             </p>
           </div>
           {data.suppliers?.name && (
             <div>
-              <p className="text-text-secondary">Постачальник:</p>
-              <p className="font-medium text-text-primary mt-0.5">{data.suppliers.name}</p>
+              <p className="text-muted">Постачальник:</p>
+              <p className="font-medium text-ink mt-0.5">{data.suppliers.name}</p>
             </div>
           )}
           {data.part_number && (
             <div>
-              <p className="text-text-secondary">Артикул:</p>
-              <p className="font-mono text-text-primary mt-0.5">{data.part_number}</p>
+              <p className="text-muted">Артикул:</p>
+              <p className="tabular text-ink mt-0.5">{data.part_number}</p>
             </div>
           )}
         </div>
@@ -572,35 +553,35 @@ function renderRelatedEntityCard(type: string, data: any) {
 
   if (type === "device") {
     return (
-      <div className="card p-5 space-y-3 border-l-4 border-l-violet bg-violet/[0.01]">
-        <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 flex items-center gap-1.5 font-medium">
-          <span className="text-violet flex items-center"><IconDevice size={14} /></span>
+      <div className="card border border-border bg-surface p-5 space-y-3">
+        <h4 className="font-semibold text-ink border-b border-border pb-2 flex items-center gap-1.5 font-medium">
+          <span className="text-accent-ink flex items-center"><IconDevice size={14} /></span>
           Закуплений пристрій (Інвентар)
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
-            <p className="text-text-secondary">Модель пристрою:</p>
-            <p className="font-bold text-text-primary text-sm mt-0.5">{data.name}</p>
+            <p className="text-muted">Модель пристрою:</p>
+            <p className="font-bold text-ink text-sm mt-0.5">{data.name}</p>
           </div>
           {data.serial_number && (
             <div>
-              <p className="text-text-secondary">Серійний номер (S/N):</p>
-              <p className="font-mono text-text-primary mt-0.5">{data.serial_number}</p>
+              <p className="text-muted">Серійний номер (S/N):</p>
+              <p className="tabular text-ink mt-0.5">{data.serial_number}</p>
             </div>
           )}
           <div>
-            <p className="text-text-secondary">Собівартість:</p>
-            <p className="font-semibold text-text-primary mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
+            <p className="text-muted">Собівартість:</p>
+            <p className="font-semibold text-ink mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
           </div>
           {data.price && (
             <div>
-              <p className="text-text-secondary">Ціна продажу:</p>
-              <p className="font-semibold text-text-primary mt-0.5">{(data.price ?? 0).toLocaleString()} ₴</p>
+              <p className="text-muted">Ціна продажу:</p>
+              <p className="font-semibold text-ink mt-0.5">{(data.price ?? 0).toLocaleString()} ₴</p>
             </div>
           )}
           <div>
-            <p className="text-text-secondary">Статус:</p>
-            <span className="inline-block mt-1 rounded bg-violet/5 px-2 py-0.5 text-[10px] font-mono text-violet font-semibold uppercase">
+            <p className="text-muted">Статус:</p>
+            <span className="inline-block mt-1 rounded bg-accent/5 px-2 py-0.5 text-[10px] text-accent-ink font-semibold uppercase">
               {data.status}
             </span>
           </div>
@@ -612,33 +593,33 @@ function renderRelatedEntityCard(type: string, data: any) {
   if (type === "accessory") {
     const isLowStock = data.stock <= data.min_stock;
     return (
-      <div className="card p-5 space-y-3 border-l-4 border-l-amber bg-amber/[0.01]">
-        <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 flex items-center gap-1.5 font-medium">
-          <span className="text-amber flex items-center"><IconAccessory size={14} /></span>
+      <div className="card border border-border bg-surface p-5 space-y-3">
+        <h4 className="font-semibold text-ink border-b border-border pb-2 flex items-center gap-1.5 font-medium">
+          <span className="text-warning flex items-center"><IconAccessory size={14} /></span>
           Закуплений аксесуар (Інвентар)
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
-            <p className="text-text-secondary">Назва аксесуару:</p>
-            <p className="font-bold text-text-primary text-sm mt-0.5">{data.name}</p>
+            <p className="text-muted">Назва аксесуару:</p>
+            <p className="font-bold text-ink text-sm mt-0.5">{data.name}</p>
           </div>
           {data.type && (
             <div>
-              <p className="text-text-secondary">Тип:</p>
-              <p className="font-medium text-text-primary mt-0.5">{data.type}</p>
+              <p className="text-muted">Тип:</p>
+              <p className="font-medium text-ink mt-0.5">{data.type}</p>
             </div>
           )}
           <div>
-            <p className="text-text-secondary">Собівартість:</p>
-            <p className="font-semibold text-text-primary mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
+            <p className="text-muted">Собівартість:</p>
+            <p className="font-semibold text-ink mt-0.5">{(data.cost_price ?? 0).toLocaleString()} ₴</p>
           </div>
           <div>
-            <p className="text-text-secondary">Ціна продажу:</p>
-            <p className="font-semibold text-text-primary mt-0.5">{(data.price ?? 0).toLocaleString()} ₴</p>
+            <p className="text-muted">Ціна продажу:</p>
+            <p className="font-semibold text-ink mt-0.5">{(data.price ?? 0).toLocaleString()} ₴</p>
           </div>
           <div>
-            <p className="text-text-secondary">Поточний склад:</p>
-            <p className={`font-semibold mt-0.5 flex items-center gap-1.5 ${isLowStock ? 'text-rose' : 'text-emerald'}`}>
+            <p className="text-muted">Поточний склад:</p>
+            <p className={`font-semibold mt-0.5 flex items-center gap-1.5 ${isLowStock ? 'text-danger' : 'text-success'}`}>
               {isLowStock && <IconWarning size={12} />}
               {data.stock} шт. (мін: {data.min_stock} шт.)
             </p>
@@ -650,21 +631,21 @@ function renderRelatedEntityCard(type: string, data: any) {
 
   if (type === "expense") {
     return (
-      <div className="card p-5 space-y-3 border-l-4 border-l-rose bg-rose/[0.01]">
-        <h4 className="font-semibold text-text-primary border-b border-warm-border pb-2 flex items-center gap-1.5 font-medium">
+      <div className="card border border-border bg-surface p-5 space-y-3">
+        <h4 className="font-semibold text-ink border-b border-border pb-2 flex items-center gap-1.5 font-medium">
           📊 Деталі операційних витрат
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
-            <p className="text-text-secondary">Категорія витрати:</p>
-            <p className="font-bold text-text-primary text-sm mt-0.5">
+            <p className="text-muted">Категорія витрати:</p>
+            <p className="font-bold text-ink text-sm mt-0.5">
               {data.expense_categories?.name || "Невідомо"}
             </p>
           </div>
           {data.description && (
             <div className="sm:col-span-2">
-              <p className="text-text-secondary">Опис витрати:</p>
-              <p className="font-medium text-text-primary mt-0.5">{data.description}</p>
+              <p className="text-muted">Опис витрати:</p>
+              <p className="font-medium text-ink mt-0.5">{data.description}</p>
             </div>
           )}
         </div>

@@ -51,16 +51,16 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
 
   return (
     <div className="card p-5 space-y-4">
-      <div className="flex items-center justify-between border-b border-warm-border pb-3">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div>
-          <h2 className="text-sm font-semibold text-text-primary text-balance tracking-tight">Звірка безготівкових оплат (Monobank)</h2>
-          <p className="text-xs text-text-secondary mt-0.5">Порівняйте надходження на рахунку з продажами в CRM</p>
+          <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">Звірка безготівкових оплат (Monobank)</h2>
+          <p className="text-xs text-muted mt-0.5">Порівняйте надходження на рахунку з продажами в CRM</p>
         </div>
         {selectedSale && selectedBankTx && (
           <button
             onClick={handleReconcile}
             disabled={isPending}
-            className="rounded-xl bg-violet px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 btn-press"
+            className="rounded-xl bg-accent px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 btn-press"
           >
             {isPending ? "Зіставлення..." : "Зіставити вказані"}
           </button>
@@ -68,7 +68,7 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
       </div>
 
       {message && (
-        <div className={`rounded-xl p-3.5 text-xs ${message.type === "success" ? "bg-emerald/10 text-emerald border border-emerald/20" : "bg-rose/10 text-rose border border-rose/20"}`}>
+        <div className={`rounded-xl p-3.5 text-xs ${message.type === "success" ? "bg-success/10 text-success border border-success/20" : "bg-danger/10 text-danger border border-danger/20"}`}>
           {message.text}
         </div>
       )}
@@ -76,21 +76,21 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
       <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
         {/* Left column: Bank statements */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary tracking-tight">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted tracking-tight">
             Надходження Monobank (виписка)
           </h3>
           {loading ? (
             <div className="space-y-2">
-              <div className="h-14 rounded-xl bg-warm-bg animate-pulse" />
-              <div className="h-14 rounded-xl bg-warm-bg animate-pulse" />
+              <div className="h-14 rounded-xl bg-hover animate-pulse" />
+              <div className="h-14 rounded-xl bg-hover animate-pulse" />
             </div>
           ) : isError ? (
-            <div className="rounded-xl border border-warm-border bg-warm-bg/50 p-4 text-xs text-text-secondary">
-              Для підключення виписок налаштуйте токен <code className="font-mono bg-iris/5 px-1 py-0.5 rounded">MONOBANK_PERSONAL_TOKEN</code> в оточенні.
-              {error?.message && <div className="mt-2 text-rose">{error.message}</div>}
+            <div className="rounded-xl border border-border bg-hover p-4 text-xs text-muted">
+              Для підключення виписок налаштуйте токен <code className="rounded bg-hover px-1 py-0.5">MONOBANK_PERSONAL_TOKEN</code> в оточенні.
+              {error?.message && <div className="mt-2 text-danger">{error.message}</div>}
             </div>
           ) : bankTx.length === 0 ? (
-            <div className="rounded-xl border border-warm-border p-4 text-xs text-text-secondary text-center">
+            <div className="rounded-xl border border-border p-4 text-xs text-muted text-center">
               Немає нових безготівкових надходжень за останні 3 дні.
             </div>
           ) : (
@@ -110,17 +110,17 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
                     onClick={() => setSelectedBankTx(isSelected ? null : tx)}
                     className={`rounded-xl border p-3 cursor-pointer transition-all ${
                       isSelected
-                        ? "border-violet bg-violet/5 ring-1 ring-violet"
-                        : "border-warm-border bg-warm-bg/10 hover:bg-warm-bg/30"
+                        ? "border-accent bg-accent/5 ring-1 ring-violet"
+                        : "border-border bg-surface hover:bg-hover"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-text-primary">+{amountUah.toLocaleString()} грн</span>
-                      <span className="text-[10px] text-text-secondary font-mono">{txTime}</span>
+                      <span className="font-semibold text-ink">+{amountUah.toLocaleString()} грн</span>
+                      <span className="text-[10px] text-muted">{txTime}</span>
                     </div>
-                    <p className="text-text-secondary text-[11px] mt-1 line-clamp-1">{tx.description}</p>
+                    <p className="text-muted text-[11px] mt-1 line-clamp-1">{tx.description}</p>
                     {tx.comment && (
-                      <p className="text-[10px] text-violet font-medium mt-0.5 italic">Коментар: {tx.comment}</p>
+                      <p className="text-[10px] text-accent-ink font-medium mt-0.5 italic">Коментар: {tx.comment}</p>
                     )}
                   </div>
                 );
@@ -131,11 +131,11 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
 
         {/* Right column: Unreconciled card sales */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary tracking-tight">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted tracking-tight">
             Незвірені продажі в CRM
           </h3>
           {sales.length === 0 ? (
-            <div className="rounded-xl border border-warm-border p-4 text-xs text-text-secondary text-center">
+            <div className="rounded-xl border border-border p-4 text-xs text-muted text-center">
               Усі безготівкові продажі успішно звірені та закриті!
             </div>
           ) : (
@@ -148,16 +148,16 @@ export default function ReconciliationBench({ initialSales }: ReconciliationBenc
                     onClick={() => setSelectedSale(isSelected ? null : sale)}
                     className={`rounded-xl border p-3 cursor-pointer transition-all ${
                       isSelected
-                        ? "border-violet bg-violet/5 ring-1 ring-violet"
-                        : "border-warm-border bg-warm-bg/10 hover:bg-warm-bg/30"
+                        ? "border-accent bg-accent/5 ring-1 ring-violet"
+                        : "border-border bg-surface hover:bg-hover"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-text-primary">{sale.amount.toLocaleString()} грн</span>
-                      <span className="text-[10px] text-text-secondary">{sale.date}</span>
+                      <span className="font-semibold text-ink">{sale.amount.toLocaleString()} грн</span>
+                      <span className="text-[10px] text-muted">{sale.date}</span>
                     </div>
-                    <p className="text-text-primary font-medium text-[11px] mt-1">{sale.customer_name}</p>
-                    <p className="text-text-secondary text-[10px] line-clamp-1 mt-0.5">{sale.notes}</p>
+                    <p className="text-ink font-medium text-[11px] mt-1">{sale.customer_name}</p>
+                    <p className="text-muted text-[10px] line-clamp-1 mt-0.5">{sale.notes}</p>
                   </div>
                 );
               })}
