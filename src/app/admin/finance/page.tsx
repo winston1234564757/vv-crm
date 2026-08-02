@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { requirePageRole } from "@/lib/utils/rbac";
 import { MONEY_ROLES } from "@/lib/roles";
-import { getFinanceData, getFinanceReport } from "@/lib/data-finance";
+import { getFinanceData, getFinanceReport, type SafeWithSplit } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
 import { AddExpenseButton } from "./AddExpenseButton";
 import { AddDistributionButton } from "./AddDistributionButton";
@@ -17,6 +17,8 @@ import { splitByKind, isCashless } from "@/lib/utils/finance";
 import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
+import { getCashFlow } from "@/lib/data-cashflow";
+import { CashFlowPanel } from "./CashFlowPanel";
 
 export default async function FinancePage() {
   await requirePageRole(MONEY_ROLES);
@@ -27,7 +29,8 @@ export default async function FinancePage() {
     settings,
     sales,
     repairs,
-    purchases
+    purchases,
+    cashFlow
   ] = await Promise.all([
     getFinanceData(),
     getFinanceReport(),
@@ -35,11 +38,12 @@ export default async function FinancePage() {
     getSales(),
     getRepairs(),
     getPurchases(),
+    getCashFlow(),
   ]);
 
   // Сейфи — окрема таблиця, не каса, тому пряме додавання balance тут не є
   // тим шаблоном, що ловить no-raw-register-sum.test.ts.
-  const totalSafes = safes.reduce((s, c) => s + c.balance, 0);
+  const totalSafes = (safes as SafeWithSplit[]).reduce((s: number, c: SafeWithSplit) => s + c.balance, 0);
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
@@ -69,7 +73,7 @@ export default async function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
-          <WithdrawShareButton safes={safes.filter((s) => s.type === "net_profit")} />
+          <WithdrawShareButton safes={(safes as SafeWithSplit[]).filter((s: SafeWithSplit) => s.type === "net_profit")} />
           <AddTopUpButton safes={safes} />
           <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
@@ -147,11 +151,16 @@ export default async function FinancePage() {
 
             {/* Safes layout */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {safes.map((s) => {
+              {(safes as SafeWithSplit[]).map((s) => {
                 const techSplit = settings.distribution_tech[s.type as keyof SafeDistribution] ?? 0;
                 const accSplit = settings.distribution_accessories[s.type as keyof SafeDistribution] ?? 0;
                 const repSplit = settings.distribution_repairs[s.type as keyof SafeDistribution] ?? 0;
                 const avgTarget = Math.round((techSplit + accSplit + repSplit) / 3);
+
+                const total = Math.max(Math.abs(s.cashBalance) + Math.abs(s.cardBalance), 1);
+                const cashPct = Math.round((Math.max(s.cashBalance, 0) / total) * 100);
+                const cardPct = Math.round((Math.max(s.cardBalance, 0) / total) * 100);
+                const isOverdraft = s.balance < 0;
 
                 return (
                   <div key={s.id} className="card p-4 bg-warm-surface border border-warm-border flex flex-col justify-between card-hover transition-all duration-200">
@@ -161,7 +170,37 @@ export default async function FinancePage() {
                         <span className="rounded bg-violet/5 px-1 py-0.5 text-[8px] font-mono text-violet">Сер. {avgTarget}%</span>
                       </div>
                       <h4 className="text-xs font-semibold text-text-primary mt-0.5">{s.name}</h4>
-                      <p className="text-lg font-bold text-text-primary mt-2 font-mono">{s.balance.toLocaleString()} ₴</p>
+                      <p className={`text-lg font-bold mt-2 font-mono ${
+                        isOverdraft ? "text-rose" : "text-text-primary"
+                      }`}>
+                        {s.balance.toLocaleString()} ₴
+                      </p>
+
+                      {/* Розбивка готівка / картка */}
+                      <div className="mt-2 space-y-1">
+                        <div className="h-1.5 w-full rounded-full bg-warm-border overflow-hidden flex">
+                          <div
+                            className="h-full bg-emerald rounded-l-full transition-all duration-500"
+                            style={{ width: `${cashPct}%` }}
+                            title={`Готівка: ${s.cashBalance.toLocaleString()} ₴`}
+                          />
+                          <div
+                            className="h-full bg-amber transition-all duration-500"
+                            style={{ width: `${cardPct}%` }}
+                            title={`Картка: ${s.cardBalance.toLocaleString()} ₴`}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[9px] font-mono text-text-muted">
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald" />
+                            Готівка {s.cashBalance.toLocaleString()} ₴
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber" />
+                            Картка {s.cardBalance.toLocaleString()} ₴
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-4 space-y-2">
@@ -179,6 +218,11 @@ export default async function FinancePage() {
               })}
             </div>
           </div>
+
+          {/* B2. Звідки взялись гроші в касах. Стоїть після балансів і перед
+              списком транзакцій: спершу скільки лежить, потім як воно таким
+              стало, потім що конкретно рухалось. */}
+          <CashFlowPanel report={cashFlow} />
 
           {/* C. Reconciliation & Transactions tables */}
           <div className="space-y-6">
