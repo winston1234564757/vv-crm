@@ -2,6 +2,7 @@ import { createClient } from "./supabase/server";
 import { isCashless, splitByKind } from "@/lib/utils/finance";
 import { dayKey } from "./utils/day";
 import { getSettings } from "./data-settings";
+import { supabaseCast } from "./utils/supabase";
 import { loadDataset, type LoadedDataset } from "./profit-dataset";
 import {
   comparisonFor,
@@ -89,9 +90,12 @@ export interface DashboardMoney {
   expenses: number;
   /** Сума балансів усіх кас і сейфів (готівка + безготівка). */
   cashTotal: number;
-  /** Готівка на руках: каси готівкового типу плюс сейфи. Без безготівки. */
+  /**
+   * Готівка на руках: готівкові каси плюс ГОТІВКОВІ половини сейфів.
+   * Безготівка, розподілена в сейф, сюди не входить — у шухляді її немає.
+   */
   cashOnHand: number;
-  /** Нерозподілена картка/переказ — лише рахунок безготівки. */
+  /** Картка й перекази: рахунок безготівки плюс безготівкові половини сейфів. */
   cashless: number;
   runwayDays: number;
   dailyOpex: number;
@@ -256,7 +260,23 @@ export async function getDashboardMoney(
   // Стадія 1: сейфи. Маленький запит (≤5 рядків), але `netProfitSafeId` з
   // нього потрібен трьом наступним розрахункам — фільтру витрат, OPEX
   // run-rate і леджеру, — тож він мусить бути першим.
-  const safesRes = await supabase.from("safes").select("balance, type, id, name");
+  /* Половини `balance_cash` / `balance_cashless` є в базі під CHECK-обмеженням
+     `balance = balance_cash + balance_cashless`, але у згенерованих типах їх
+     немає — `database.ts` тут навмисно не перегенеровується. Тому каст. */
+  const safesRaw = await supabase.from("safes").select("*");
+  const safesRes = {
+    data: supabaseCast<
+      {
+        id: string;
+        name: string;
+        type: string;
+        balance: number;
+        balance_cash: number | null;
+        balance_cashless: number | null;
+      }[]
+    >(safesRaw.data ?? []),
+    error: safesRaw.error,
+  };
   const netProfitSafe = (safesRes.data ?? []).find((s) => s.type === "net_profit");
   const netProfitSafeId = netProfitSafe?.id ?? null;
   const netProfitSafeBalance = netProfitSafe?.balance ?? 0;
@@ -372,12 +392,23 @@ export async function getDashboardMoney(
   const series = chartWin.empty ? [] : daily.filter((p) => p.day >= fromKey && p.day <= toKey);
 
   const registerKinds = splitByKind(loaded.cashRegisters);
-  const safesTotal = (safesRes.data ?? []).reduce((s, sf) => s + sf.balance, 0);
+  const safeRows = safesRes.data ?? [];
+  // `safesTotal` більше не потрібен: готівка й безготівка рахуються половинами.
 
-  // Сейфи — спільний котел: після розподілу картка в них уже невідрізнима
-  // від готівки. Тому безготівкою вважається лише нерозподілене на рахунку.
-  const cashless = registerKinds.cashless;
-  const cashOnHand = registerKinds.cash + safesTotal;
+  /* Сейф НЕ спільний котел. Тут колись стояв коментар, що після розподілу
+     картка в сейфі вже невідрізнима від готівки, — він застарів, коли сейфи
+     отримали половини `balance_cash` / `balance_cashless`.
+     Поки він жив, безготівка, розподілена в сейф, показувалась як «готівка на
+     руках»: на 31.07 це 2 049 ₴ у Growth, які власник у шухляді не знайшов би.
+
+     Тепер готівка — це готівкові каси плюс ГОТІВКОВІ половини сейфів, а
+     безготівка — рахунок плюс безготівкові половини. Сума не змінилась, змінився
+     поділ. */
+  const safesCash = safeRows.reduce((s, sf) => s + (sf.balance_cash ?? 0), 0);
+  const safesCashless = safeRows.reduce((s, sf) => s + (sf.balance_cashless ?? 0), 0);
+
+  const cashless = registerKinds.cashless + safesCashless;
+  const cashOnHand = registerKinds.cash + safesCash;
   const cashTotal = cashOnHand + cashless;
 
   // OPEX run-rate: 30 повних календарних днів із датасету, без вилучень

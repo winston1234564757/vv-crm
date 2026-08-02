@@ -21,11 +21,64 @@ export async function getCashRegisters() {
   return data ?? [];
 }
 
-export async function getSafes() {
+export interface SafeWithSplit {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+  /** Скільки в сейфі реальної готівки (зайшло з готівкових кас − вийшло назовні * пропорція) */
+  cashBalance: number;
+  /** Скільки в сейфі безготівки (картка/переказ, зайшла з cashless рахунку) */
+  cardBalance: number;
+}
+
+/**
+ * Сейфи з поділом на готівку й безготівку.
+ *
+ * Джерело — колонки `balance_cash` / `balance_cashless`, які веде `safe_apply`
+ * на кожному записі й стереже CHECK-обмеження
+ * `balance = balance_cash + balance_cashless`. Тобто це не оцінка, а факт.
+ *
+ * Раніше тут викликався RPC `get_safes_with_cash_split`, який відновлював
+ * поділ із історії транзакцій, розносячи витрачене ПРОПОРЦІЙНО по обох
+ * кошиках. Він давав інші числа: на 31.07 Growth за RPC мав 3 873 готівки й
+ * 3 327 картки, а за колонками — 5 151 і 2 049. Обидва в сумі 7 200, але поділ
+ * різний, і на екрані стояла оцінка замість факту. RPC лишається в базі
+ * невикористаним — видаляти його окремою міграцією.
+ *
+ * У згенерованих типах половин немає (`database.ts` тут навмисно не
+ * перегенеровується), тому каст.
+ */
+export async function getSafes(): Promise<SafeWithSplit[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("safes").select("*");
   if (error) throw error;
-  return data ?? [];
+
+  const rows = supabaseCast<
+    {
+      id: string;
+      name: string;
+      type: string;
+      balance: number;
+      balance_cash: number | null;
+      balance_cashless: number | null;
+      created_at?: string;
+      updated_at?: string;
+    }[]
+  >(data ?? []);
+
+  return rows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    type: s.type,
+    balance: s.balance,
+    created_at: s.created_at ?? "",
+    updated_at: s.updated_at ?? "",
+    cashBalance: s.balance_cash ?? s.balance,
+    cardBalance: s.balance_cashless ?? 0,
+  }));
 }
 
 const typeNameMap: Record<string, string> = {
@@ -39,18 +92,18 @@ export async function getFinanceData() {
   const supabase = await createClient();
   const [crRes, sfRes, txRes, catRes] = await Promise.all([
     supabase.from("cash_registers").select("*"),
-    supabase.from("safes").select("*"),
+    getSafes(),
     supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
     supabase.from("expense_categories").select("*"),
   ]);
 
   const cashRegisters = crRes.data ?? [];
-  const safes = sfRes.data ?? [];
+  const safes = sfRes; // getSafes() повертає масив напряму, без .data
   const transactions = txRes.data ?? [];
   const expenseCategories = catRes.data ?? [];
 
   const crMap = new Map(cashRegisters.map((cr) => [cr.id, cr.name]));
-  const sfMap = new Map(safes.map((sf) => [sf.id, sf.name]));
+  const sfMap = new Map(safes.map((sf: SafeWithSplit) => [sf.id, sf.name]));
 
   const resolved = transactions.map((t) => {
     const fromName = t.from_type === "customer"
