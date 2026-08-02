@@ -29,7 +29,7 @@ export function AddDistributionButton({
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="btn-press flex items-center gap-1.5 rounded-xl bg-violet/10 hover:bg-violet/20 border border-violet/30 text-violet px-5 py-3 text-sm font-medium transition-colors cursor-pointer"
+        className="btn-press flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-surface px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-hover"
       >
         📊 Розподілити касу
       </button>

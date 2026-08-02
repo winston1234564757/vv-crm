@@ -43,7 +43,7 @@ export function WithdrawShareButton({
         onClick={() => setIsOpen(true)}
         className={
           className ||
-          "btn-press flex items-center gap-1.5 rounded-xl bg-emerald/10 hover:bg-emerald/20 border border-emerald/30 text-emerald px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
+          "btn-press flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-success/30 bg-success-subtle px-4 py-2.5 text-xs font-semibold text-success transition-colors hover:bg-success/20"
         }
       >
         {label}

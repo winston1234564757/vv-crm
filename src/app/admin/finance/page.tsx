@@ -47,29 +47,15 @@ export default async function FinancePage() {
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
-  const crColors: Record<string, string> = {
-    tech: "var(--color-violet)",
-    accessories: "var(--color-cyan)",
-    repairs: "var(--color-amber)",
-    cashless: "var(--color-emerald)",
-  };
-  const sfColors: Record<string, string> = { 
-    opex: "var(--color-rose)", 
-    growth: "var(--color-violet)", 
-    net_profit: "var(--color-cyan)" 
-  };
 
   return (
     <div className="space-y-6 animate-entry">
-      {/* 1. Header with Metadata telemetry */}
-      <div className="border-b border-warm-border pb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      {/* Шапка. Пульсуюча крапка з написом «LEDGER TELEMETRY : ACTIVE» звідси
+          прибрана: вона нічого не міряла й нічого не означала. */}
+      <div className="border-b border-border pb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald animate-pulse" />
-            <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">LEDGER TELEMETRY : ACTIVE</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-text-primary text-balance">Фінансовий Контроль</h1>
-          <p className="text-xs text-text-secondary mt-0.5">Оперативний облік касових лімітів, резервних сейфів та транзакційного балансу</p>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">Фінанси</h1>
+          <p className="mt-0.5 text-sm text-muted">Каси, сейфи, рух грошей і прибуток</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
@@ -86,20 +72,23 @@ export default async function FinancePage() {
         {/* Left Column: Ledger Balance sheet & Operations (col-span 2) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* A. Unified P&L Telemetry panel */}
-          <div className="card p-6 border-l-4 border-l-violet shadow-sm bg-warm-surface">
-            <div className="flex justify-between items-start border-b border-warm-border pb-4">
+          {/* A. Прибуток за період. Кольорова смуга збоку прибрана —
+              DESIGN.md §7 забороняє side-stripe акценти. */}
+          <div className="card border border-border bg-surface p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-widest text-text-secondary">Чистий операційний результат</p>
-                <h2 className={`text-4xl font-extrabold tracking-tight mt-1 ${report.profit >= 0 ? "text-emerald" : "text-rose"}`}>
+                <p className="text-xs font-medium text-muted">Чистий операційний результат</p>
+                <h2
+                  className={`font-display text-3xl font-semibold tabular tracking-tight mt-1 ${report.profit >= 0 ? "text-success" : "text-danger"}`}
+                >
                   {report.profit.toLocaleString()} ₴
                 </h2>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-text-secondary">Рентабельність (ROS)</p>
-                <p className="text-2xl font-bold text-violet mt-1">
-                  {report.totalSales + report.repairsRevenue > 0 
-                    ? Math.round((report.profit / (report.totalSales + report.repairsRevenue)) * 100) 
+                <p className="text-xs font-medium text-muted">Рентабельність</p>
+                <p className="font-display text-2xl font-semibold tabular text-ink mt-1">
+                  {report.totalSales + report.repairsRevenue > 0
+                    ? Math.round((report.profit / (report.totalSales + report.repairsRevenue)) * 100)
                     : 0}%
                 </p>
               </div>
@@ -117,34 +106,42 @@ export default async function FinancePage() {
             />
           </div>
 
-          {/* B. Ledger Nodes: Registers & Safes combined layout */}
+          {/* B. Каси й сейфи. Кольорові смуги зверху карток прибрані — тип каси
+              несе підпис, а не колір; чотири різні акценти на екрані читались
+              як чотири різні смисли, яких немає. */}
           <div className="space-y-4">
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1 tracking-tight">Розподіл ліквідності</h3>
-            
-            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-              <span className="text-xs text-text-secondary">
-                Готівкою <span className="font-mono font-bold text-text-primary">{kinds.cash.toLocaleString()} ₴</span>
+            <h3 className="border-b border-border pb-1 text-sm font-semibold text-ink">
+              Розподіл ліквідності
+            </h3>
+
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-xs text-muted">
+              <span>
+                Готівкою <span className="font-semibold tabular text-ink">{kinds.cash.toLocaleString()} ₴</span>
               </span>
-              <span className="text-xs text-text-secondary">
-                Карткою <span className="font-mono font-bold text-text-primary">{kinds.cashless.toLocaleString()} ₴</span>
+              <span>
+                Карткою <span className="font-semibold tabular text-ink">{kinds.cashless.toLocaleString()} ₴</span>
               </span>
-              <span className="text-xs text-text-secondary">
-                Разом <span className="font-mono font-bold text-text-primary">{kinds.total.toLocaleString()} ₴</span>
+              <span>
+                Разом <span className="font-semibold tabular text-ink">{kinds.total.toLocaleString()} ₴</span>
               </span>
             </div>
 
-            {/* Cash Registers layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Каси */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {cashRegisters.map((cr) => (
-                <div key={cr.id} className="card p-4 bg-warm-surface border border-warm-border relative overflow-hidden flex flex-col justify-between min-h-[90px] card-hover transition-all duration-200">
-                  <div className="absolute left-0 top-0 h-1 w-full" style={{ backgroundColor: crColors[cr.type] ?? "var(--color-iris)" }} />
+                <div
+                  key={cr.id}
+                  className="card card-hover flex min-h-[90px] flex-col justify-between border border-border bg-surface p-4 transition-colors"
+                >
                   <div>
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-text-muted">
-                      {isCashless(cr.type) ? "БЕЗГОТІВКОВИЙ РАХУНОК" : "ПОТОЧНА КАСА"}
+                    <span className="text-[11px] text-faint">
+                      {isCashless(cr.type) ? "Безготівковий рахунок" : "Поточна каса"}
                     </span>
-                    <h4 className="text-xs font-semibold text-text-primary mt-0.5">{cr.name}</h4>
+                    <h4 className="mt-0.5 text-xs font-semibold text-ink">{cr.name}</h4>
                   </div>
-                  <p className="text-lg font-bold text-text-primary mt-2 font-mono">{cr.balance.toLocaleString()} ₴</p>
+                  <p className="mt-2 text-lg font-semibold tabular text-ink">
+                    {cr.balance.toLocaleString()} ₴
+                  </p>
                 </div>
               ))}
             </div>
@@ -163,54 +160,61 @@ export default async function FinancePage() {
                 const isOverdraft = s.balance < 0;
 
                 return (
-                  <div key={s.id} className="card p-4 bg-warm-surface border border-warm-border flex flex-col justify-between card-hover transition-all duration-200">
+                  <div
+                    key={s.id}
+                    className="card card-hover flex flex-col justify-between border border-border bg-surface p-4 transition-colors"
+                  >
                     <div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-mono text-[8px] uppercase tracking-wider text-text-muted">СЕЙФ РЕЗЕРВУ</span>
-                        <span className="rounded bg-violet/5 px-1 py-0.5 text-[8px] font-mono text-violet">Сер. {avgTarget}%</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-faint">Сейф резерву</span>
+                        <span className="rounded-full bg-hover px-2 py-0.5 text-[11px] tabular text-muted">
+                          сер. {avgTarget}%
+                        </span>
                       </div>
-                      <h4 className="text-xs font-semibold text-text-primary mt-0.5">{s.name}</h4>
-                      <p className={`text-lg font-bold mt-2 font-mono ${
-                        isOverdraft ? "text-rose" : "text-text-primary"
-                      }`}>
+                      <h4 className="mt-0.5 text-xs font-semibold text-ink">{s.name}</h4>
+                      <p
+                        className={`mt-2 text-lg font-semibold tabular ${isOverdraft ? "text-danger" : "text-ink"}`}
+                      >
                         {s.balance.toLocaleString()} ₴
                       </p>
 
-                      {/* Розбивка готівка / картка */}
+                      {/* Половини сейфа: готівка проти безготівки. Смуга —
+                          єдине місце на картці, де колір несе сенс, тож вона
+                          лишається двоколірною. */}
                       <div className="mt-2 space-y-1">
-                        <div className="h-1.5 w-full rounded-full bg-warm-border overflow-hidden flex">
+                        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-hover">
                           <div
-                            className="h-full bg-emerald rounded-l-full transition-all duration-500"
+                            className="h-full rounded-l-full bg-accent transition-all duration-500"
                             style={{ width: `${cashPct}%` }}
                             title={`Готівка: ${s.cashBalance.toLocaleString()} ₴`}
                           />
                           <div
-                            className="h-full bg-amber transition-all duration-500"
+                            className="h-full bg-info transition-all duration-500"
                             style={{ width: `${cardPct}%` }}
                             title={`Картка: ${s.cardBalance.toLocaleString()} ₴`}
                           />
                         </div>
-                        <div className="flex justify-between text-[9px] font-mono text-text-muted">
+                        <div className="flex justify-between text-[11px] text-muted">
                           <span className="flex items-center gap-1">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald" />
-                            Готівка {s.cashBalance.toLocaleString()} ₴
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                            Готівка <span className="tabular">{s.cashBalance.toLocaleString()} ₴</span>
                           </span>
                           <span className="flex items-center gap-1">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber" />
-                            Картка {s.cardBalance.toLocaleString()} ₴
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-info" />
+                            Картка <span className="tabular">{s.cardBalance.toLocaleString()} ₴</span>
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-4 space-y-2">
-                      <div className="h-1 w-full rounded-full bg-warm-border overflow-hidden">
-                        <div className="h-full bg-violet" style={{ width: `${avgTarget}%`, backgroundColor: sfColors[s.type] ?? "var(--color-iris)" }} />
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-hover">
+                        <div className="h-full bg-accent" style={{ width: `${avgTarget}%` }} />
                       </div>
-                      <div className="grid grid-cols-3 gap-1 text-[8px] font-mono text-text-secondary leading-none pt-1">
-                        <div className="border-r border-warm-border pr-1">Тех: {techSplit}%</div>
-                        <div className="border-r border-warm-border px-1">Акс: {accSplit}%</div>
-                        <div className="pl-1">Рем: {repSplit}%</div>
+                      <div className="grid grid-cols-3 gap-1 pt-1 text-[11px] leading-none text-muted">
+                        <div className="border-r border-border pr-1">Тех: <span className="tabular">{techSplit}%</span></div>
+                        <div className="border-r border-border px-1">Акс: <span className="tabular">{accSplit}%</span></div>
+                        <div className="pl-1">Рем: <span className="tabular">{repSplit}%</span></div>
                       </div>
                     </div>
                   </div>
@@ -238,64 +242,63 @@ export default async function FinancePage() {
         {/* Right Column: Telemetry Log & Category Breakdowns (col-span 1) */}
         <div className="space-y-6">
           
-          {/* Quick Metrics panel */}
-          <div className="card p-5 bg-warm-surface border border-warm-border flex flex-col gap-4">
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-1 tracking-tight">Статус активів</h3>
-            
+          {/* Статус активів. Кольорові крапки-індикатори прибрані: вони не
+              означали стану, лише розфарбовували рядки. */}
+          <div className="card flex flex-col gap-4 border border-border bg-surface p-5">
+            <h3 className="border-b border-border pb-1 text-sm font-semibold text-ink">
+              Статус активів
+            </h3>
+
             <div className="space-y-4">
-              <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] text-text-secondary">Нерозподілені каси</p>
-                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{kinds.cash.toLocaleString()} ₴</p>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-violet animate-pulse" />
+              <div className="border-b border-border pb-3">
+                <p className="text-xs text-muted">Нерозподілені каси</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-ink">
+                  {kinds.cash.toLocaleString()} ₴
+                </p>
               </div>
 
-              <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
+              <div className="border-b border-border pb-3">
                 {/* Картка/переказ, ще не розподілені по сейфах — не готівка */}
-                <div>
-                  <p className="text-[10px] text-text-secondary">Безготівка</p>
-                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{kinds.cashless.toLocaleString()} ₴</p>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-amber" />
+                <p className="text-xs text-muted">Безготівка</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-ink">
+                  {kinds.cashless.toLocaleString()} ₴
+                </p>
               </div>
 
-              <div className="border-b border-warm-border/60 pb-3 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] text-text-secondary">Чисті резерви (сейфи)</p>
-                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{totalSafes.toLocaleString()} ₴</p>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-cyan" />
+              <div className="border-b border-border pb-3">
+                <p className="text-xs text-muted">Чисті резерви (сейфи)</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-ink">
+                  {totalSafes.toLocaleString()} ₴
+                </p>
               </div>
 
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] text-text-secondary">Транзакції за добу</p>
-                  <p className="text-xl font-bold text-text-primary font-mono mt-0.5">{todayTx}</p>
-                </div>
-                <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan">СЬОГОДНІ</span>
+              <div>
+                <p className="text-xs text-muted">Транзакції за сьогодні</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-ink">{todayTx}</p>
               </div>
             </div>
           </div>
 
           {/* Expense Categories chart/breakdown */}
           {report.categoryBreakdown.length > 0 && (
-            <div className="card p-5 bg-warm-surface border border-warm-border">
-              <h3 className="font-mono text-[10px] uppercase tracking-widest text-text-secondary border-b border-warm-border pb-2 mb-3 tracking-tight">Витрати за категоріями</h3>
-              
+            <div className="card border border-border bg-surface p-5">
+              <h3 className="mb-3 border-b border-border pb-2 text-sm font-semibold text-ink">
+                Витрати за категоріями
+              </h3>
+
               <div className="space-y-3">
                 {report.categoryBreakdown.map((c) => {
-                  const maxAmt = Math.max(...report.categoryBreakdown.map(x => x.amount), 1);
+                  const maxAmt = Math.max(...report.categoryBreakdown.map((x) => x.amount), 1);
                   const pct = Math.round((c.amount / maxAmt) * 100);
 
                   return (
                     <div key={c.name} className="space-y-1">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-text-primary font-medium">{c.name}</span>
-                        <span className="text-text-secondary font-mono">{c.amount.toLocaleString()} ₴</span>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-ink">{c.name}</span>
+                        <span className="tabular text-muted">{c.amount.toLocaleString()} ₴</span>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-warm-border overflow-hidden">
-                        <div className="h-full bg-rose rounded-full" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -304,16 +307,16 @@ export default async function FinancePage() {
             </div>
           )}
 
-          {/* System metadata strip */}
-          <div className="card p-4 border border-warm-border bg-warm-surface flex flex-col gap-2">
-            <span className="font-mono text-[8px] uppercase tracking-widest text-text-muted">LEDGER TELEMETRY TERMINAL</span>
-            <div className="font-mono text-[9px] text-text-secondary space-y-1 select-none">
-              <p>✓ DB CONNECTION: SECURED</p>
-              <p>✓ AUDIT TRAIL: VERIFIED</p>
-              <p>✓ ENCRYPTION FLOW: TLS_AES_256_GCM</p>
-              <p>✓ LIVE RECONCILIATION: ACTIVE</p>
-            </div>
-          </div>
+          {/*
+            Тут стояв блок «LEDGER TELEMETRY TERMINAL» із рядками «DB CONNECTION:
+            SECURED», «AUDIT TRAIL: VERIFIED» тощо. Усі чотири були захардкоджені
+            й не прив'язані до жодної перевірки — сторінка стверджувала, що аудит
+            верифіковано, нічого не перевіряючи. Видалено, а не перефарбовано:
+            фейковий індикатор гірший за його відсутність, бо ним користуються.
+
+            Справжню звірку показує блок «Рух грошей від відкриття» вище: він
+            рахує тотожність із леджера й червоніє, коли вона не сходиться.
+          */}
 
         </div>
       </div>
