@@ -127,8 +127,7 @@ export function DashboardClient({
             */}
             <ShareCard
               ledger={money.partnerLedger}
-              sources={money.sources}
-              netProfitSafeId={money.netProfitSafeId}
+              withdrawSafes={money.withdrawSafes}
               monthShare={money.partnerShare.month.share}
             />
           </>

@@ -271,8 +271,8 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
 
 // Джерело — тільки сейф ЧП: частка нараховується з нього, тож зняття повз
 // нього розсинхронізувало б залишок власника з реальним балансом сейфа.
-// Те, що це саме сейф ЧП, перевіряє `withdraw_owner_share` — тут відсікаємо
-// лише каси, які приймала стара форма.
+// Те, що це саме сейф ЧП, перевіряє RPC — тут відсікаємо лише каси, які
+// приймала стара форма.
 const withdrawSchema = z.object({
   // Сейф має дві половини — вилучення мусить сказати, якої стосується.
   payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
@@ -281,6 +281,13 @@ const withdrawSchema = z.object({
   }),
   source_id: z.string().uuid("Оберіть сейф чистого прибутку"),
   amount: z.coerce.number().min(1, "Сума вилучення має бути більше 0"),
+  // Сейф, з якого добирається аванс, коли в ЧП не вистачило. Порожній рядок —
+  // це «не потрібен», а не помилка: форма шле поле завжди.
+  advance_safe_id: z
+    .string()
+    .uuid("Оберіть сейф, з якого взяти аванс")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   description: z.string().optional(),
 });
 
@@ -291,6 +298,7 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
       source_type: formData.get("source_type"),
       source_id: formData.get("source_id"),
       amount: formData.get("amount"),
+      advance_safe_id: formData.get("advance_safe_id") || "",
       description: formData.get("description") || "",
       payment_method: formData.get("payment_method") || "cash",
     };
@@ -303,13 +311,16 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
       throw new Error("Unauthorized: " + (authError?.message || "User not found"));
     }
 
-    const { error: rpcError } = await supabase.rpc("withdraw_owner_share" as any, {
-      source_type: parsed.source_type,
-      source_id: parsed.source_id,
-      amount: parsed.amount,
-      desc_text: parsed.description || "Вилучення частки прибутку співвласника",
-      user_id: user.id,
-      payment_method: parsed.payment_method,
+    // Ділити суму на частку з сейфа й аванс має база, а не ця дія: обидва
+    // записи мусять з'явитись або не з'явитись разом. Половина вилучення —
+    // гірше, ніж жодного.
+    const { error: rpcError } = await supabase.rpc("withdraw_owner_share_with_advance" as any, {
+      p_np_safe_id: parsed.source_id,
+      p_advance_safe_id: parsed.advance_safe_id ?? null,
+      p_amount: Math.round(parsed.amount),
+      p_desc_text: parsed.description || "Вилучення частки прибутку співвласника",
+      p_user_id: user.id,
+      p_payment_method: parsed.payment_method,
     });
 
     if (rpcError) throw rpcError;

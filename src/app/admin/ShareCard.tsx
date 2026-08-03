@@ -28,14 +28,15 @@ const WITHDRAWALS_SHOWN = 4;
  */
 export function ShareCard({
   ledger,
-  sources,
-  netProfitSafeId,
+  withdrawSafes,
   monthShare,
 }: {
   ledger: DashboardMoney["partnerLedger"];
-  sources: DashboardMoney["sources"];
-  /** Єдине джерело зняття — сейф ЧП. */
-  netProfitSafeId: DashboardMoney["netProfitSafeId"];
+  /**
+   * Усі сейфи з половинами балансу. Джерело частки — тільки ЧП, але решта
+   * потрібна формі під аванс, коли в ЧП не вистачило; розкладає їх сама кнопка.
+   */
+  withdrawSafes: DashboardMoney["withdrawSafes"];
   /** Зароблено кожному за поточний місяць — темп, а не залишок. */
   monthShare: number;
 }) {
@@ -137,7 +138,20 @@ export function ShareCard({
                 {shortName(w.ownerName)}
                 {w.isAdvance && <span className="ml-1.5 text-warning">аванс</span>}
               </span>
-              <span className="shrink-0 font-medium tabular text-danger">−{uah(w.amount)}</span>
+              {/* Знак береться з суми, а не приписується мінусом наперед:
+                  вилучення можна сторнувати, і сторно приходить сюди
+                  від'ємним записом. Захардкоджений «−» малював би на ньому
+                  подвійний мінус і читався б як ще одне зняття — тобто рівно
+                  навпаки до того, чим воно є. */}
+              <span
+                className={cn(
+                  "shrink-0 font-medium tabular",
+                  w.amount < 0 ? "text-success" : "text-danger",
+                )}
+              >
+                {w.amount < 0 ? "+" : "−"}
+                {uah(Math.abs(w.amount))}
+              </span>
             </div>
           ))}
           {hidden > 0 && (
@@ -149,10 +163,7 @@ export function ShareCard({
       )}
 
       <div className="mt-auto flex justify-end pt-1">
-        <WithdrawShareButton
-          safes={sources.filter((s) => s.type === "safe" && s.id === netProfitSafeId)}
-          label="Зняти свою частку"
-        />
+        <WithdrawShareButton safes={withdrawSafes} label="Зняти свою частку" />
       </div>
     </BentoCell>
   );

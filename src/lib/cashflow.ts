@@ -120,15 +120,37 @@ export interface CheckedMove extends RawMove {
  * 2 170); частки не круглі за побудовою, а сума їх — кругла. Ловити їх означало
  * б заповнити список шумом і зробити перевірку марною.
  *
+ * СТОРНОВАНІ ПАРИ ТЕЖ ПРОПУСКАЮТЬСЯ. Корекція записується двома рухами —
+ * від'ємним сторно і рівним йому додатним записом; разом вони гасяться, і
+ * назовні не виходить ані гривні. Ловити їх означало б тримати в списку два
+ * рядки, які ніколи не зникнуть і не є помилкою вводу, — а перевірка, у якої
+ * завжди щось світиться, перестає щось означати. Одиночний додатний запис на ту
+ * саму суму пари не має і ловиться як звичайно.
+ *
  * Це евристика, а не доказ: округлена сума теж може бути помилковою. Порожній
  * список не означає, що все правильно — він означає лише, що цей клас помилок
  * не спрацював.
  */
 export function unroundedMoves<T extends CheckedMove>(moves: T[]): T[] {
+  // Скільки сторно якої суми лежить у наборі. Мультимножина, а не прапорець:
+  // два сторно по 3 498 мають погасити рівно два записи, не всі.
+  const stornoLeft = new Map<number, number>();
+  for (const m of moves) {
+    if (m.amount < 0) stornoLeft.set(-m.amount, (stornoLeft.get(-m.amount) ?? 0) + 1);
+  }
+
   return moves.filter((m) => {
     if (m.amount % ROUNDING_STEP === 0) return false;
     const internal = ACCOUNTS.has(m.from_type) && ACCOUNTS.has(m.to_type);
-    return !internal;
+    if (internal) return false;
+
+    if (m.amount < 0) return false;
+    const left = stornoLeft.get(m.amount) ?? 0;
+    if (left > 0) {
+      stornoLeft.set(m.amount, left - 1);
+      return false;
+    }
+    return true;
   });
 }
 

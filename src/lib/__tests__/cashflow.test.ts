@@ -161,4 +161,21 @@ describe("unroundedMoves", () => {
   it("порожній список нічого не ловить", () => {
     expect(unroundedMoves([])).toEqual([]);
   });
+
+  /* Бекфіл авансу власника (03.08) записав корекцію парою: сторно −3 498 із
+     сейфа ЧП і рівний йому аванс +3 498 з Growth. Назовні не пішло ні гривні,
+     тож у списку помилок вводу їм не місце. */
+  it("пропускає сторновану пару", () => {
+    const storno = cm({ id: "st", amount: -3498, from_type: "safe", to_type: "external" });
+    const advance = cm({ id: "adv", amount: 3498, from_type: "safe", to_type: "external" });
+    expect(unroundedMoves([storno, advance])).toEqual([]);
+  });
+
+  // Пара гасить рівно один запис. Другий такий самий — уже справжнє вилучення.
+  it("ловить неспарений запис на ту саму суму", () => {
+    const storno = cm({ id: "st", amount: -3498, from_type: "safe", to_type: "external" });
+    const paired = cm({ id: "adv", amount: 3498, from_type: "safe", to_type: "external" });
+    const lone = cm({ id: "real", amount: 3498, from_type: "safe", to_type: "external" });
+    expect(unroundedMoves([storno, paired, lone]).map((m) => m.id)).toEqual(["real"]);
+  });
 });

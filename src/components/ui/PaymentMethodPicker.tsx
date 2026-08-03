@@ -13,17 +13,31 @@ import { Button } from "@/components/ui/Button";
  *
  * Значення їде прихованим полем, а не станом форми: усі ці форми — серверні
  * дії з `FormData`, і поле має приїхати разом із рештою.
+ *
+ * За замовчуванням компонент тримає вибір у собі. Але деяким формам сам вибір
+ * потрібен ДО сабміту — вилучення частки за ним рахує, скільки покриє сейф, бо
+ * половини балансу різні. Таким передають `value` + `onChange`, і компонент
+ * стає керованим; решта викликачів нічого не помічає.
  */
 export function PaymentMethodPicker({
   name = "payment_method",
   label = "Чим заплачено",
   defaultValue = "cash",
+  value,
+  onChange,
 }: {
   name?: string;
   label?: string;
   defaultValue?: "cash" | "cashless";
+  value?: "cash" | "cashless";
+  onChange?: (v: "cash" | "cashless") => void;
 }) {
-  const [method, setMethod] = useState<"cash" | "cashless">(defaultValue);
+  const [internal, setInternal] = useState<"cash" | "cashless">(defaultValue);
+  const method = value ?? internal;
+  const setMethod = (v: "cash" | "cashless") => {
+    setInternal(v);
+    onChange?.(v);
+  };
 
   return (
     <div>

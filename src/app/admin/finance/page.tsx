@@ -59,7 +59,9 @@ export default async function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <AIFinanceButton />
-          <WithdrawShareButton safes={(safes as SafeWithSplit[]).filter((s: SafeWithSplit) => s.type === "net_profit")} />
+          {/* Усі сейфи, не лише ЧП: решта потрібна формі під аванс, коли в ЧП
+              не вистачило. Джерело частки кнопка відбирає сама. */}
+          <WithdrawShareButton safes={safes as SafeWithSplit[]} />
           <AddTopUpButton safes={safes} />
           <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />

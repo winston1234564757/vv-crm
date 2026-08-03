@@ -4,38 +4,44 @@ import { useState } from "react";
 import Drawer from "@/components/ui/Drawer";
 import { WithdrawShareForm } from "@/components/forms/WithdrawShareForm";
 
-interface SourceItem {
+/**
+ * Сейф очима форми вилучення. Половини обов'язкові: знімають або готівку, або
+ * безготівку, і саме обрана половина вирішує, скільки покриє сейф ЧП.
+ */
+export interface WithdrawSafe {
   id: string;
   name: string;
+  type: string;
   balance: number;
+  cashBalance: number;
+  cardBalance: number;
 }
 
 /**
- * Джерелом лишився тільки сейф ЧП: частка нараховується з нього, тож і
- * знімати її повз нього не можна — інакше залишок власника перестане
- * сходитись із балансом сейфа. Те саме обмеження продубльоване в
- * `withdraw_owner_share`, тут воно лише для того, щоб UI не пропонував
- * недозволене.
+ * Частку знімають тільки з сейфа «Чистий прибуток»: вона з нього нараховується,
+ * тож зняття повз нього розсинхронізувало б залишок власника з балансом сейфа.
+ * Те саме обмеження продубльоване в базі.
  *
- * Викликач передає вже відфільтрований список (зазвичай один сейф) — цей
- * компонент не знає, який із сейфів «Чистий прибуток».
+ * Решта сейфів усе одно передається — з них беруть АВАНС, коли в ЧП забракло.
+ * Без цього шляху власник, якому треба взяти наперед, просто взяв би повз
+ * систему, і сейфи знову почали б брехати — рівно те, від чого ми щойно пішли.
+ *
+ * Викликач передає всі сейфи; розкладає їх на джерело і кандидатів під аванс
+ * сам компонент — знати, який із них ЧП, викликачу не потрібно.
  */
 export function WithdrawShareButton({
   safes = [],
   label = "💵 Зняти частку",
   className,
 }: {
-  safes?: { id: string; name: string; balance: number }[];
+  safes?: WithdrawSafe[];
   label?: string;
   className?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const sources: SourceItem[] = safes.map((s) => ({
-    id: s.id,
-    name: s.name,
-    balance: s.balance,
-  }));
+  const sources = safes.filter((s) => s.type === "net_profit");
+  const advanceSources = safes.filter((s) => s.type !== "net_profit");
 
   return (
     <>
@@ -50,7 +56,11 @@ export function WithdrawShareButton({
       </button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="💵 Вилучення частки прибутку" size="default">
-        <WithdrawShareForm sources={sources} onSuccess={() => setIsOpen(false)} />
+        <WithdrawShareForm
+          sources={sources}
+          advanceSources={advanceSources}
+          onSuccess={() => setIsOpen(false)}
+        />
       </Drawer>
     </>
   );
