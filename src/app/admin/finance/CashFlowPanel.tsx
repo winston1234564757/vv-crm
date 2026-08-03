@@ -126,6 +126,36 @@ export function CashFlowPanel({ report }: { report: CashFlowReport }) {
         </p>
       )}
 
+      {/* Перевірка на округлення. У нормі порожня — і саме тому вона корисна:
+          щойно тут щось з'явилось, майже напевно картку записали готівкою. */}
+      {report.unrounded.length > 0 && (
+        <div className="mt-3 rounded-[var(--radius-md)] border border-warning/30 bg-warning-subtle px-3 py-2">
+          <p className="text-xs font-semibold text-ink">
+            Неокруглені суми — {report.unrounded.length}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+            У магазині все кратне 10 ₴. Сума з іншим закінченням майже завжди означає, що
+            картковий платіж записали готівкою — перевірте спосіб оплати.
+          </p>
+          <ul className="mt-2 divide-y divide-border">
+            {report.unrounded.map((m) => (
+              <li key={m.id} className="flex items-baseline justify-between gap-3 py-1 text-xs">
+                <span className="min-w-0 truncate text-ink">
+                  <span className="tabular text-muted">
+                    {format(new Date(m.at), "d MMM", { locale: uk })}
+                  </span>
+                  <span className="mx-1.5 text-faint">·</span>
+                  {m.description || m.reference_type || "Операція"}
+                </span>
+                <span className="shrink-0 font-semibold tabular text-warning">
+                  {uah(m.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-3 text-xs">
         <span className="text-muted">
           Операційний потік{" "}

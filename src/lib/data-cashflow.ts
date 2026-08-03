@@ -1,6 +1,12 @@
 import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
-import { summarize, type CashFlowSummary, type RawMove } from "./cashflow";
+import {
+  summarize,
+  unroundedMoves,
+  type CashFlowSummary,
+  type CheckedMove,
+  type RawMove,
+} from "./cashflow";
 import { supabaseCast } from "./utils/supabase";
 import { isCashless } from "@/lib/utils/finance";
 
@@ -23,6 +29,12 @@ export interface CashFlowReport extends CashFlowSummary {
    * банківському рахунку, і в шухляді її немає.
    */
   banknotes: number;
+  /**
+   * Операції з неокругленою сумою — підозра на помилку вводу. У нормі
+   * порожній. Див. `unroundedMoves`: у цьому магазині все кратне десяти, тож
+   * «542» майже завжди означає картковий платіж, записаний готівкою.
+   */
+  unrounded: CheckedMove[];
 }
 
 export async function getCashFlow(): Promise<CashFlowReport> {
@@ -30,7 +42,9 @@ export async function getCashFlow(): Promise<CashFlowReport> {
   const { finance_epoch } = await getSettings();
 
   const [txRes, crRes, safeRes] = await Promise.all([
-    supabase.from("transactions").select("amount, from_type, to_type, reference_type, created_at"),
+    supabase
+      .from("transactions")
+      .select("id, amount, from_type, to_type, reference_type, created_at, description"),
     supabase.from("cash_registers").select("balance, type"),
     supabase.from("safes").select("*"),
   ]);
@@ -49,17 +63,23 @@ export async function getCashFlow(): Promise<CashFlowReport> {
      перекази тут самі гасяться: один бік дає +, другий −. */
   let opening = 0;
   const moves: RawMove[] = [];
+  /* Перевірка на округлення дивиться на ВСІ операції від епохи, а не лише на
+     ті, що ввійшли в потік: помилка вводу однаково варта уваги і у внутрішньому
+     переказі назовні, і у витраті. */
+  const checked: CheckedMove[] = [];
   for (const t of all) {
+    const move: RawMove = {
+      amount: t.amount,
+      from_type: t.from_type,
+      to_type: t.to_type,
+      reference_type: t.reference_type,
+    };
     if (isBefore(t.created_at)) {
       if (t.to_type === "cash_register" || t.to_type === "safe") opening += t.amount;
       if (t.from_type === "cash_register" || t.from_type === "safe") opening -= t.amount;
     } else {
-      moves.push({
-        amount: t.amount,
-        from_type: t.from_type,
-        to_type: t.to_type,
-        reference_type: t.reference_type,
-      });
+      moves.push(move);
+      checked.push({ ...move, id: t.id, at: t.created_at, description: t.description ?? "" });
     }
   }
 
@@ -84,5 +104,10 @@ export async function getCashFlow(): Promise<CashFlowReport> {
     registers.filter((r) => !isCashless(r.type)).reduce((s, r) => s + r.balance, 0) +
     safes.reduce((s, r) => s + (r.balance_cash ?? r.balance), 0);
 
-  return { ...summarize(moves, opening, closing), epoch: finance_epoch, banknotes };
+  return {
+    ...summarize(moves, opening, closing),
+    epoch: finance_epoch,
+    banknotes,
+    unrounded: unroundedMoves(checked).sort((a, b) => b.at.localeCompare(a.at)),
+  };
 }

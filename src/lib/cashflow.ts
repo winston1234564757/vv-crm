@@ -97,6 +97,41 @@ function toLines(bucket: Map<string, { amount: number; count: number }>): FlowLi
     .sort((a, b) => b.amount - a.amount);
 }
 
+/** Крок округлення. Усе, що вводить людина, кратне десяти гривням. */
+export const ROUNDING_STEP = 10;
+
+export interface CheckedMove extends RawMove {
+  id: string;
+  at: string;
+  description: string;
+}
+
+/**
+ * Операції з неокругленою сумою.
+ *
+ * У цьому магазині всі ціни й витрати кратні десяти гривням. Тому сума, що не
+ * ділиться на 10, майже завжди означає помилку вводу — найчастіше картковий
+ * платіж, записаний готівкою, з точною ціною з чека. Саме так знайшлись SSD
+ * SanDisk (542) і чорнила (620): власник помітив «17» у підсумку й сказав, що
+ * такої суми бути не могло.
+ *
+ * ВНУТРІШНІ РОЗПОДІЛИ ПРОПУСКАЮТЬСЯ, і це не послаблення перевірки. Розподіл
+ * ділить круглу суму на три частки за відсотками (6 200 → 1 860 + 2 170 +
+ * 2 170); частки не круглі за побудовою, а сума їх — кругла. Ловити їх означало
+ * б заповнити список шумом і зробити перевірку марною.
+ *
+ * Це евристика, а не доказ: округлена сума теж може бути помилковою. Порожній
+ * список не означає, що все правильно — він означає лише, що цей клас помилок
+ * не спрацював.
+ */
+export function unroundedMoves<T extends CheckedMove>(moves: T[]): T[] {
+  return moves.filter((m) => {
+    if (m.amount % ROUNDING_STEP === 0) return false;
+    const internal = ACCOUNTS.has(m.from_type) && ACCOUNTS.has(m.to_type);
+    return !internal;
+  });
+}
+
 export function summarize(
   moves: RawMove[],
   opening: number,
