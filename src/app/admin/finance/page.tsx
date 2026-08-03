@@ -41,9 +41,6 @@ export default async function FinancePage() {
     getCashFlow(),
   ]);
 
-  // Сейфи — окрема таблиця, не каса, тому пряме додавання balance тут не є
-  // тим шаблоном, що ловить no-raw-register-sum.test.ts.
-  const totalSafes = (safes as SafeWithSplit[]).reduce((s: number, c: SafeWithSplit) => s + c.balance, 0);
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
@@ -56,8 +53,12 @@ export default async function FinancePage() {
      `Нерозподілені каси` у «Статусі активів» лишається по касах: воно про те,
      що ЩЕ НЕ рознесене по сейфах, і сейфи туди за визначенням не входять. */
   const safeRows = safes as SafeWithSplit[];
+  /* Купюри в сейфах — окремо від їхнього повного балансу: безготівкова половина
+     лежить на банківському рахунку, а не в сейфі, і рахувати її «резервом»
+     означало б назвати резервом те, чого в сейфі немає. */
+  const safesCash = safeRows.reduce((s, v) => s + v.cashBalance, 0);
   const liquidity = {
-    cash: kinds.cash + safeRows.reduce((s, v) => s + v.cashBalance, 0),
+    cash: kinds.cash + safesCash,
     cashless: kinds.cashless + safeRows.reduce((s, v) => s + v.cardBalance, 0),
   };
 
@@ -268,6 +269,15 @@ export default async function FinancePage() {
               Статус активів
             </h3>
 
+            {/* Три рядки ділять усі гроші магазину рівно один раз: готівка в
+                касах, готівка в сейфах і вся безготівка. Разом вони дають те
+                саме, що «Разом» у ліквідності — 26 604 ₴.
+
+                Раніше «Чисті резерви» показували повний баланс сейфів (16 887),
+                тобто купюри ПЛЮС 887 картки, що числяться за Growth, а
+                «Безготівка» рахувала саму касу. Ті 887 потрапляли в резерви,
+                хоч у сейфі їх фізично немає, і рядок «резерви» переставав бути
+                числом, яке можна перерахувати руками. */}
             <div className="space-y-4">
               <div className="border-b border-border pb-3">
                 <p className="text-xs text-muted">Нерозподілені каси</p>
@@ -277,17 +287,21 @@ export default async function FinancePage() {
               </div>
 
               <div className="border-b border-border pb-3">
-                {/* Картка/переказ, ще не розподілені по сейфах — не готівка */}
-                <p className="text-xs text-muted">Безготівка</p>
+                {/* «На рахунку», а не «Безготівка»: картка з такою назвою
+                    стоїть ліворуч і показує лише саму касу безготівки (9 717),
+                    а тут — уся безготівка разом із половинами сейфів. Два
+                    різні числа під однією назвою на одному екрані читались як
+                    помилка. */}
+                <p className="text-xs text-muted">На рахунку</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-ink">
-                  {kinds.cashless.toLocaleString()} ₴
+                  {liquidity.cashless.toLocaleString()} ₴
                 </p>
               </div>
 
               <div className="border-b border-border pb-3">
                 <p className="text-xs text-muted">Чисті резерви (сейфи)</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-ink">
-                  {totalSafes.toLocaleString()} ₴
+                  {safesCash.toLocaleString()} ₴
                 </p>
               </div>
 
