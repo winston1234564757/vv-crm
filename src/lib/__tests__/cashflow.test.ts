@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyMove, summarize, unroundedMoves, type CheckedMove, type RawMove } from "../cashflow";
+import { classifyMove, summarize, type RawMove } from "../cashflow";
 
 function mv(over: Partial<RawMove> = {}): RawMove {
   return {
@@ -107,75 +107,5 @@ describe("summarize", () => {
       "repair_payment",
       "client_order",
     ]);
-  });
-});
-
-describe("unroundedMoves", () => {
-  function cm(over: Partial<CheckedMove> = {}): CheckedMove {
-    return {
-      id: "t1",
-      at: "2026-07-31T18:46:00",
-      description: "",
-      amount: 100,
-      from_type: "safe",
-      to_type: "supplier",
-      reference_type: "inventory",
-      ...over,
-    };
-  }
-
-  it("не чіпає округлені суми", () => {
-    expect(unroundedMoves([cm({ amount: 620 }), cm({ amount: 3000 })])).toEqual([]);
-  });
-
-  // Обидві реальні: SSD SanDisk 542 і потім чорнила — картка, записана готівкою.
-  it("ловить неокруглену витрату", () => {
-    const bad = cm({ id: "ssd", amount: 542, description: "SSD SanDisk 128GB" });
-    expect(unroundedMoves([cm(), bad]).map((m) => m.id)).toEqual(["ssd"]);
-  });
-
-  /* Розподіл ділить круглу суму на три частки за відсотками — частки не круглі
-     за побудовою. Якби перевірка їх ловила, список був би нескінченним шумом. */
-  it("пропускає внутрішній розподіл між касою і сейфом", () => {
-    const split = cm({
-      amount: 2170,
-      from_type: "cash_register",
-      to_type: "safe",
-      reference_type: "distribution",
-    });
-    expect(unroundedMoves([split])).toEqual([]);
-  });
-
-  // Вилучення частки виходить НАЗОВНІ, тож внутрішнім не рахується і ловиться.
-  it("ловить неокруглене вилучення частки назовні", () => {
-    const withdrawal = cm({
-      id: "w79",
-      amount: 79,
-      from_type: "safe",
-      to_type: "external",
-      reference_type: "distribution",
-    });
-    expect(unroundedMoves([withdrawal]).map((m) => m.id)).toEqual(["w79"]);
-  });
-
-  it("порожній список нічого не ловить", () => {
-    expect(unroundedMoves([])).toEqual([]);
-  });
-
-  /* Бекфіл авансу власника (03.08) записав корекцію парою: сторно −3 498 із
-     сейфа ЧП і рівний йому аванс +3 498 з Growth. Назовні не пішло ні гривні,
-     тож у списку помилок вводу їм не місце. */
-  it("пропускає сторновану пару", () => {
-    const storno = cm({ id: "st", amount: -3498, from_type: "safe", to_type: "external" });
-    const advance = cm({ id: "adv", amount: 3498, from_type: "safe", to_type: "external" });
-    expect(unroundedMoves([storno, advance])).toEqual([]);
-  });
-
-  // Пара гасить рівно один запис. Другий такий самий — уже справжнє вилучення.
-  it("ловить неспарений запис на ту саму суму", () => {
-    const storno = cm({ id: "st", amount: -3498, from_type: "safe", to_type: "external" });
-    const paired = cm({ id: "adv", amount: 3498, from_type: "safe", to_type: "external" });
-    const lone = cm({ id: "real", amount: 3498, from_type: "safe", to_type: "external" });
-    expect(unroundedMoves([storno, paired, lone]).map((m) => m.id)).toEqual(["real"]);
   });
 });

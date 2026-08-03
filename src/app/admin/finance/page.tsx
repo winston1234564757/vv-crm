@@ -47,6 +47,20 @@ export default async function FinancePage() {
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
+  /* Ліквідність рахується по касах І СЕЙФАХ разом.
+     Раніше тут стояли самі каси, і при 16 000 купюр, які лежали в сейфах,
+     рядок казав «Готівкою 0 ₴». Формально він відповідав на «скільки в касах»,
+     але читався як «скільки в магазині грошей» — і відповідав неправдою. Блок
+     «Зараз у касах і сейфах» нижче весь час показував правильні 16 000, тож
+     два сусідні місця на одному екрані розходились удвічі.
+     `Нерозподілені каси` у «Статусі активів» лишається по касах: воно про те,
+     що ЩЕ НЕ рознесене по сейфах, і сейфи туди за визначенням не входять. */
+  const safeRows = safes as SafeWithSplit[];
+  const liquidity = {
+    cash: kinds.cash + safeRows.reduce((s, v) => s + v.cashBalance, 0),
+    cashless: kinds.cashless + safeRows.reduce((s, v) => s + v.cardBalance, 0),
+  };
+
 
   return (
     <div className="space-y-6 animate-entry">
@@ -118,13 +132,16 @@ export default async function FinancePage() {
 
             <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-xs text-muted">
               <span>
-                Готівкою <span className="font-semibold tabular text-ink">{kinds.cash.toLocaleString()} ₴</span>
+                Готівкою <span className="font-semibold tabular text-ink">{liquidity.cash.toLocaleString()} ₴</span>
               </span>
               <span>
-                Карткою <span className="font-semibold tabular text-ink">{kinds.cashless.toLocaleString()} ₴</span>
+                Карткою <span className="font-semibold tabular text-ink">{liquidity.cashless.toLocaleString()} ₴</span>
               </span>
               <span>
-                Разом <span className="font-semibold tabular text-ink">{kinds.total.toLocaleString()} ₴</span>
+                Разом{" "}
+                <span className="font-semibold tabular text-ink">
+                  {(liquidity.cash + liquidity.cashless).toLocaleString()} ₴
+                </span>
               </span>
             </div>
 

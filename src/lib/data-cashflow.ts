@@ -2,9 +2,7 @@ import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
 import {
   summarize,
-  unroundedMoves,
   type CashFlowSummary,
-  type CheckedMove,
   type RawMove,
 } from "./cashflow";
 import { supabaseCast } from "./utils/supabase";
@@ -29,12 +27,6 @@ export interface CashFlowReport extends CashFlowSummary {
    * банківському рахунку, і в шухляді її немає.
    */
   banknotes: number;
-  /**
-   * Операції з неокругленою сумою — підозра на помилку вводу. У нормі
-   * порожній. Див. `unroundedMoves`: у цьому магазині все кратне десяти, тож
-   * «542» майже завжди означає картковий платіж, записаний готівкою.
-   */
-  unrounded: CheckedMove[];
 }
 
 export async function getCashFlow(): Promise<CashFlowReport> {
@@ -63,10 +55,6 @@ export async function getCashFlow(): Promise<CashFlowReport> {
      перекази тут самі гасяться: один бік дає +, другий −. */
   let opening = 0;
   const moves: RawMove[] = [];
-  /* Перевірка на округлення дивиться на ВСІ операції від епохи, а не лише на
-     ті, що ввійшли в потік: помилка вводу однаково варта уваги і у внутрішньому
-     переказі назовні, і у витраті. */
-  const checked: CheckedMove[] = [];
   for (const t of all) {
     const move: RawMove = {
       amount: t.amount,
@@ -79,7 +67,6 @@ export async function getCashFlow(): Promise<CashFlowReport> {
       if (t.from_type === "cash_register" || t.from_type === "safe") opening -= t.amount;
     } else {
       moves.push(move);
-      checked.push({ ...move, id: t.id, at: t.created_at, description: t.description ?? "" });
     }
   }
 
@@ -108,6 +95,5 @@ export async function getCashFlow(): Promise<CashFlowReport> {
     ...summarize(moves, opening, closing),
     epoch: finance_epoch,
     banknotes,
-    unrounded: unroundedMoves(checked).sort((a, b) => b.at.localeCompare(a.at)),
   };
 }
