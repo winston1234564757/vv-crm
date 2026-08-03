@@ -99,6 +99,25 @@ export function CashFlowPanel({ report }: { report: CashFlowReport }) {
         </span>
       </div>
 
+      {/* Єдине число, яке можна перерахувати руками. Стоїть окремо, бо
+          «зараз у касах і сейфах» включає банківський рахунок, а його в
+          шухляді немає — саме через це щоденна звірка й не сходилась. */}
+      <div className="mt-2 space-y-1 rounded-[var(--radius-md)] bg-hover px-3 py-2 text-xs">
+        <p className="flex items-baseline justify-between gap-3">
+          <span className="font-medium text-ink">З них купюрами</span>
+          <span className="font-semibold tabular text-ink">{uah(report.banknotes)}</span>
+        </p>
+        <p className="flex items-baseline justify-between gap-3 text-muted">
+          <span>На рахунку</span>
+          <span className="tabular">{uah(report.closing - report.banknotes)}</span>
+        </p>
+        <p className="pt-1 leading-relaxed text-faint">
+          Перерахуйте купюри в касі й сейфах — має вийти{" "}
+          <span className="tabular text-muted">{uah(report.banknotes)}</span>. Решта лежить на
+          банківському рахунку.
+        </p>
+      </div>
+
       {!balanced && (
         <p className="mt-2 text-[11px] leading-relaxed text-danger">
           Залишок не сходиться з рухами. Це означає, що баланс рахунку змінили в
