@@ -286,16 +286,31 @@ export default async function FinancePage() {
                 </p>
               </div>
 
-              <div className="border-b border-border pb-3">
-                {/* «На рахунку», а не «Безготівка»: картка з такою назвою
-                    стоїть ліворуч і показує лише саму касу безготівки (9 717),
-                    а тут — уся безготівка разом із половинами сейфів. Два
-                    різні числа під однією назвою на одному екрані читались як
-                    помилка. */}
+              <div className="border-b border-border pb-3 space-y-2">
                 <p className="text-xs text-muted">На рахунку</p>
-                <p className="mt-0.5 text-xl font-semibold tabular text-ink">
+                <p className="text-xl font-semibold tabular text-ink">
                   {liquidity.cashless.toLocaleString()} ₴
                 </p>
+                {/* Розбивка: картка на рахунку + картка-частина сейфів */}
+                <div className="space-y-1 pt-0.5">
+                  {/* Каса безготівки */}
+                  {cashRegisters.filter(cr => cr.type === "cashless").map(cr => (
+                    <div key={cr.id} className="flex justify-between items-baseline text-[11px]">
+                      <span className="text-muted truncate mr-2">На картці</span>
+                      <span className="tabular text-ink font-medium shrink-0">{cr.balance.toLocaleString()} ₴</span>
+                    </div>
+                  ))}
+                  {/* Картка-частина кожного сейфа (якщо > 0) */}
+                  {safeRows
+                    .filter(s => s.cardBalance > 0)
+                    .map(s => (
+                      <div key={s.id} className="flex justify-between items-baseline text-[11px]">
+                        <span className="text-muted truncate mr-2">У сейфі «{s.name}»</span>
+                        <span className="tabular text-ink font-medium shrink-0">{s.cardBalance.toLocaleString()} ₴</span>
+                      </div>
+                    ))
+                  }
+                </div>
               </div>
 
               <div className="border-b border-border pb-3">
