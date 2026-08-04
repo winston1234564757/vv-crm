@@ -1,5 +1,6 @@
 "use server";
 import { requireRole } from "@/lib/utils/rbac";
+import { MONEY_ROLES } from "@/lib/roles";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -37,13 +38,10 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
       throw new Error("Джерело та одержувач не можуть бути однаковими");
     }
 
+    // Гроші рухає лише owner/manager. Сторінка вже під `MONEY_ROLES`, але
+    // Server Action — це POST-ендпоінт: гард сторінки його не прикриває.
+    const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
-
-    // Get current user profile for logging
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
     const userId = user.id;
 
     // 1. Call RPC function transfer_funds to process atomic updates and write transaction history
@@ -89,12 +87,9 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
     };
 
     const parsed = expenseSchema.parse(data);
+    // Витрата списує з сейфа — та сама межа, що й для переказу.
+    const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
 
     const { error: rpcError } = await supabase.rpc("create_expense", {
       category_id: parsed.category_id,
@@ -151,12 +146,9 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
       };
     }
 
+    // Розподіл спорожняє касу в сейфи — owner/manager.
+    const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
 
     const { error: rpcError } = await supabase.rpc("distribute_register_funds", {
       cash_register_id: parsed.cash_register_id,
@@ -180,30 +172,10 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
 
 export async function deleteTransactionAction(transactionId: string): Promise<ActionState> {
   try {
-    await requireRole(["owner", "manager"]);
+    // `requireRole` уже сходив у `profiles` і звірив роль — ручна перевірка
+    // нижче була другим таким самим запитом до тієї ж таблиці.
+    await requireRole(MONEY_ROLES);
     const supabase = await createClient();
-
-    // 1. Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
-
-    // 2. Fetch user role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      throw new Error("Не вдалося перевірити права доступу користувача.");
-    }
-
-    // 3. Restrict access to owner or manager
-    if (profile.role !== "owner" && profile.role !== "manager") {
-      throw new Error("Недостатньо прав для видалення транзакцій. Ця дія дозволена тільки власникам та менеджерам.");
-    }
 
     // 4. Invoke the atomic stored procedure to revert and delete transaction
     const { error: rpcError } = await supabase.rpc("delete_transaction", {
@@ -241,13 +213,9 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
     };
 
     const parsed = topUpSchema.parse(data);
+    // Поповнення сейфа з особистого гаманця — owner/manager.
+    const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
-
-    // 1. Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
 
     // 2. Execute atomic RPC function
     const { error: rpcError } = await supabase.rpc("top_up_safe", {
@@ -293,7 +261,8 @@ const withdrawSchema = z.object({
 
 export async function withdrawOwnerShareAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
   try {
-    await requireRole(["owner"]);
+    // Вилучення частки — строгіше за решту: тільки власник, не менеджер.
+    const { user } = await requireRole(["owner"]);
     const data = {
       source_type: formData.get("source_type"),
       source_id: formData.get("source_id"),
@@ -305,11 +274,6 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
 
     const parsed = withdrawSchema.parse(data);
     const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Unauthorized: " + (authError?.message || "User not found"));
-    }
 
     // Ділити суму на частку з сейфа й аванс має база, а не ця дія: обидва
     // записи мусять з'явитись або не з'явитись разом. Половина вилучення —

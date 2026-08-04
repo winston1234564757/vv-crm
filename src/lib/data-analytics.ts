@@ -99,7 +99,7 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
       .gt("repair_cost", 0)
       .gte("updated_at", thirtyDaysAgo),
     // Partner Sales (B2B channel)
-    supabase.from("sales").select("total_amount, partner_id").gte("created_at", thirtyDaysAgo),
+    supabase.from("sales").select("total_amount, partner_id").eq("status", "completed").gte("created_at", thirtyDaysAgo),
     /* Ремонт заробляється на видачі (`repairSettledAt`), тож і вікно по ній.
        За `created_at` ремонт, прийнятий сорок днів тому й виданий учора, у
        тридцятиденне вікно не потрапляв би — хоча гроші зайшли всередині нього. */
@@ -114,6 +114,7 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
     supabase
       .from("sale_items")
       .select("item_id, item_type, total_price, unit_cost, quantity, sales!inner(created_at, id, total_amount)")
+      .eq("sales.status", "completed")
       .gte("sales.created_at", thirtyDaysAgo),
     // Customer Retention Rate (Sales 90d)
     supabase.from("sales").select("customer_id").gte("created_at", ninetyDaysAgo),

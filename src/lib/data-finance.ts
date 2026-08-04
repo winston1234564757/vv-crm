@@ -176,7 +176,10 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
   const endStr = floored.end.toISOString();
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes, safesForReport] = await Promise.all([
-    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").gte("created_at", startStr).lt("created_at", endStr),
+    // `.eq("status","completed")` — та сама причина, що в `profit-dataset.ts`:
+    // повернений продаж лишає total_amount і рядки на місці, тож без фільтра
+    // він назавжди сидів би у виторзі.
+    supabase.from("sales").select("total_amount, discount, sale_items(item_type, item_id, quantity, unit_cost, total_price)").eq("status", "completed").gte("created_at", startStr).lt("created_at", endStr),
     supabase.from("purchases").select("total_amount").gte("created_at", startStr).lt("created_at", endStr),
     supabase.from("expenses").select("amount, category_id, paid_from_safe_id").gte("created_at", startStr).lt("created_at", endStr),
     supabase.from("expense_categories").select("*"),

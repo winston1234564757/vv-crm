@@ -61,6 +61,12 @@ export async function loadDataset(
           .select(
             "id, created_at, total_amount, sale_items(item_type, item_id, quantity, unit_cost, total_price), payment_splits(amount, method)",
           )
+          // Повернений продаж — це продаж, якого не було. `refund_sale`
+          // (`20260628000004`) ставить статус, але лишає `total_amount` і всі
+          // `sale_items` на місці, тож без цього фільтра повернення назавжди
+          // завищувало б і виторг, і собівартість, і прибуток на кожному екрані.
+          // Повернень у базі поки 0 — фільтр стоїть до першого, а не після.
+          .eq("status", "completed")
           .gte("created_at", startStr)
           .lt("created_at", endStr),
     empty
