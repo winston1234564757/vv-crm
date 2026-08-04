@@ -8,7 +8,10 @@ export interface CashRegister {
   id: string;
   name: string;
 }
-export interface Device { id: string; brand: string | null; model: string | null; imei: string | null; price: number; cost_price: number; status: string; warranty_months?: number; photo_urls?: string[] | null; }
+// `repair_cost` тут не косметика: собівартість девайса — це закупівля плюс
+// вкладений ремонт, і без цього поля кошик пише в `sale_items.unit_cost`
+// занижену цифру. Див. `usePOSCart.ts` і `profit.ts:itemCost`.
+export interface Device { id: string; brand: string | null; model: string | null; imei: string | null; price: number; cost_price: number; repair_cost: number; status: string; warranty_months?: number; photo_urls?: string[] | null; }
 export interface Accessory { id: string; name: string; type?: string; sku: string | null; price: number; cost_price: number; stock: number; status: string; warranty_months?: number; photo_urls?: string[] | null; }
 export interface Part { id: string; name: string; sku?: string | null; price: number | null; cost_price: number; stock: number; status?: string; photo_urls?: string[] | null; }
 export interface Service { id: string; name: string; price: number; status: string; warranty_days?: number | null; photo_urls?: string[] | null; }

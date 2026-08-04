@@ -27,6 +27,14 @@ const LABELS: Record<string, string> = {
   accessory: "Аксесуари",
   expense: "Операційні витрати",
   distribution: "Вилучення частки",
+  // Без цих двох `toLines` падав на `LABELS[key] ?? key` і виводив англійське
+  // слово посеред українського екрана. `adjustment` — звірка з реальністю
+  // (`20260803160000`), `refund` — повернення продажу (`20260804185010`).
+  adjustment: "Звірка з реальністю",
+  refund: "Повернення продажів",
+  device: "Закупівлі техніки",
+  part: "Закупівлі запчастин",
+  purchase: "Оплати постачальникам",
 };
 
 export interface RawMove {
@@ -103,6 +111,82 @@ function toLines(bucket: Map<string, { amount: number; count: number }>): FlowLi
    які помилками не були, і власник попросив прибрати блок 03.08. Разом із ним
    пішла й функція — тримати перевірку, яку ніхто не читає, сенсу немає.
    Якщо знадобиться назад — вона в історії, коміт із цим рядком. */
+
+/**
+ * Метод платежу для рядка реєстру.
+ *
+ * 131 рядок, створений до 29.07, має `payment_method = NULL`: старий код його
+ * не проставляв. Бекфілити їх у «готівку» не можна — це вигадані дані. Натомість
+ * усі читачі коалесять NULL однаково, і саме тут, в одному місці: якби звірка
+ * половин коалесила інакше, ніж пише `safe_apply`, вона показала б фальшивий
+ * дрейф на кожному старому русі.
+ */
+export function moveMethod(m: { payment_method: string | null }): "cash" | "cashless" {
+  return m.payment_method === "cashless" ? "cashless" : "cash";
+}
+
+export interface SafeMove {
+  amount: number;
+  from_type: string;
+  from_id: string | null;
+  to_type: string;
+  to_id: string | null;
+  payment_method: string | null;
+}
+
+export interface SafeHalves {
+  id: string;
+  name: string;
+  balance_cash: number;
+  balance_cashless: number;
+}
+
+export interface HalfDrift {
+  safeId: string;
+  name: string;
+  /** `balance_cash − (те, що дає реєстр)`. Нуль — половина сходиться. */
+  cash: number;
+  cashless: number;
+}
+
+/**
+ * Розбіжність ПОЛОВИН сейфа з реєстром.
+ *
+ * `summarize().drift` рахує лише сумарний баланс, і цього виявилось замало:
+ * 29.07 сейф Growth мав правильний `balance`, але половини розходились на
+ * 550 ₴ — прихід із безготівкової каси записався без `payment_method` і
+ * порахувався готівкою. Сумарний drift при цьому дорівнював нулю, тож жоден
+ * екран нічого не показав, і розрив прожив тиждень до ручного SQL-аудиту
+ * (виправлено `20260804164233`).
+ *
+ * Повертає лише сейфи з ненульовою розбіжністю: порожній масив — усе зійшлось.
+ */
+export function safeHalfDrift(moves: SafeMove[], safes: SafeHalves[]): HalfDrift[] {
+  const ledger = new Map<string, { cash: number; cashless: number }>();
+  for (const s of safes) ledger.set(s.id, { cash: 0, cashless: 0 });
+
+  for (const m of moves) {
+    const method = moveMethod(m);
+    if (m.to_type === "safe" && m.to_id && ledger.has(m.to_id)) {
+      ledger.get(m.to_id)![method] += m.amount;
+    }
+    if (m.from_type === "safe" && m.from_id && ledger.has(m.from_id)) {
+      ledger.get(m.from_id)![method] -= m.amount;
+    }
+  }
+
+  return safes
+    .map((s) => {
+      const l = ledger.get(s.id)!;
+      return {
+        safeId: s.id,
+        name: s.name,
+        cash: s.balance_cash - l.cash,
+        cashless: s.balance_cashless - l.cashless,
+      };
+    })
+    .filter((d) => d.cash !== 0 || d.cashless !== 0);
+}
 
 export function summarize(
   moves: RawMove[],

@@ -126,6 +126,42 @@ export function CashFlowPanel({ report }: { report: CashFlowReport }) {
         </p>
       )}
 
+      {/* Розбіжність ПОЛОВИН сейфа. `drift` вище дивиться лише на сумарний
+          баланс, і цього виявилось замало: 29.07 Growth мав правильний
+          `balance` при половинах, розбіжних на 550 ₴ — прихід із безготівкової
+          каси записався без методу й порахувався готівкою. Сумарний drift був
+          нулем, екран мовчав, і розрив прожив тиждень до ручного SQL-аудиту.
+
+          На відміну від прибраного блоку «неокруглені суми», цей нічого не
+          показує, коли все сходиться: `halfDrift` порожній — і розділу немає.
+          Він не може перетворитись на фон, бо в нормі його не видно. */}
+      {report.halfDrift.length > 0 && (
+        <div className="mt-3 rounded-[var(--radius-md)] border border-danger/30 bg-danger/5 px-3 py-2">
+          <p className="text-xs font-semibold text-danger">
+            Половини сейфа не сходяться з реєстром
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {report.halfDrift.map((d) => (
+              <li key={d.safeId} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="text-ink">{d.name}</span>
+                <span className="tabular text-danger">
+                  {d.cash !== 0 && <>готівка {uah(d.cash)}</>}
+                  {d.cash !== 0 && d.cashless !== 0 && <span className="text-faint"> · </span>}
+                  {d.cashless !== 0 && <>безготівка {uah(d.cashless)}</>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            Загальний залишок сейфа правильний, а поділ на готівку й безготівку —
+            ні. Найчастіша причина: рух записано без способу оплати, і читачі
+            порахували його готівкою. Виправляти треба реєстр, а не колонки
+            сейфа: колонки веде <span className="tabular">safe_apply</span> під
+            CHECK-обмеженням, тобто вони — факт.
+          </p>
+        </div>
+      )}
+
       {/* Блок «Неокруглені суми» прибраний на прохання власника 03.08. Він
           ловив суми, не кратні 10 ₴, як підозру на картковий платіж, записаний
           готівкою, і три реальні помилки знайшов (SSD 542, чорнила 620,

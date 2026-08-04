@@ -34,7 +34,18 @@ export function usePOSCart() {
       const stock = type === "accessory" || type === "part" ? (item as Accessory | Part).stock : undefined;
       const sku = type === "accessory" || type === "part" ? (item as Accessory | Part).sku : undefined;
       const imei = type === "device" ? (item as Device).imei : undefined;
-      const unitCost = type === "service" ? 0 : (item as Device | Accessory | Part).cost_price || 0;
+      /* Для девайса собівартість — це закупівля ПЛЮС вкладений ремонт. Раніше
+         сюди йшов лише `cost_price`, і `sale_items.unit_cost` виходив занижений:
+         на шести проданих апаратах загубилось 3 200 ₴ (виправлено бекфілом
+         `20260804184802`). На екранах це не було видно, бо `profit.ts:itemCost`
+         бере собівартість із `devices`, а не з рядка продажу — але SQL-функції
+         читають саме колонку, тож TS і SQL давали різні числа. */
+      const unitCost =
+        type === "service"
+          ? 0
+          : type === "device"
+            ? ((item as Device).cost_price || 0) + ((item as Device).repair_cost || 0)
+            : (item as Accessory | Part).cost_price || 0;
       
       const newCartItem: CartItem = {
         id: item.id,

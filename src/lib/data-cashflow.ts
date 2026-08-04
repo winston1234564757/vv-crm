@@ -2,8 +2,11 @@ import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
 import {
   summarize,
+  safeHalfDrift,
   type CashFlowSummary,
   type RawMove,
+  type SafeMove,
+  type HalfDrift,
 } from "./cashflow";
 import { supabaseCast } from "./utils/supabase";
 import { isCashless } from "@/lib/utils/finance";
@@ -27,6 +30,14 @@ export interface CashFlowReport extends CashFlowSummary {
    * банківському рахунку, і в шухляді її немає.
    */
   banknotes: number;
+  /**
+   * Сейфи, у яких ПОЛОВИНИ розійшлися з реєстром. Порожній масив — усе зійшлось.
+   *
+   * `drift` вище перевіряє лише сумарний баланс, і цього замало: 29.07 Growth
+   * мав правильний `balance` при половинах, розбіжних на 550 ₴. Сумарний drift
+   * дорівнював нулю, тож жоден екран не показав нічого, і розрив прожив тиждень.
+   */
+  halfDrift: HalfDrift[];
 }
 
 export async function getCashFlow(): Promise<CashFlowReport> {
@@ -34,9 +45,13 @@ export async function getCashFlow(): Promise<CashFlowReport> {
   const { finance_epoch } = await getSettings();
 
   const [txRes, crRes, safeRes] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select("id, amount, from_type, to_type, reference_type, created_at, description"),
+    /* `*`, а не перелік колонок: для звірки половин потрібні `from_id`,
+       `to_id` і `payment_method`, а `payment_method` у згенерованих типах
+       немає (`database.ts` навмисно не перегенеровується — див. HANDOFF).
+       Названа в `.select()` невідома колонка ламає типізацію всього запиту,
+       тож беремо всі й кастимо, як це вже робить `getSafes`. Окремого запиту
+       звірка не потребує: усі рядки реєстру вже тут. */
+    supabase.from("transactions").select("*"),
     supabase.from("cash_registers").select("balance, type"),
     supabase.from("safes").select("*"),
   ]);
@@ -75,7 +90,7 @@ export async function getCashFlow(): Promise<CashFlowReport> {
      лише завадив би. */
   const registers = supabaseCast<{ balance: number; type: string }[]>(crRes.data ?? []);
   const safes = supabaseCast<
-    { balance: number; balance_cash: number | null }[]
+    { id: string; name: string; balance: number; balance_cash: number | null; balance_cashless: number | null }[]
   >(safeRes.data ?? []);
 
   const closing =
@@ -91,9 +106,24 @@ export async function getCashFlow(): Promise<CashFlowReport> {
     registers.filter((r) => !isCashless(r.type)).reduce((s, r) => s + r.balance, 0) +
     safes.reduce((s, r) => s + (r.balance_cash ?? r.balance), 0);
 
+  /* Звірка половин іде по ВСІХ рухах, а не лише післяепохних: колонки
+     `balance_cash`/`balance_cashless` накопичувались від першого дня, тож
+     обрізати їх епохою означало б вигадати розбіжність там, де її немає. */
+  const allSafeMoves = supabaseCast<SafeMove[]>(all);
+  const halfDrift = safeHalfDrift(
+    allSafeMoves,
+    safes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      balance_cash: s.balance_cash ?? s.balance,
+      balance_cashless: s.balance_cashless ?? 0,
+    })),
+  );
+
   return {
     ...summarize(moves, opening, closing),
     epoch: finance_epoch,
     banknotes,
+    halfDrift,
   };
 }

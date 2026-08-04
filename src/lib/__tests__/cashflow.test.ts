@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { classifyMove, summarize, type RawMove } from "../cashflow";
+import {
+  classifyMove,
+  summarize,
+  safeHalfDrift,
+  moveMethod,
+  type RawMove,
+  type SafeMove,
+} from "../cashflow";
 
 function mv(over: Partial<RawMove> = {}): RawMove {
   return {
@@ -107,5 +114,91 @@ describe("summarize", () => {
       "repair_payment",
       "client_order",
     ]);
+  });
+});
+
+/* Звірка половин сейфа.
+
+   Пишеться не «про всяк випадок»: 29.07 сейф Growth мав правильний сумарний
+   баланс при половинах, розбіжних на 550 ₴, і `summarize().drift` дорівнював
+   нулю. Розрив прожив тиждень, бо його не бачив жоден екран. */
+function sm(over: Partial<SafeMove> = {}): SafeMove {
+  return {
+    amount: 100,
+    from_type: "cash_register",
+    from_id: "reg-1",
+    to_type: "safe",
+    to_id: "safe-1",
+    payment_method: "cash",
+    ...over,
+  };
+}
+
+const SAFE = { id: "safe-1", name: "Growth", balance_cash: 0, balance_cashless: 0 };
+
+describe("moveMethod", () => {
+  it("NULL це готівка — так само, як його читає safe_apply", () => {
+    expect(moveMethod({ payment_method: null })).toBe("cash");
+  });
+
+  it("невідоме значення теж падає в готівку, а не ламає підрахунок", () => {
+    expect(moveMethod({ payment_method: "картка" })).toBe("cash");
+  });
+
+  it("cashless лишається cashless", () => {
+    expect(moveMethod({ payment_method: "cashless" })).toBe("cashless");
+  });
+});
+
+describe("safeHalfDrift", () => {
+  it("сходиться — порожній масив, екран мовчить", () => {
+    const moves = [sm({ amount: 500 })];
+    expect(safeHalfDrift(moves, [{ ...SAFE, balance_cash: 500 }])).toEqual([]);
+  });
+
+  it("ловить саме той випадок, який пропустив сумарний drift", () => {
+    /* Прихід 550 з безготівкової каси записаний без методу → реєстр рахує його
+       готівкою. Колонки кажуть: уся сума безготівкова. Сумарно 550 = 550,
+       тобто `drift` = 0, а половини розходяться на 550 в обидва боки. */
+    const moves = [sm({ amount: 550, payment_method: null })];
+    const drift = safeHalfDrift(moves, [
+      { ...SAFE, balance_cash: 0, balance_cashless: 550 },
+    ]);
+
+    expect(drift).toHaveLength(1);
+    expect(drift[0].cash).toBe(-550);
+    expect(drift[0].cashless).toBe(550);
+    // Сумарно все «сходиться» — саме тому потрібна окрема перевірка.
+    expect(drift[0].cash + drift[0].cashless).toBe(0);
+  });
+
+  it("списання зменшує ту половину, якою платили", () => {
+    const moves = [
+      sm({ amount: 1000, payment_method: "cash" }),
+      sm({
+        amount: 300,
+        from_type: "safe",
+        from_id: "safe-1",
+        to_type: "external",
+        to_id: null,
+        payment_method: "cash",
+      }),
+    ];
+    expect(safeHalfDrift(moves, [{ ...SAFE, balance_cash: 700 }])).toEqual([]);
+  });
+
+  it("рухи чужих сейфів не впливають", () => {
+    const moves = [sm({ amount: 400, to_id: "safe-2" })];
+    const drift = safeHalfDrift(moves, [SAFE]);
+    expect(drift).toEqual([]);
+  });
+
+  it("повертає тільки розбіжні сейфи, а не всі підряд", () => {
+    const moves = [sm({ amount: 100, to_id: "safe-1" }), sm({ amount: 100, to_id: "safe-2" })];
+    const drift = safeHalfDrift(moves, [
+      { id: "safe-1", name: "Growth", balance_cash: 100, balance_cashless: 0 },
+      { id: "safe-2", name: "OPEX", balance_cash: 999, balance_cashless: 0 },
+    ]);
+    expect(drift.map((d) => d.name)).toEqual(["OPEX"]);
   });
 });
