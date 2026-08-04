@@ -82,6 +82,16 @@ export interface CategoryProfit {
   profit: number;
   /** Цілі відсотки. Від'ємні, якщо продано нижче собівартості. */
   margin: number;
+  /**
+   * Скільки одиниць продано. Для товарів — сума `quantity`, для ремонтів —
+   * кількість зданих ремонтів.
+   *
+   * Досі `quantity` жило в цьому модулі лише як множник собівартості, тож на
+   * питання «чого продали найбільше» відповіді не було взагалі: усі екрани
+   * показували тільки гривні. Два аксесуари по 600 ₴ і двадцять по 60 ₴
+   * виглядали однаково.
+   */
+  units: number;
 }
 
 export interface ProfitResult {
@@ -89,6 +99,8 @@ export interface ProfitResult {
   cost: number;
   profit: number;
   margin: number;
+  /** Сума `units` по категоріях. */
+  units: number;
   byCategory: CategoryProfit[];
 }
 
@@ -117,12 +129,24 @@ export function itemCost(
   item: ProfitSaleItem,
   devices: Map<string, ProfitDeviceCost>,
 ): number {
-  const qty = item.quantity == null ? 1 : num(item.quantity);
+  const qty = itemUnits(item);
   if (item.item_type === "device" && item.item_id) {
     const dev = devices.get(item.item_id);
     if (dev) return (num(dev.cost_price) + num(dev.repair_cost)) * qty;
   }
   return num(item.unit_cost) * qty;
+}
+
+/**
+ * Скільки одиниць у позиції чека.
+ *
+ * Та сама нормалізація, що в `itemCost`: `null` означає одну штуку, а не нуль.
+ * Винесено в окрему функцію саме тому, що обидві мусять трактувати кількість
+ * однаково — інакше собівартість рахувалась би на одну кількість, а штуки на
+ * іншу, і маржа на одиницю поїхала б.
+ */
+export function itemUnits(item: ProfitSaleItem): number {
+  return item.quantity == null ? 1 : num(item.quantity);
 }
 
 function toCategory(itemType: string): ProfitCategory | null {
@@ -215,8 +239,8 @@ export function computeProfit(
   devices: Map<string, ProfitDeviceCost>,
   repairs: ProfitRepair[],
 ): ProfitResult {
-  const acc = new Map<ProfitCategory, { revenue: number; cost: number }>(
-    PROFIT_CATEGORIES.map((c) => [c, { revenue: 0, cost: 0 }]),
+  const acc = new Map<ProfitCategory, { revenue: number; cost: number; units: number }>(
+    PROFIT_CATEGORIES.map((c) => [c, { revenue: 0, cost: 0, units: 0 }]),
   );
 
   for (const sale of sales) {
@@ -227,6 +251,7 @@ export function computeProfit(
       const bucket = acc.get(cat)!;
       bucket.revenue += revenues[i];
       bucket.cost += itemCost(item, devices);
+      bucket.units += itemUnits(item);
     });
   }
 
@@ -234,19 +259,115 @@ export function computeProfit(
   for (const r of repairs) {
     repairBucket.revenue += num(r.price);
     repairBucket.cost += num(r.cost) + num(r.external_sc_cost);
+    /* Ремонт — це одна одиниця, навіть безкоштовний (гарантійний). Він забрав
+       час і деталі, тож у «скільки ми зробили» входить. Це навмисно не те
+       саме, що `countOperations` у `day-report.ts`, яка рахує ЧЕКИ і нульові
+       ремонти виключає: там питання «скільки разів пробили касу». */
+    repairBucket.units += 1;
   }
 
   const byCategory: CategoryProfit[] = PROFIT_CATEGORIES.map((category) => {
-    const { revenue, cost } = acc.get(category)!;
+    const { revenue, cost, units } = acc.get(category)!;
     const profit = revenue - cost;
-    return { category, revenue, cost, profit, margin: margin(revenue, profit) };
+    return { category, revenue, cost, profit, margin: margin(revenue, profit), units };
   });
 
   const revenue = byCategory.reduce((s, c) => s + c.revenue, 0);
   const cost = byCategory.reduce((s, c) => s + c.cost, 0);
+  const units = byCategory.reduce((s, c) => s + c.units, 0);
   const profit = revenue - cost;
 
-  return { revenue, cost, profit, margin: margin(revenue, profit), byCategory };
+  return { revenue, cost, profit, margin: margin(revenue, profit), units, byCategory };
+}
+
+export interface SkuLine {
+  /** `${item_type}:${item_id}` — стабільний ключ для React і для сортування. */
+  key: string;
+  itemType: ProfitCategory;
+  itemId: string | null;
+  /** Назва на момент читання; `null`, якщо товар видалено з каталогу. */
+  name: string | null;
+  units: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  /** У скількох чеках зустрічалась позиція. Не те саме, що `units`. */
+  receipts: number;
+}
+
+export type SkuSort = "units" | "revenue" | "profit";
+
+/**
+ * Позиції за період: скільки штук, на скільки грошей, з якою маржею.
+ *
+ * Рахується з тих самих `allocateSaleRevenue` і `itemCost`, що й
+ * `computeProfit`, а не окремою арифметикою. Це не стиль, а гарантія: сума
+ * `revenue` по всіх рядках дорівнює `computeProfit(...).revenue` за побудовою,
+ * тож таблиця Івана і графік Віктора не можуть показати різні числа. Тест на
+ * цю тотожність обов'язковий — без нього гарантія тримається на чесному слові.
+ *
+ * Ремонти сюди не входять: у них немає позиції каталогу, і рядок «ремонт»
+ * серед SKU був би одним величезним стовпчиком без сенсу. Вони окремою
+ * категорією в `computeProfit`.
+ *
+ * @param names `item_id → назва`. Чого немає — лишається `null`: п'ять позицій
+ *   у базі вказують на видалені аксесуари, і вигадувати їм назву гірше, ніж
+ *   чесно показати «товар видалено».
+ */
+export function topSellers(
+  sales: ProfitSale[],
+  devices: Map<string, ProfitDeviceCost>,
+  names?: Map<string, string>,
+  sort: SkuSort = "units",
+): SkuLine[] {
+  const acc = new Map<
+    string,
+    { itemType: ProfitCategory; itemId: string | null; units: number; revenue: number; cost: number; receipts: number }
+  >();
+
+  for (const sale of sales) {
+    const revenues = allocateSaleRevenue(sale.items, sale.total_amount);
+    const seenInThisReceipt = new Set<string>();
+
+    sale.items.forEach((item, i) => {
+      const cat = toCategory(item.item_type);
+      if (!cat) return;
+      const key = `${item.item_type}:${item.item_id ?? "unknown"}`;
+      const cur =
+        acc.get(key) ??
+        { itemType: cat, itemId: item.item_id, units: 0, revenue: 0, cost: 0, receipts: 0 };
+
+      cur.units += itemUnits(item);
+      cur.revenue += revenues[i];
+      cur.cost += itemCost(item, devices);
+      // Одна позиція двічі в одному чеку — це один чек, а не два.
+      if (!seenInThisReceipt.has(key)) {
+        cur.receipts += 1;
+        seenInThisReceipt.add(key);
+      }
+      acc.set(key, cur);
+    });
+  }
+
+  const lines: SkuLine[] = [...acc.entries()].map(([key, v]) => {
+    const profit = v.revenue - v.cost;
+    return {
+      key,
+      itemType: v.itemType,
+      itemId: v.itemId,
+      name: v.itemId ? names?.get(v.itemId) ?? null : null,
+      units: v.units,
+      revenue: v.revenue,
+      cost: v.cost,
+      profit,
+      margin: margin(v.revenue, profit),
+      receipts: v.receipts,
+    };
+  });
+
+  // Тайбрейк по ключу, щоб порядок не стрибав між рендерами при рівних числах.
+  return lines.sort((a, b) => (b[sort] - a[sort]) || a.key.localeCompare(b.key));
 }
 
 // ─── Діапазони ──────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import {
   deltaPct,
   toDatedRepairs,
   allocateSaleRevenue,
+  topSellers,
   type ProfitSale,
   type ProfitSaleItem,
   type ProfitDeviceCost,
@@ -732,5 +733,136 @@ describe("allocateSaleRevenue (публічний)", () => {
   it("без знижки віддає позиції як є", () => {
     const items = [item({ total_price: 100 }), item({ total_price: 250 })];
     expect(allocateSaleRevenue(items, 350)).toEqual([100, 250]);
+  });
+});
+
+/* Штуки й позиції.
+
+   `units` існує тому, що на питання «чого продали найбільше» відповіді не було:
+   всі екрани показували гривні, тож два аксесуари по 600 ₴ і двадцять по 60 ₴
+   виглядали однаково. */
+describe("units", () => {
+  it("рахує кількість, а не рядки чека", () => {
+    const r = computeProfit([sale([item({ quantity: 3, total_price: 300, unit_cost: 50 })])], DEV, []);
+    expect(r.byCategory.find((c) => c.category === "accessory")!.units).toBe(3);
+    expect(r.units).toBe(3);
+  });
+
+  it("null у кількості це одна штука, а не нуль", () => {
+    const dirty = { ...item(), quantity: null } as unknown as ProfitSaleItem;
+    const r = computeProfit([sale([dirty])], DEV, []);
+    expect(r.units).toBe(1);
+  });
+
+  it("кількість для штук і для собівартості одна й та сама", () => {
+    const r = computeProfit([sale([item({ quantity: 3, total_price: 300, unit_cost: 50 })])], DEV, []);
+    const acc = r.byCategory.find((c) => c.category === "accessory")!;
+    // 3 штуки × 50 = 150. Якби штуки й собівартість рахувались по-різному,
+    // маржа на одиницю поїхала б і ніхто б цього не помітив.
+    expect(acc.cost).toBe(150);
+    expect(acc.units).toBe(3);
+  });
+
+  it("ремонт це одна одиниця, навіть безкоштовний", () => {
+    const r = computeProfit([], DEV, [
+      { price: 0, cost: 200, external_sc_cost: 0 },
+      { price: 700, cost: 100, external_sc_cost: 0 },
+    ]);
+    expect(r.byCategory.find((c) => c.category === "repair")!.units).toBe(2);
+  });
+
+  it("units сходиться із сумою по категоріях", () => {
+    const r = computeProfit(
+      [
+        sale([
+          item({ item_type: "accessory", quantity: 2, total_price: 400 }),
+          item({ item_type: "service", item_id: "srv-1", quantity: 1, total_price: 600 }),
+        ]),
+      ],
+      DEV,
+      [{ price: 500, cost: 0, external_sc_cost: 0 }],
+    );
+    expect(r.units).toBe(r.byCategory.reduce((s, c) => s + c.units, 0));
+  });
+});
+
+describe("topSellers", () => {
+  const many = [
+    sale([
+      item({ item_id: "a", quantity: 2, total_price: 400, unit_cost: 100 }),
+      item({ item_id: "b", quantity: 1, total_price: 600, unit_cost: 500 }),
+    ]),
+    sale([item({ item_id: "a", quantity: 1, total_price: 400, unit_cost: 100 })]),
+  ];
+
+  /* Головний тест усього блоку. Якщо він падає — таблиця Івана і графік
+     Віктора покажуть різні числа з тих самих даних, а це саме те, через що
+     довелось видалити сторінку «Звіти» 30.07. */
+  it("сума виторгу по позиціях дорівнює виторгу P&L", () => {
+    const lines = topSellers(many, DEV);
+    const total = computeProfit(many, DEV, []);
+    expect(lines.reduce((s, l) => s + l.revenue, 0)).toBe(total.revenue);
+    expect(lines.reduce((s, l) => s + l.cost, 0)).toBe(total.cost);
+    expect(lines.reduce((s, l) => s + l.units, 0)).toBe(total.units);
+  });
+
+  it("тотожність виторгу тримається і зі знижкою", () => {
+    // Позиції на 1 444, у касу зайшло 1 300 — знижка 144 розкидана Гамільтоном.
+    const discounted = [
+      sale(
+        [
+          item({ item_id: "a", quantity: 1, total_price: 1144, unit_cost: 100 }),
+          item({ item_id: "b", quantity: 1, total_price: 300, unit_cost: 50 }),
+        ],
+        1300,
+      ),
+    ];
+    expect(topSellers(discounted, DEV).reduce((s, l) => s + l.revenue, 0)).toBe(1300);
+  });
+
+  it("склеює ту саму позицію з різних чеків", () => {
+    const a = topSellers(many, DEV).find((l) => l.key === "accessory:a")!;
+    expect(a.units).toBe(3);
+    expect(a.receipts).toBe(2);
+  });
+
+  it("receipts рахує чеки, а не рядки", () => {
+    const twice = [
+      sale([
+        item({ item_id: "a", quantity: 1, total_price: 100 }),
+        item({ item_id: "a", quantity: 1, total_price: 100 }),
+      ]),
+    ];
+    const a = topSellers(twice, DEV)[0];
+    expect(a.units).toBe(2);
+    expect(a.receipts).toBe(1);
+  });
+
+  it("сортування за штуками й за прибутком дає різний порядок", () => {
+    // a: 3 шт, прибуток 800−300=500. c: 1 шт, прибуток 900−100=800.
+    const mixed = [
+      ...many,
+      sale([item({ item_id: "c", quantity: 1, total_price: 900, unit_cost: 100 })]),
+    ];
+    expect(topSellers(mixed, DEV, undefined, "units")[0].key).toBe("accessory:a");
+    expect(topSellers(mixed, DEV, undefined, "profit")[0].key).toBe("accessory:c");
+  });
+
+  it("видалений товар лишається без назви, а не з вигаданою", () => {
+    const lines = topSellers(many, DEV, new Map([["a", "Скло Remax"]]));
+    expect(lines.find((l) => l.key === "accessory:a")!.name).toBe("Скло Remax");
+    expect(lines.find((l) => l.key === "accessory:b")!.name).toBeNull();
+  });
+
+  it("собівартість девайса береться з devices, а не з рядка продажу", () => {
+    const s = [
+      sale([item({ item_type: "device", item_id: "tecno-8p", quantity: 1, total_price: 3000, unit_cost: 600 })]),
+    ];
+    // DEV: tecno-8p = 600 + 950 = 1550, а не 600 з рядка продажу.
+    expect(topSellers(s, DEV)[0].cost).toBe(1550);
+  });
+
+  it("порожній період не падає", () => {
+    expect(topSellers([], DEV)).toEqual([]);
   });
 });
