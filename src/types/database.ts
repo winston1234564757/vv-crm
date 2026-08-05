@@ -51,11 +51,13 @@ export type Database = {
           name: string
           photo_urls: string[] | null
           price: number
+          purchase_ordered_at: string | null
           sku: string | null
           source: Database["public"]["Enums"]["device_source"] | null
           status: string
           stock: number
           supplier_id: string | null
+          supplier_sku: string | null
           type: string
           updated_at: string
           warehouse_location: string | null
@@ -72,11 +74,13 @@ export type Database = {
           name: string
           photo_urls?: string[] | null
           price?: number
+          purchase_ordered_at?: string | null
           sku?: string | null
           source?: Database["public"]["Enums"]["device_source"] | null
           status?: string
           stock?: number
           supplier_id?: string | null
+          supplier_sku?: string | null
           type: string
           updated_at?: string
           warehouse_location?: string | null
@@ -93,11 +97,13 @@ export type Database = {
           name?: string
           photo_urls?: string[] | null
           price?: number
+          purchase_ordered_at?: string | null
           sku?: string | null
           source?: Database["public"]["Enums"]["device_source"] | null
           status?: string
           stock?: number
           supplier_id?: string | null
+          supplier_sku?: string | null
           type?: string
           updated_at?: string
           warehouse_location?: string | null

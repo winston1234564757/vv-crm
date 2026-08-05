@@ -129,6 +129,18 @@ export interface RepairPartLine {
   unitPrice: number;
 }
 
+/**
+ * Послуга/робота, додана через `repair_services`.
+ *
+ * На відміну від запчастин, послуги вже мають конкретну назву й ціну —
+ * вони потрапляють у чек як окремі рядки замість загального «Ремонтні роботи».
+ */
+export interface RepairServiceLine {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 /** Рядок таблиці «ДЕТАЛІ ТА РОБОТИ» у формі, яку чекає чек. */
 export interface RepairBreakdownLine {
   name: string;
@@ -142,27 +154,45 @@ export interface RepairBreakdownLine {
  * Порожній результат означає «таблиці не буде» — чек друкує один рядок
  * «до сплати». Так виходить у двох випадках, і обидва навмисні:
  *
- * 1. Деталей не списували. Розшифровувати 500 ₴ у єдиний рядок на 500 ₴ немає
- *    чого. Раніше цей рядок ще й називався текстом виконаних робіт, тож той
- *    самий опис друкувався двічі поспіль — під «ВИКОНАНІ РОБОТИ» і в таблиці.
- * 2. Деталі коштують для клієнта більше за ціну ремонту. Звести таблицю
- *    неможливо, а «РАЗОМ» у ній розійшлося б із сумою, яку клієнт заплатив.
+ * 1. Ні деталей, ні послуг не списували. Розшифровувати 500 ₴ у єдиний рядок
+ *    на 500 ₴ немає чого. Раніше цей рядок ще й називався текстом виконаних
+ *    робіт, тож той самий опис друкувався двічі поспіль — під «ВИКОНАНІ
+ *    РОБОТИ» і в таблиці.
+ * 2. Деталі + послуги коштують для клієнта більше за ціну ремонту. Звести
+ *    таблицю неможливо, а «РАЗОМ» у ній розійшлося б із сумою, яку клієнт
+ *    заплатив.
  *
- * Роботи — це залишок ціни після цін деталей, тому сума рядків завжди дорівнює
- * ціні ремонту.
+ * Якщо `services` передано — кожна послуга виходить окремим рядком замість
+ * загального «Ремонтні роботи». Якщо послуг немає — стара поведінка: залишок
+ * ціни після деталей іде рядком «Ремонтні роботи».
+ *
+ * Сума всіх рядків завжди дорівнює ціні ремонту.
  */
 export function composeRepairBreakdown(
   price: number,
   parts: RepairPartLine[],
+  services: RepairServiceLine[] = [],
 ): RepairBreakdownLine[] {
-  if (parts.length === 0) return [];
+  if (parts.length === 0 && services.length === 0) return [];
 
   const partsTotal = parts.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0);
-  const labor = price - partsTotal;
+  const servicesTotal = services.reduce((sum, s) => sum + s.unitPrice * s.quantity, 0);
+  const labor = price - partsTotal - servicesTotal;
   if (labor < 0) return [];
 
   const lines: RepairBreakdownLine[] = [];
-  if (labor > 0) lines.push({ name: "Ремонтні роботи", quantity: 1, unit_price: labor });
+
+  // Іменовані послуги (з repair_services) — рядок на кожну.
+  // Якщо послуг немає, залишок ціни друкується як «Ремонтні роботи».
+  if (services.length > 0) {
+    for (const s of services) {
+      if (s.unitPrice <= 0) continue;
+      lines.push({ name: s.name, quantity: s.quantity, unit_price: s.unitPrice });
+    }
+  } else if (labor > 0) {
+    lines.push({ name: "Ремонтні роботи", quantity: 1, unit_price: labor });
+  }
+
   for (const p of parts) {
     if (p.unitPrice <= 0) continue;
     lines.push({

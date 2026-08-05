@@ -10,7 +10,7 @@ import {
 } from "./icons";
 import { createClient } from "@/lib/supabase/client";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
-import { composeRepairBreakdown } from "@/lib/printer/receipt-content";
+import { composeRepairBreakdown, type RepairServiceLine } from "@/lib/printer/receipt-content";
 import { addPartToRepairAction, removePartFromRepairAction, addServiceToRepairAction, removeServiceFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
 import { InlineError } from "@/components/ui/InlineError";
 import { parseError } from "@/lib/utils/errors";
@@ -484,6 +484,13 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
          для них у чек іде собівартість, як було раніше. */
       unitPrice: p.unit_price || p.unit_cost,
     })),
+    allocatedServices
+      .filter((s): s is AllocatedService & { price: number } => s.price > 0)
+      .map((s): RepairServiceLine => ({
+        name: s.name,
+        quantity: s.quantity,
+        unitPrice: s.price,
+      })),
   );
 
   return (

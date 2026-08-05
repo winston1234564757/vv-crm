@@ -26,10 +26,14 @@ type AccessoryRow = {
   barcode?: string | null;
   warehouse_location?: string | null;
   photo_urls?: string[] | null;
+  supplier_sku?: string | null;
+  purchase_ordered_at?: string | null;
   created_at?: string | null;
 };
 
-type SortMode = "name" | "date";
+type SortCol = "name" | "type" | "price" | "cost_price" | "stock" | "min_stock" | "status" | "date";
+type SortDir = "asc" | "desc";
+type SortState = { col: SortCol; dir: SortDir };
 
 /**
  * День приходу партії. Групуємо саме за днем, а не за міткою часу: одна
@@ -54,10 +58,18 @@ const TYPE_FILTERS = ["all", ...Object.keys(accessoryType)];
 export function AccessoriesTable({ accessories, sales = [] }: { accessories: AccessoryRow[]; sales?: SaleWithDetails[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  const [sort, setSort] = useState<SortMode>("name");
+  const [sort, setSort] = useState<SortState>({ col: "name", dir: "asc" });
   const [selectedAccessory, setSelectedAccessory] = useState<AccessoryRow | null>(null);
   const [isEditingAccessory, setIsEditingAccessory] = useState(false);
   const [error, setError] = useState("");
+
+  function toggleSort(col: SortCol) {
+    setSort((prev) =>
+      prev.col === col
+        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { col, dir: "asc" }
+    );
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("Видалити цей аксесуар?")) return;
@@ -71,15 +83,28 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
     return a.name.toLowerCase().includes(query.toLowerCase());
   });
 
-  /* Копія перед сортуванням: `filtered` походить від пропа, а `sort` мутує
-     масив на місці й переставив би рядки в батьківському наборі. */
-  const sorted = [...filtered].sort((a, b) =>
-    sort === "date"
-      ? intakeDay(b).localeCompare(intakeDay(a)) || a.name.localeCompare(b.name)
-      : a.name.localeCompare(b.name),
-  );
+  /* Сортування по обраній колонці */
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    switch (sort.col) {
+      case "name":       return dir * a.name.localeCompare(b.name);
+      case "type":       return dir * a.type.localeCompare(b.type);
+      case "price":      return dir * (a.price - b.price);
+      case "cost_price": return dir * (a.cost_price - b.cost_price);
+      case "stock":      return dir * (a.stock - b.stock);
+      case "min_stock":  return dir * (a.min_stock - b.min_stock);
+      case "status": {
+        // 0=відсутні, 1=мало, 2=є
+        const rank = (x: AccessoryRow) => x.stock === 0 ? 0 : x.stock <= x.min_stock ? 1 : 2;
+        return dir * (rank(a) - rank(b));
+      }
+      case "date":
+        return dir * (intakeDay(b).localeCompare(intakeDay(a)) || a.name.localeCompare(b.name));
+      default: return 0;
+    }
+  });
 
-  const pager = usePagination(sorted, { resetKey: `${query}|${filter}|${sort}` });
+  const pager = usePagination(sorted, { resetKey: `${query}|${filter}|${sort.col}|${sort.dir}` });
 
   /* Підсумки рахуємо по всьому відфільтрованому набору, а не по сторінці:
      партія майже завжди більша за сторінку, і «12 позицій» замість «41»
@@ -94,11 +119,9 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
     batchTotals.set(day, t);
   }
 
-  /* Перший рядок кожного дня на поточній сторінці. Заголовок ставимо саме
-     тут, а не групуванням списку: пагінація ріже набір, і група, розірвана
-     між сторінками, отримає підзаголовок на кожній. */
+  /* Групування по даті — активне лише коли sort.col === "date" */
   const dayHeadIds = new Set<string>();
-  if (sort === "date") {
+  if (sort.col === "date") {
     let prev: string | null = null;
     for (const a of pager.pageItems) {
       const day = intakeDay(a);
@@ -118,6 +141,24 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
           </span>
         )}
       </div>
+    );
+  }
+
+  /* Компонент-заголовок колонки з індикатором сортування */
+  function SortTh({ col, label, className = "" }: { col: SortCol; label: string; className?: string }) {
+    const active = sort.col === col;
+    return (
+      <th
+        className={`pb-2 pr-4 select-none cursor-pointer group ${className}`}
+        onClick={() => toggleSort(col)}
+      >
+        <span className="inline-flex items-center gap-1 transition-colors group-hover:text-text-primary">
+          {label}
+          <span className={`text-[10px] transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-40"}`}>
+            {active ? (sort.dir === "asc" ? "↑" : "↓") : "↕"}
+          </span>
+        </span>
+      </th>
     );
   }
 
@@ -146,28 +187,6 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs text-text-secondary">Порядок:</span>
-        {([
-          { key: "name", label: "За назвою" },
-          { key: "date", label: "За датою приходу" },
-        ] as const).map((o) => (
-          <button
-            key={o.key}
-            onClick={() => setSort(o.key)}
-            aria-pressed={sort === o.key}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${sort === o.key ? "bg-violet text-white" : "bg-violet/5 text-text-secondary hover:bg-violet/10 hover:text-text-primary"}`}
-          >
-            {o.label}
-          </button>
-        ))}
-        {sort === "date" && (
-          <span className="text-[11px] text-text-muted">
-            новіші зверху; позиції, яким лише доливали кількість, лишаються в даті першого приходу
-          </span>
-        )}
       </div>
 
       <div className="mt-4">
@@ -259,27 +278,28 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-iris/10 text-left text-xs font-medium text-text-secondary">
-                <th className="pb-2 pr-4">Назва</th>
-                <th className="pb-2 pr-4">Тип</th>
-                <th className="pb-2 pr-4 text-right">Ціна</th>
-                <th className="pb-2 pr-4 text-right">Собівартість</th>
-                <th className="pb-2 pr-4 text-right">Запас</th>
-                <th className="pb-2 pr-4 text-right">Мін.</th>
-                <th className="pb-2 pr-4 text-right">Статус</th>
+                <SortTh col="name"       label="Назва" />
+                <SortTh col="type"       label="Тип" />
+                <SortTh col="price"      label="Ціна"         className="text-right" />
+                <SortTh col="cost_price" label="Собівартість" className="text-right" />
+                <SortTh col="stock"      label="Запас"        className="text-right" />
+                <SortTh col="min_stock"  label="Мін."         className="text-right" />
+                <SortTh col="status"     label="Статус"       className="text-right" />
+                <SortTh col="date"       label="Дата"         className="text-right" />
                 <th className="pb-2 text-right">Дії</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
+                  <td colSpan={9} className="py-12 text-center text-sm text-text-secondary">Нічого не знайдено</td>
                 </tr>
               ) : (
                 pager.pageItems.map((a) => (
                   <Fragment key={a.id}>
                   {dayHeadIds.has(a.id) && (
                     <tr>
-                      <td colSpan={8} className="pt-5 pb-2">
+                      <td colSpan={9} className="pt-5 pb-2">
                         <BatchHeading day={intakeDay(a)} />
                       </td>
                     </tr>
@@ -306,6 +326,9 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                       ) : (
                         <span className="rounded-lg px-2.5 py-0.5 text-[11px] font-medium" style={{ background: "color-mix(in oklch, var(--color-cyan) 18%, transparent)", color: "var(--color-cyan)" }}>{a.stock} шт</span>
                       )}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-text-muted text-xs">
+                      {a.created_at ? intakeLabel(intakeDay(a)) : "—"}
                     </td>
                     <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">

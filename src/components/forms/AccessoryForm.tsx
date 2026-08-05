@@ -18,7 +18,7 @@ export function AccessoryForm({
   safes = []
 }: { 
   onSuccess: () => void; 
-  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null };
+  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; min_stock?: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null; supplier_sku?: string | null };
   safes?: Safe[];
 }) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
@@ -77,6 +77,21 @@ export function AccessoryForm({
         <Input label="Гарантія (міс)" name="warranty_months" type="number" required placeholder="6" defaultValue={accessory?.warranty_months?.toString() ?? "6"} />
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Мінімальний залишок (шт)"
+          name="min_stock"
+          type="number"
+          placeholder="3"
+          defaultValue={accessory?.min_stock?.toString() ?? "3"}
+        />
+        <div className="flex items-end pb-0.5">
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Аксесуар потрапить в список закупівлі коли залишок ≤ цього значення
+          </p>
+        </div>
+      </div>
+
       <div>
         <label className="mb-1.5 block text-xs font-medium text-text-secondary">Опис (опціонально)</label>
         <textarea
@@ -118,6 +133,7 @@ export function AccessoryForm({
             </select>
           </div>
           <Input label="Штрих-код (EAN)" name="barcode" placeholder="4820000000000" defaultValue={accessory?.barcode ?? ""} />
+          <Input label="SKU постачальника" name="supplier_sku" placeholder="00000070503_1" defaultValue={accessory?.supplier_sku ?? ""} />
           <Input label="Розташування на складі" name="warehouse_location" placeholder="Стелаж Б, полиця 1" defaultValue={accessory?.warehouse_location ?? ""} />
         </div>
 

@@ -32,6 +32,8 @@ const accessorySchema = z.object({
   source: z.string().optional().default("supplier"),
   barcode: z.string().nullable().optional(),
   warehouse_location: z.string().nullable().optional(),
+  supplier_sku: z.string().nullable().optional(),
+  min_stock: z.coerce.number().min(0).optional().default(3),
   photo_urls: z.array(z.string()).optional().default([]),
 });
 
@@ -50,6 +52,8 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       source: formData.get("source") || "supplier",
       barcode: formData.get("barcode") || null,
       warehouse_location: formData.get("warehouse_location") || null,
+      supplier_sku: formData.get("supplier_sku") || null,
+      min_stock: formData.get("min_stock") || "3",
       photo_urls: [], // will be handled after parsing
     };
 
@@ -111,6 +115,8 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       source: parsed.source,
       barcode: parsed.barcode,
       warehouse_location: parsed.warehouse_location,
+      supplier_sku: parsed.supplier_sku ?? null,
+      min_stock: parsed.min_stock,
       photo_urls: parsed.photo_urls,
       status: "active"
     } as AccessoryInsert).select("id").single();
@@ -164,6 +170,8 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       source: formData.get("source") || "supplier",
       barcode: formData.get("barcode") || null,
       warehouse_location: formData.get("warehouse_location") || null,
+      supplier_sku: formData.get("supplier_sku") || null,
+      min_stock: formData.get("min_stock") || "3",
       photo_urls: [], // placeholder
     };
 
@@ -290,6 +298,54 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
     revalidatePath("/admin/accessories");
     revalidatePath("/admin");
     
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/**
+ * Позначає аксесуари як "замовлені" — виставляє purchase_ordered_at = now().
+ * Елемент зникає зі списку закупівлі до моменту реального поповнення stock.
+ */
+export async function markAccessoriesOrdered(ids: string[]): Promise<ActionState> {
+  try {
+    await requireRole(["owner", "manager"]);
+    if (!ids.length) return { success: true };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("accessories")
+      .update({ purchase_ordered_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) throw error;
+
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/**
+ * Знімає позначку "замовлено" — скидає purchase_ordered_at = NULL.
+ * Використовується при ручному очищенні або після реального поповнення складу.
+ */
+export async function clearPurchaseOrder(ids: string[]): Promise<ActionState> {
+  try {
+    await requireRole(["owner", "manager"]);
+    if (!ids.length) return { success: true };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("accessories")
+      .update({ purchase_ordered_at: null })
+      .in("id", ids);
+    if (error) throw error;
+
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
