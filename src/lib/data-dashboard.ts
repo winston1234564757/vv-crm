@@ -25,6 +25,25 @@ import {
 
 export { PARTNER_SHARE };
 
+/**
+ * Вікно, за яким рахується щоденний темп витрат.
+ *
+ * Тридцять днів — компроміс: коротше вікно стрибає від однієї великої покупки,
+ * довше не помічає, що витрати змінились. Магазин молодший за вікно —
+ * `floorAtEpoch` обріже його до епохи, і темп рахуватиметься за фактичними
+ * днями роботи, а не за вигаданими тридцятьма.
+ */
+const OPEX_WINDOW_DAYS = 30;
+
+/**
+ * Витрати, більші за це, у щоденний темп не входять.
+ *
+ * Купівля вітрини за 60 000 ₴ — не щоденна витрата, і розмазувати її по днях
+ * означало б стверджувати, що магазин палить по дві тисячі на добу. Такі
+ * покупки видно окремо в русі грошей і в містку «прибуток → гроші».
+ */
+const OPEX_BURST_CUTOFF = 50000;
+
 export interface OwnerShare {
   id: string;
   name: string;
@@ -97,8 +116,19 @@ export interface DashboardMoney {
   cashOnHand: number;
   /** Картка й перекази: рахунок безготівки плюс безготівкові половини сейфів. */
   cashless: number;
-  runwayDays: number;
+  /**
+   * На скільки днів вистачить сейфа OPEX при поточному темпі витрат.
+   * `null` — витрат за вікном ще не було, тобто рахувати немає з чого.
+   */
+  runwayDays: number | null;
+  /** Середні витрати на день за вікном. Без штучної підлоги: скільки є, стільки й є. */
   dailyOpex: number;
+  /** Залишок сейфа OPEX — саме він ділиться, а не всі гроші магазину. */
+  opexSafeBalance: number;
+  /** Сума витрат, з якої порахований темп. Показується, щоб число можна було перевірити. */
+  opexWindowTotal: number;
+  /** Ширина вікна в днях — друга половина того самого пояснення. */
+  opexWindowDays: number;
   /** Прибуток за поточний місяць — незалежно від обраного пресету. */
   monthProfit: number;
   /** Прибуток за сьогодні — незалежно від обраного пресету. */
@@ -423,24 +453,34 @@ export async function getDashboardMoney(
   const cashOnHand = registerKinds.cash + safesCash;
   const cashTotal = cashOnHand + cashless;
 
-  // OPEX run-rate: 30 повних календарних днів із датасету, без вилучень
-  // прибутку і без одноразових бурстів (> 50k). Раніше це було ковзне вікно
-  // «зараз мінус 30×24 год»; календарні дні узгоджуються з рештою розрахунків
-  // і на оцінці, яка все одно має підлогу 500 ₴/день, різниці не дають.
+  /* OPEX run-rate: 30 повних календарних днів, без вилучень прибутку і без
+     одноразових бурстів (> 50k), які інакше вдавали б щоденні витрати.
+     Вікно календарне, а не ковзне, щоб узгоджуватись із рештою розрахунків.
+
+     ПІДЛОГИ 500 ₴/ДЕНЬ ТУТ БІЛЬШЕ НЕМАЄ, і це не косметика. На реальних даних
+     справжній темп був 342 ₴/день, а підлога піднімала його до 500 — тобто
+     завищувала витрати на 46%. Запас через це показувався як 9 днів замість
+     14 і перетинав поріг попередження: константа сама вигадувала тривогу,
+     якої дані не підтверджували. Показник, що вигадує тривогу, гірший за його
+     відсутність — йому перестають вірити рівно тоді, коли він знадобиться.
+
+     Витрат немає взагалі — `dailyOpex = 0` і запас нерахований (`null`).
+     Ділити на нуль, підставляючи вигадане число, — це те саме, від чого щойно
+     позбулись. */
   const opexFrom = new Date(todayRange.start);
-  opexFrom.setDate(opexFrom.getDate() - 29);
+  opexFrom.setDate(opexFrom.getDate() - (OPEX_WINDOW_DAYS - 1));
   const opexWindow = floorAtEpoch(opexFrom, todayRange.end, epoch);
   const regularOpexTotal = ds.expenses
     .filter((e) => {
       const t = new Date(e.created_at).getTime();
       return t >= opexWindow.start.getTime() && t < opexWindow.end.getTime();
     })
-    .filter((e) => e.amount < 50000 && e.paid_from_safe_id !== netProfitSafeId)
+    .filter((e) => e.amount < OPEX_BURST_CUTOFF && e.paid_from_safe_id !== netProfitSafeId)
     .reduce((s, e) => s + e.amount, 0);
-  const dailyOpex = Math.max(Math.round(regularOpexTotal / 30), 500);
+  const dailyOpex = Math.round(regularOpexTotal / OPEX_WINDOW_DAYS);
 
   const opexSafeBalance = (safesRes.data ?? []).find((s) => s.type === "opex")?.balance ?? 0;
-  const runwayDays = Math.round(opexSafeBalance / dailyOpex);
+  const runwayDays = dailyOpex > 0 ? Math.round(opexSafeBalance / dailyOpex) : null;
 
   const sources = [
     ...(safesRes.data ?? []).map((s) => ({
@@ -540,6 +580,9 @@ export async function getDashboardMoney(
     cashless,
     runwayDays,
     dailyOpex,
+    opexSafeBalance,
+    opexWindowTotal: regularOpexTotal,
+    opexWindowDays: OPEX_WINDOW_DAYS,
     monthProfit: month.profit.profit,
     todayProfit: today.profit.profit,
     monthExpenses: month.expenses,

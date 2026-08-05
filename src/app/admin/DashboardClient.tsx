@@ -118,6 +118,9 @@ export function DashboardClient({
               cashless={money.cashless}
               runwayDays={money.runwayDays}
               dailyOpex={money.dailyOpex}
+              opexSafeBalance={money.opexSafeBalance}
+              opexWindowTotal={money.opexWindowTotal}
+              opexWindowDays={money.opexWindowDays}
             />
 
             {/*

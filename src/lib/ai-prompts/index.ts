@@ -120,7 +120,8 @@ export function buildInsightsPrompt(data: {
   monthlyTarget: number | null;
   monthProfit: number;
   monthExpenses: number;
-  opexRunwayDays: number;
+  /** `null` — витрат ще не було, запас рахувати немає з чого. */
+  opexRunwayDays: number | null;
   dailyOpexRunRate: number;
   attentionText: string;
 }): string {
@@ -140,7 +141,11 @@ ${data.rangeLabel}: виторг ${data.revenue} ₴, прибуток ${data.pr
 По категоріях: ${data.byCategoryText}.
 Цілі по прибутку: ${targets}.
 Місяць: прибуток ${data.monthProfit} ₴, витрати ${data.monthExpenses} ₴, чистий ${data.monthProfit - data.monthExpenses} ₴.
-OPEX: ${data.opexRunwayDays} днів резерву (${data.dailyOpexRunRate} ₴/день).
+OPEX: ${
+    data.opexRunwayDays === null
+      ? "витрат за вікном не було, темп невідомий"
+      : `${data.opexRunwayDays} днів резерву (${data.dailyOpexRunRate} ₴/день)`
+  }.
 Потребує уваги: ${data.attentionText || "нічого"}.
 
 Поверни ТІЛЬКИ JSON масив (без markdown):
