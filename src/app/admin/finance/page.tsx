@@ -19,9 +19,20 @@ import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
 import { getCashFlow } from "@/lib/data-cashflow";
 import { CashFlowPanel } from "./CashFlowPanel";
+import { getMoneyPicture } from "@/lib/data-bridge";
+import { CashBridgePanel } from "./CashBridgePanel";
+import { NetWorthPanel } from "./NetWorthPanel";
+import { resolveViewMode } from "@/components/ui/ViewToggle";
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   await requirePageRole(MONEY_ROLES);
+
+  const { view } = await searchParams;
+  const viewMode = resolveViewMode(view);
 
   const [
     { cashRegisters, safes, transactions, expenseCategories },
@@ -30,7 +41,8 @@ export default async function FinancePage() {
     sales,
     repairs,
     purchases,
-    cashFlow
+    cashFlow,
+    picture,
   ] = await Promise.all([
     getFinanceData(),
     getFinanceReport(),
@@ -39,6 +51,7 @@ export default async function FinancePage() {
     getRepairs(),
     getPurchases(),
     getCashFlow(),
+    getMoneyPicture(),
   ]);
 
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
@@ -247,6 +260,18 @@ export default async function FinancePage() {
               списком транзакцій: спершу скільки лежить, потім як воно таким
               стало, потім що конкретно рухалось. */}
           <CashFlowPanel report={cashFlow} />
+
+          {/* B3. Міст «прибуток → гроші» і вартість бізнесу.
+              Стоїть після руху грошей і перед списком транзакцій: рух показує,
+              ЩО рухалось, міст — чому зароблене не дорівнює тому, що лишилось.
+              Це два різні питання, і власники ставили саме друге.
+
+              Обидві панелі беруть один об'єкт `picture` і не рахують нічого
+              самі — тому таблиця й графіки не можуть розійтись. */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-6 lg:grid-cols-12">
+            <CashBridgePanel bridge={picture.bridge} mode={viewMode} />
+            <NetWorthPanel worth={picture.worth} mode={viewMode} />
+          </div>
 
           {/* C. Reconciliation & Transactions tables */}
           <div className="space-y-6">
