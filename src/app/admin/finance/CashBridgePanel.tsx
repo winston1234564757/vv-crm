@@ -40,16 +40,12 @@ function scaleOf(bridge: CashBridge): number {
   );
 }
 
-/** Опорні рядки ланцюга не мають своїх операцій — вони підсумки, а не стаття. */
-const TERMINAL_KEYS = new Set(["__profit", "__actual"]);
-
 export function CashBridgePanel({ bridge, mode }: { bridge: CashBridge; mode: ViewMode }) {
   const scale = scaleOf(bridge);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [openLabel, setOpenLabel] = useState("");
 
   const open = (key: string, label: string) => {
-    if (TERMINAL_KEYS.has(key)) return;
     setOpenKey(key);
     setOpenLabel(label);
   };
@@ -123,7 +119,6 @@ function Bar({
   onOpen: (key: string, label: string) => void;
 }) {
   const pct = amount === 0 ? 0 : (Math.abs(amount) / scale) * 100;
-  const clickable = !TERMINAL_KEYS.has(itemKey);
 
   const content = (
     <>
@@ -145,20 +140,16 @@ function Bar({
 
   return (
     <li>
-      {clickable ? (
-        <button
-          type="button"
-          onClick={() => onOpen(itemKey, label)}
-          className={cn(
-            grid,
-            "-mx-2 cursor-pointer rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover",
-          )}
-        >
-          {content}
-        </button>
-      ) : (
-        <div className={grid}>{content}</div>
-      )}
+      <button
+        type="button"
+        onClick={() => onOpen(itemKey, label)}
+        className={cn(
+          grid,
+          "-mx-2 cursor-pointer rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover",
+        )}
+      >
+        {content}
+      </button>
     </li>
   );
 }
@@ -233,7 +224,10 @@ function BridgeTable({
         </tr>
       </thead>
       <tbody>
-        <tr className="border-b border-border">
+        <tr
+          onClick={() => onOpen("__profit", "Прибуток")}
+          className="cursor-pointer border-b border-border transition-colors hover:bg-hover"
+        >
           <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
             Прибуток
           </th>
@@ -261,7 +255,10 @@ function BridgeTable({
           </tr>
         ))}
 
-        <tr>
+        <tr
+          onClick={() => onOpen("__actual", "Приріст грошей")}
+          className="cursor-pointer transition-colors hover:bg-hover"
+        >
           <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
             Приріст грошей
           </th>

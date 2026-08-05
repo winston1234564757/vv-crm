@@ -296,7 +296,12 @@ export default async function FinancePage({
           <div className="grid grid-cols-1 gap-6 md:grid-cols-6 lg:grid-cols-12">
             <CashBridgePanel bridge={picture.bridge} mode={viewMode} />
             <NetWorthPanel worth={picture.worth} mode={viewMode} />
-            <SkuPanel report={sku} mode={viewMode} periodLabel={RANGE_LABELS[preset]} />
+            <SkuPanel
+              report={sku}
+              mode={viewMode}
+              periodLabel={RANGE_LABELS[preset]}
+              preset={preset}
+            />
           </div>
 
           {/* C. Reconciliation & Transactions tables */}

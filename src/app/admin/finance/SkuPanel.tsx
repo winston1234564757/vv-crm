@@ -1,5 +1,10 @@
+"use client";
+
+import { useCallback, useState } from "react";
 import { BentoCell } from "@/components/ui/BentoCell";
 import { Meter } from "@/components/charts/Meter";
+import { DrilldownModal } from "@/components/finance/DrilldownModal";
+import { getSkuSaleRows } from "@/lib/data-drilldown";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_LABELS } from "@/lib/profit";
@@ -24,14 +29,30 @@ export function SkuPanel({
   report,
   mode,
   periodLabel,
+  preset,
 }: {
   report: SkuReport;
   mode: ViewMode;
   /** Підпис періоду. Хардкод «за 30 днів» став би брехнею з появою перемикача. */
   periodLabel: string;
+  /** Той самий пресет, яким порахований звіт — заглиблення мусить взяти те саме вікно. */
+  preset: string;
 }) {
   const lines = report.lines.slice(0, TOP_N);
   const maxUnits = Math.max(...lines.map((l) => l.units), 1);
+
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openLabel, setOpenLabel] = useState("");
+
+  const open = (key: string, label: string | null) => {
+    setOpenKey(key);
+    setOpenLabel(label ?? "Видалений товар");
+  };
+
+  const load = useCallback(
+    () => getSkuSaleRows(openKey ?? "", preset),
+    [openKey, preset],
+  );
 
   return (
     <BentoCell span={12} title="Що продається — у штуках">
@@ -54,23 +75,26 @@ export function SkuPanel({
           {mode === "chart" ? (
             <ul className="space-y-2.5">
               {lines.map((l) => (
-                <li
-                  key={l.key}
-                  className="grid grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-3"
-                >
-                  <span className="truncate text-xs text-ink" title={l.name ?? undefined}>
-                    {l.name ?? <span className="text-faint">Товар видалено</span>}
-                    <span className="ml-1.5 text-[11px] text-faint">
-                      {CATEGORY_LABELS[l.itemType]}
+                <li key={l.key}>
+                  <button
+                    type="button"
+                    onClick={() => open(l.key, l.name)}
+                    className="-mx-2 grid w-full cursor-pointer grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover"
+                  >
+                    <span className="truncate text-left text-xs text-ink" title={l.name ?? undefined}>
+                      {l.name ?? <span className="text-faint">Товар видалено</span>}
+                      <span className="ml-1.5 text-[11px] text-faint">
+                        {CATEGORY_LABELS[l.itemType]}
+                      </span>
                     </span>
-                  </span>
-                  <Meter size="md" value={(l.units / maxUnits) * 100} />
-                  <span className="flex shrink-0 items-baseline gap-3 text-xs">
-                    <span className="w-12 text-right font-semibold tabular text-ink">
-                      {l.units} шт
+                    <Meter size="md" value={(l.units / maxUnits) * 100} />
+                    <span className="flex shrink-0 items-baseline gap-3 text-xs">
+                      <span className="w-12 text-right font-semibold tabular text-ink">
+                        {l.units} шт
+                      </span>
+                      <span className="w-20 text-right tabular text-muted">{uah(l.revenue)}</span>
                     </span>
-                    <span className="w-20 text-right tabular text-muted">{uah(l.revenue)}</span>
-                  </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -104,7 +128,11 @@ export function SkuPanel({
                 </thead>
                 <tbody>
                   {lines.map((l) => (
-                    <tr key={l.key} className="border-b border-border/60">
+                    <tr
+                      key={l.key}
+                      onClick={() => open(l.key, l.name)}
+                      className="cursor-pointer border-b border-border/60 transition-colors hover:bg-hover"
+                    >
                       <th scope="row" className="py-2 pr-3 text-left font-normal text-ink">
                         {l.name ?? <span className="text-faint">Товар видалено</span>}
                       </th>
@@ -141,6 +169,15 @@ export function SkuPanel({
             <p className="mt-3 text-[11px] text-faint">
               Показано {TOP_N} з {report.lines.length} позицій.
             </p>
+          )}
+
+          {openKey !== null && (
+            <DrilldownModal
+              key={openKey}
+              onClose={() => setOpenKey(null)}
+              title={openLabel}
+              load={load}
+            />
           )}
         </>
       )}

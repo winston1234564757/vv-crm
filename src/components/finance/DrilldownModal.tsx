@@ -116,6 +116,16 @@ export function DrilldownModal({
                 </span>
                 <span className="font-semibold tabular text-ink">{uah(data.total)}</span>
               </p>
+
+              {/* Коли підсумок списку не дорівнює числу, з якого відкрили, це
+                  треба сказати прямо: стаття буває різницею двох потоків, а
+                  показати можна лише один. Мовчазна розбіжність підриває довіру
+                  до всієї сторінки сильніше, ніж чесне пояснення. */}
+              {data.reconcile && (
+                <p className="mt-2 rounded-[var(--radius-md)] bg-hover px-3 py-2 text-[11px] leading-relaxed text-muted">
+                  {data.reconcile}
+                </p>
+              )}
             </>
           )}
         </>
