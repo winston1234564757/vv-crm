@@ -25,16 +25,23 @@ import { NetWorthPanel } from "./NetWorthPanel";
 import { resolveViewMode } from "@/components/ui/ViewToggle";
 import { getSkuReport } from "@/lib/data-sku";
 import { SkuPanel } from "./SkuPanel";
+import { isRangePreset, RANGE_LABELS, type RangePreset } from "@/lib/profit";
+import { RangeTabs } from "../RangeTabs";
 
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; range?: string }>;
 }) {
   await requirePageRole(MONEY_ROLES);
 
-  const { view } = await searchParams;
+  const { view, range } = await searchParams;
   const viewMode = resolveViewMode(view);
+  /* `getFinanceReport` завжди приймав пресет, але сторінка кликала його без
+     аргументу — тобто звіт був вічно тридцятиденним, і ніде на екрані про це
+     не було сказано. Найгірше не те, що період не перемикався: те, що цифри
+     виглядали як «за весь час». */
+  const preset: RangePreset = isRangePreset(range) ? range : "30d";
 
   const [
     { cashRegisters, safes, transactions, expenseCategories },
@@ -48,14 +55,14 @@ export default async function FinancePage({
     sku,
   ] = await Promise.all([
     getFinanceData(),
-    getFinanceReport(),
+    getFinanceReport(preset),
     getSettings(),
     getSales(),
     getRepairs(),
     getPurchases(),
     getCashFlow(),
     getMoneyPicture(),
-    getSkuReport(),
+    getSkuReport(preset),
   ]);
 
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
@@ -90,6 +97,7 @@ export default async function FinancePage({
           <p className="mt-0.5 text-sm text-muted">Каси, сейфи, рух грошей і прибуток</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          <RangeTabs preset={preset} />
           <AIFinanceButton />
           {/* Усі сейфи, не лише ЧП: решта потрібна формі під аванс, коли в ЧП
               не вистачило. Джерело частки кнопка відбирає сама. */}
@@ -111,20 +119,30 @@ export default async function FinancePage({
           <div className="card border border-border bg-surface p-6">
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
               <div>
-                <p className="text-xs font-medium text-muted">Чистий операційний результат</p>
+                <p className="text-xs font-medium text-muted">
+                  Чистий операційний результат ·{" "}
+                  <span className="text-faint">{RANGE_LABELS[preset].toLowerCase()}</span>
+                </p>
                 <h2
                   className={`font-display text-3xl font-semibold tabular tracking-tight mt-1 ${report.profit >= 0 ? "text-success" : "text-danger"}`}
                 >
                   {report.profit.toLocaleString()} ₴
                 </h2>
               </div>
+              {/* «Чиста», а не просто «Рентабельність»: тут прибуток ПІСЛЯ
+                  операційних витрат, а на дашборді в розкладі по категоріях
+                  стоїть ВАЛОВА маржа — до них. Обидва числа правильні, але
+                  доти, доки обидва звались «маржа», два сусідні екрани
+                  показували різні відсотки під однією назвою, і різниця
+                  виглядала помилкою. */}
               <div className="text-right">
-                <p className="text-xs font-medium text-muted">Рентабельність</p>
+                <p className="text-xs font-medium text-muted">Чиста рентабельність</p>
                 <p className="font-display text-2xl font-semibold tabular text-ink mt-1">
                   {report.totalSales + report.repairsRevenue > 0
                     ? Math.round((report.profit / (report.totalSales + report.repairsRevenue)) * 100)
                     : 0}%
                 </p>
+                <p className="mt-0.5 text-[11px] text-faint">після витрат</p>
               </div>
             </div>
 
@@ -275,7 +293,7 @@ export default async function FinancePage({
           <div className="grid grid-cols-1 gap-6 md:grid-cols-6 lg:grid-cols-12">
             <CashBridgePanel bridge={picture.bridge} mode={viewMode} />
             <NetWorthPanel worth={picture.worth} mode={viewMode} />
-            <SkuPanel report={sku} mode={viewMode} />
+            <SkuPanel report={sku} mode={viewMode} periodLabel={RANGE_LABELS[preset]} />
           </div>
 
           {/* C. Reconciliation & Transactions tables */}

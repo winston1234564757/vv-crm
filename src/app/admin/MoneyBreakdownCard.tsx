@@ -63,7 +63,14 @@ export function MoneyBreakdownCard({
               <th className="py-2 text-right font-medium">Виторг</th>
               <th className="py-2 text-right font-medium">Собівартість</th>
               <th className="py-2 text-right font-medium">Прибуток</th>
-              <th className="py-2 text-right font-medium">Маржа</th>
+              {/* «Валова» — бо це виторг мінус собівартість, БЕЗ операційних
+                  витрат. На сторінці фінансів поруч стоїть чиста
+                  рентабельність (після витрат), і поки обидві звались просто
+                  «маржа», два екрани показували різні відсотки під однією
+                  назвою. */}
+              <th className="py-2 text-right font-medium" title="Виторг мінус собівартість, без операційних витрат">
+                Валова маржа
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

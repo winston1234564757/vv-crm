@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RANGE_PRESETS, RANGE_LABELS, type RangePreset } from "@/lib/profit";
 import { cn } from "@/lib/utils/cn";
 
@@ -23,12 +23,20 @@ import { cn } from "@/lib/utils/cn";
 export function RangeTabs({ preset }: { preset: RangePreset }) {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
 
   function select(next: RangePreset) {
     if (next === preset) return;
-    startTransition(() => router.replace(`${pathname}?range=${next}`));
+    /* Решта параметрів зберігається. Раніше тут стояло `?range=${next}`, і на
+       дашборді це працювало, бо інших параметрів не було. На сторінці фінансів
+       поруч живе `?view=` (таблиця/графіки), і зміна періоду мовчки скидала б
+       вигляд на дефолтний — Іван, перемкнувши період, щоразу отримував би
+       графіки замість своєї таблиці. */
+    const q = new URLSearchParams(params.toString());
+    q.set("range", next);
+    startTransition(() => router.replace(`${pathname}?${q.toString()}`));
   }
 
   function refresh() {

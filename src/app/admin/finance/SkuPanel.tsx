@@ -19,7 +19,16 @@ import type { SkuReport } from "@/lib/data-sku";
 
 const TOP_N = 8;
 
-export function SkuPanel({ report, mode }: { report: SkuReport; mode: ViewMode }) {
+export function SkuPanel({
+  report,
+  mode,
+  periodLabel,
+}: {
+  report: SkuReport;
+  mode: ViewMode;
+  /** Підпис періоду. Хардкод «за 30 днів» став би брехнею з появою перемикача. */
+  periodLabel: string;
+}) {
   const lines = report.lines.slice(0, TOP_N);
   const maxUnits = Math.max(...lines.map((l) => l.units), 1);
 
@@ -31,8 +40,12 @@ export function SkuPanel({ report, mode }: { report: SkuReport; mode: ViewMode }
         </p>
       ) : (
         <>
+          {/* Період окремим реченням, а не прийменником: підписи бувають різних
+              форм («Сьогодні», «30 днів», «Минулий місяць»), і будь-яка спроба
+              вбудувати їх у фразу ламає відмінок на половині варіантів. */}
           <p className="mb-4 text-xs leading-relaxed text-muted">
-            За 30 днів продано <span className="tabular text-ink">{report.unitsTotal}</span> шт на{" "}
+            Період: <span className="text-ink">{periodLabel.toLowerCase()}</span>. Продано{" "}
+            <span className="tabular text-ink">{report.unitsTotal}</span> шт на{" "}
             <span className="tabular text-ink">{uah(report.revenueTotal)}</span>. Ремонти сюди не
             входять — у них немає позиції каталогу.
           </p>
