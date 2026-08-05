@@ -1,7 +1,12 @@
+"use client";
+
+import { useCallback, useState } from "react";
 import { BentoCell } from "@/components/ui/BentoCell";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import type { ViewMode } from "@/components/ui/view-mode";
 import { Meter } from "@/components/charts/Meter";
+import { DrilldownModal } from "@/components/finance/DrilldownModal";
+import { getBridgeLineRows } from "@/lib/data-drilldown";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import type { CashBridge } from "@/lib/bridge";
@@ -9,16 +14,23 @@ import type { CashBridge } from "@/lib/bridge";
 /**
  * Міст «прибуток → гроші».
  *
- * Питання, на яке жоден екран не відповідав: заробили 25 385 ₴, а грошей
- * додалось 13 300 ₴ — де решта. Відповідь не одна цифра, а ланцюг: частина
- * осіла в товарі, частина пішла на обладнання, частину власники забрали.
+ * Заробили 25 385 ₴, а грошей додалось 13 300 ₴ — питання не в одній цифрі, а
+ * в ланцюгу: частина осіла в товарі, частина пішла на обладнання, частину
+ * власники забрали.
  *
- * Обидва подання читають ОДИН об'єкт `CashBridge`, порахований на сервері.
- * Тут немає жодного обчислення, крім ширини смужки у відсотках — саме тому
- * таблиця й графік не можуть показати різні числа.
+ * ПОЯСНЕННЯ СТАТЕЙ ТУТ БІЛЬШЕ НЕМАЄ. Вони стояли окремою колонкою «ЧОМУ» просто
+ * в таблиці й займали більше місця, ніж самі суми — колонка з грошима навіть
+ * не вміщалась на екран. Таблицю відкривають по числа; пояснення потрібне рівно
+ * тоді, коли стаття незрозуміла, тобто в момент кліку. Там воно й лежить.
+ *
+ * Кожен рядок відкриває список операцій, з яких склалось число. Доти кожна
+ * стаття була кінцевою точкою: цифру видно, перевірити нічим.
+ *
+ * Обидва подання читають ОДИН об'єкт `CashBridge`. Тут немає жодного
+ * обчислення, крім ширини смужки у відсотках — саме тому таблиця й графік не
+ * можуть показати різні числа.
  */
 
-/** Найбільше абсолютне значення в ланцюгу — масштаб для смужок. */
 function scaleOf(bridge: CashBridge): number {
   return Math.max(
     Math.abs(bridge.netProfit),
@@ -28,8 +40,23 @@ function scaleOf(bridge: CashBridge): number {
   );
 }
 
+/** Опорні рядки ланцюга не мають своїх операцій — вони підсумки, а не стаття. */
+const TERMINAL_KEYS = new Set(["__profit", "__actual"]);
+
 export function CashBridgePanel({ bridge, mode }: { bridge: CashBridge; mode: ViewMode }) {
   const scale = scaleOf(bridge);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openLabel, setOpenLabel] = useState("");
+
+  const open = (key: string, label: string) => {
+    if (TERMINAL_KEYS.has(key)) return;
+    setOpenKey(key);
+    setOpenLabel(label);
+  };
+
+  // `useCallback` не косметика: `DrilldownModal` тягне дані в ефекті з `load`
+  // у залежностях, і нова функція на кожен рендер зациклила б запит.
+  const load = useCallback(() => getBridgeLineRows(openKey ?? ""), [openKey]);
 
   return (
     <BentoCell
@@ -37,29 +64,35 @@ export function CashBridgePanel({ bridge, mode }: { bridge: CashBridge; mode: Vi
       title="Куди поділись зароблені гроші"
       action={<ViewToggle mode={mode} />}
     >
-      {/* Явно сказано, що період тут НЕ той, що у перемикачі зверху. Міст
-          рахується від епохи завжди: питання «то де гроші» стосується всього
-          обліку, а не останніх тридцяти днів. Без цього підпису панель
-          виглядала б зламаною — перемикаєш період, а числа стоять. */}
       <p className="mb-4 text-xs leading-relaxed text-muted">
-        Прибуток — це не гроші в касі. Ланцюг показує, де вони осіли.{" "}
+        Прибуток — це не гроші в касі.{" "}
         <span className="text-faint">
-          Рахується від початку обліку, а не за обраний період.
+          Від початку обліку, не за обраний період. Клік по рядку — усі операції.
         </span>
       </p>
 
       {mode === "chart" ? (
-        <BridgeChart bridge={bridge} scale={scale} />
+        <BridgeChart bridge={bridge} scale={scale} onOpen={open} />
       ) : (
-        <BridgeTable bridge={bridge} />
+        <BridgeTable bridge={bridge} onOpen={open} />
       )}
 
       {!bridge.balanced && (
         <p className="mt-3 rounded-[var(--radius-md)] border border-danger/30 bg-danger/5 px-3 py-2 text-[11px] leading-relaxed text-danger">
           Нев&apos;язка {uah(bridge.unexplained)}. Модель не пояснює всю різницю між
-          прибутком і касою — десь є рух, який не потрапив у жоден рядок. Це
-          помилка обліку, і її треба знайти, а не округлити.
+          прибутком і касою — десь є рух, який не потрапив у жоден рядок.
         </p>
+      )}
+
+      {/* `key` — щоб на кожну статтю монтувався свіжий екземпляр: інакше
+          довелось би скидати стан ефектом, а це зайвий каскадний рендер. */}
+      {openKey !== null && (
+        <DrilldownModal
+          key={openKey}
+          onClose={() => setOpenKey(null)}
+          title={openLabel}
+          load={load}
+        />
       )}
     </BentoCell>
   );
@@ -67,9 +100,6 @@ export function CashBridgePanel({ bridge, mode }: { bridge: CashBridge; mode: Vi
 
 /* ── Графіки: водоспад ──────────────────────────────────────────────────── */
 
-/* Роль рядка в ланцюгу → тон смуги. `base` і `total` — опорні рядки (з чого
-   почали, чим скінчили), тож нейтральний і акцентний; проміжні пояснення
-   несуть знак, тож зелений і червоний. */
 const METER_TONE = {
   base: "neutral",
   total: "accent",
@@ -78,28 +108,26 @@ const METER_TONE = {
 } as const;
 
 function Bar({
+  itemKey,
   label,
   amount,
   scale,
   tone,
-  hint,
+  onOpen,
 }: {
+  itemKey: string;
   label: string;
   amount: number;
   scale: number;
   tone: "base" | "plus" | "minus" | "total";
-  hint?: string;
+  onOpen: (key: string, label: string) => void;
 }) {
   const pct = amount === 0 ? 0 : (Math.abs(amount) / scale) * 100;
+  const clickable = !TERMINAL_KEYS.has(itemKey);
 
-  return (
-    <li className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3">
-      <span className="truncate text-xs text-muted" title={hint}>
-        {label}
-      </span>
-      {/* Смужки ростуть від спільної лівої межі, а не від нуля посередині:
-          при восьми рядках центрована вісь дає дві розріджені половини й
-          читається гірше, ніж напрям, заданий кольором і знаком. */}
+  const content = (
+    <>
+      <span className="truncate text-left text-xs text-muted">{label}</span>
       <Meter size="md" value={pct} tone={METER_TONE[tone]} />
       <span
         className={cn(
@@ -110,98 +138,138 @@ function Bar({
         {amount > 0 && (tone === "plus" || tone === "minus") ? "+" : ""}
         {uah(amount)}
       </span>
+    </>
+  );
+
+  const grid = "grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3";
+
+  return (
+    <li>
+      {clickable ? (
+        <button
+          type="button"
+          onClick={() => onOpen(itemKey, label)}
+          className={cn(
+            grid,
+            "-mx-2 cursor-pointer rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover",
+          )}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className={grid}>{content}</div>
+      )}
     </li>
   );
 }
 
-function BridgeChart({ bridge, scale }: { bridge: CashBridge; scale: number }) {
+function BridgeChart({
+  bridge,
+  scale,
+  onOpen,
+}: {
+  bridge: CashBridge;
+  scale: number;
+  onOpen: (key: string, label: string) => void;
+}) {
   return (
-    <ul className="space-y-2">
-      <Bar label="Прибуток" amount={bridge.netProfit} scale={scale} tone="base" />
+    <ul className="space-y-1.5">
+      <Bar
+        itemKey="__profit"
+        label="Прибуток"
+        amount={bridge.netProfit}
+        scale={scale}
+        tone="base"
+        onOpen={onOpen}
+      />
 
       <li aria-hidden className="!mt-3 border-t border-border" />
 
       {bridge.lines.map((l) => (
         <Bar
           key={l.key}
+          itemKey={l.key}
           label={l.label}
           amount={l.amount}
           scale={scale}
           tone={l.amount < 0 ? "minus" : "plus"}
-          hint={l.hint}
+          onOpen={onOpen}
         />
       ))}
 
       <li aria-hidden className="!mt-3 border-t border-border" />
 
-      <Bar label="Приріст грошей" amount={bridge.actual} scale={scale} tone="total" />
+      <Bar
+        itemKey="__actual"
+        label="Приріст грошей"
+        amount={bridge.actual}
+        scale={scale}
+        tone="total"
+        onOpen={onOpen}
+      />
     </ul>
   );
 }
 
 /* ── Таблиця ────────────────────────────────────────────────────────────── */
 
-function BridgeTable({ bridge }: { bridge: CashBridge }) {
+function BridgeTable({
+  bridge,
+  onOpen,
+}: {
+  bridge: CashBridge;
+  onOpen: (key: string, label: string) => void;
+}) {
   return (
-    <div className="-mx-1 overflow-x-auto">
-      <table className="w-full min-w-[30rem] border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-faint">
-            <th scope="col" className="py-1.5 pr-3 font-medium">
-              Стаття
-            </th>
-            <th scope="col" className="py-1.5 pr-3 font-medium">
-              Чому
-            </th>
-            <th scope="col" className="py-1.5 text-right font-medium">
-              Сума
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-border">
-            <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
-              Прибуток
-            </th>
-            <td className="py-2 pr-3 leading-relaxed text-faint">
-              Заробили за період після операційних витрат.
-            </td>
-            <td className="py-2 text-right font-semibold tabular text-ink">
-              {uah(bridge.netProfit)}
-            </td>
-          </tr>
+    <table className="w-full border-collapse text-xs">
+      <thead>
+        <tr className="border-b border-border text-[11px] uppercase tracking-wide text-faint">
+          <th scope="col" className="py-1.5 pr-3 text-left font-medium">
+            Стаття
+          </th>
+          <th scope="col" className="py-1.5 text-right font-medium">
+            Сума
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr className="border-b border-border">
+          <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
+            Прибуток
+          </th>
+          <td className="py-2 text-right font-semibold tabular text-ink">{uah(bridge.netProfit)}</td>
+        </tr>
 
-          {bridge.lines.map((l) => (
-            <tr key={l.key} className="border-b border-border/60">
-              <th scope="row" className="py-2 pr-3 text-left font-normal text-ink">
-                {l.label}
-              </th>
-              <td className="py-2 pr-3 leading-relaxed text-faint">{l.hint}</td>
-              <td
-                className={cn(
-                  "py-2 text-right tabular",
-                  l.amount < 0 ? "text-danger" : l.amount > 0 ? "text-success" : "text-muted",
-                )}
-              >
-                {l.amount > 0 ? "+" : ""}
-                {uah(l.amount)}
-              </td>
-            </tr>
-          ))}
-
-          <tr>
-            <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
-              Приріст грошей
+        {bridge.lines.map((l) => (
+          <tr
+            key={l.key}
+            onClick={() => onOpen(l.key, l.label)}
+            className="cursor-pointer border-b border-border/60 transition-colors hover:bg-hover"
+          >
+            <th scope="row" className="py-2 pr-3 text-left font-normal text-ink">
+              {l.label}
             </th>
-            <td className="py-2 pr-3 leading-relaxed text-faint">
-              Скільки насправді додалось у касах і сейфах.
-            </td>
-            <td className="py-2 text-right font-semibold tabular text-accent-ink">
-              {uah(bridge.actual)}
+            <td
+              className={cn(
+                "py-2 text-right tabular",
+                l.amount < 0 ? "text-danger" : l.amount > 0 ? "text-success" : "text-muted",
+              )}
+            >
+              {l.amount > 0 ? "+" : ""}
+              {uah(l.amount)}
             </td>
           </tr>
-        </tbody>
-      </table>
-    </div>
+        ))}
+
+        <tr>
+          <th scope="row" className="py-2 pr-3 text-left font-semibold text-ink">
+            Приріст грошей
+          </th>
+          <td className="py-2 text-right font-semibold tabular text-accent-ink">
+            {uah(bridge.actual)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
