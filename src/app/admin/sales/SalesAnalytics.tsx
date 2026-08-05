@@ -6,6 +6,7 @@ import { eachDayOfInterval, eachHourOfInterval, format, parseISO } from "date-fn
 import { uk } from "date-fns/locale";
 import { StatCard } from "@/components/ui/StatCard";
 import { Tabs } from "@/components/ui/Tabs";
+import { BarSeries, BarAxis } from "@/components/charts/BarSeries";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
 import type { SalesAnalyticsResult } from "@/lib/data-sales";
@@ -109,7 +110,6 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
     }));
   }, [data.trend, data.flooredFrom, period]);
 
-  const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
   const hasTrend = buckets.some((b) => b.value > 0);
 
   return (
@@ -152,27 +152,16 @@ export function SalesAnalytics({ data, period }: { data: SalesAnalyticsResult; p
           <p className="text-sm text-muted py-10 text-center">За цей період продажів не було</p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="flex items-end gap-1 min-w-[420px] h-40">
-              {buckets.map((b, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                  <div
-                    className={cn("w-full rounded-t-[3px] transition-all duration-500", b.value > 0 ? "bg-accent" : "bg-hover")}
-                    style={{ height: `${Math.max(Math.round((b.value / maxBucket) * 100), b.value > 0 ? 2 : 1)}%` }}
-                  />
-                  {b.value > 0 && (
-                    <div className="hidden group-hover:block absolute bottom-full mb-1 bg-ink text-surface text-xs tabular px-2 py-1 rounded-[var(--radius-sm)] whitespace-nowrap z-10">
-                      {b.label}: {b.value.toLocaleString()} ₴
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-1 min-w-[420px] mt-2">
-              {buckets.map((b, i) => (
-                <span key={i} className="flex-1 text-center text-[9px] text-faint tabular truncate">
-                  {buckets.length > 16 ? (i % 3 === 0 ? b.label : "") : b.label}
-                </span>
-              ))}
+            <div className="min-w-[420px]">
+              <BarSeries
+                className="h-40"
+                data={buckets.map((b, i) => ({
+                  key: `${i}-${b.label}`,
+                  value: b.value,
+                  tooltip: b.value > 0 ? `${b.label}: ${b.value.toLocaleString()} ₴` : "",
+                }))}
+              />
+              <BarAxis labels={buckets.map((b) => b.label)} />
             </div>
           </div>
         )}

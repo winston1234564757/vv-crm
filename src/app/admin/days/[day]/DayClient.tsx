@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BentoCell, CardStat } from "@/components/ui/BentoCell";
+import { BarSeries, BarAxisTicks } from "@/components/charts/BarSeries";
 import Drawer from "@/components/ui/Drawer";
 import { cn } from "@/lib/utils/cn";
 import { uah } from "@/lib/utils/money";
@@ -43,7 +44,6 @@ export function DayClient({ report }: { report: DayReport }) {
   const { profit, split, neighbours, previousDay } = report;
 
   const delta = previousDay ? profit.profit - previousDay.profit : null;
-  const maxHour = Math.max(...report.hourly.map((h) => h.revenue), 1);
   const expensesTotal = report.expenses.reduce((s, e) => s + e.amount, 0);
 
   return (
@@ -213,33 +213,20 @@ export function DayClient({ report }: { report: DayReport }) {
             </p>
           ) : (
             <>
-              <div className="flex h-32 items-end gap-[2px]">
-                {report.hourly.map((h) => (
-                  <div key={h.hour} className="group relative flex-1">
-                    <div
-                      className={cn(
-                        "w-full rounded-t-[2px] transition-all",
-                        h.revenue > 0 ? "bg-accent" : "bg-hover",
-                      )}
-                      style={{
-                        height: `${Math.max(Math.round((h.revenue / maxHour) * 100), h.revenue > 0 ? 3 : 1)}%`,
-                      }}
-                    />
-                    {h.revenue > 0 && (
-                      <div className="absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-[var(--radius-sm)] bg-ink px-2 py-1 text-xs tabular text-surface group-hover:block">
-                        {String(h.hour).padStart(2, "0")}:00 — {uah(h.revenue)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-1 flex justify-between text-[9px] tabular text-faint">
-                <span>00</span>
-                <span>06</span>
-                <span>12</span>
-                <span>18</span>
-                <span>23</span>
-              </div>
+              <BarSeries
+                className="h-32"
+                data={report.hourly.map((h) => ({
+                  key: String(h.hour),
+                  value: h.revenue,
+                  tooltip:
+                    h.revenue > 0
+                      ? `${String(h.hour).padStart(2, "0")}:00 — ${uah(h.revenue)}`
+                      : "",
+                }))}
+              />
+              {/* Засічки, а не підпис на кожен стовпчик: доба це 24 стовпчики,
+                  а орієнтирів окові треба чотири-п'ять. */}
+              <BarAxisTicks ticks={["00", "06", "12", "18", "23"]} />
             </>
           )}
         </BentoCell>
