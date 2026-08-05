@@ -2,66 +2,9 @@
 
 import { pluralUk } from "@/lib/utils/plural";
 
-export function TodaySalesStatusLine({ todayTotal, target }: { todayTotal: number; target: number }) {
-  const percent = Math.min(Math.round((todayTotal / target) * 100), 100);
-  const remaining = Math.max(target - todayTotal, 0);
-
-  return (
-    <div className="card p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-        <div>
-          <h3 className="text-sm font-medium text-muted">Прогрес денного плану</h3>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-display text-xl font-semibold text-ink tabular">{todayTotal.toLocaleString()} ₴</span>
-            <span className="text-sm text-muted">з цілі {target.toLocaleString()} ₴</span>
-          </div>
-        </div>
-        <div className="text-left sm:text-right">
-          <span className="text-xs font-medium text-muted block">Залишилось до цілі</span>
-          <span className="text-sm font-semibold text-ink tabular">
-            {remaining > 0 ? `${remaining.toLocaleString()} ₴` : "Ціль досягнута"}
-          </span>
-        </div>
-      </div>
-      <div className="relative w-full bg-hover h-2.5 rounded-full overflow-hidden">
-        <div className="h-full rounded-full bg-accent transition-all duration-1000 ease-out" style={{ width: `${percent}%` }} />
-      </div>
-      <div className="flex items-center justify-between mt-2 text-xs text-muted tabular">
-        <span>0%</span>
-        <span className="font-semibold text-accent-ink">{percent}% виконано</span>
-        <span>100%</span>
-      </div>
-    </div>
-  );
-}
-
-export function SalesTargetRing({ todayTotal, target, progress }: { todayTotal: number; target: number; progress: number }) {
-  const radius = 40;
-  const stroke = 6;
-  const normalizedRadius = radius - stroke * 2;
-  const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-  return (
-    <div className="w-full md:w-[170px] card p-5 flex flex-col items-center justify-between shrink-0">
-      <div className="text-center">
-        <h3 className="text-sm font-medium text-muted">Денний план</h3>
-        <span className="text-xs text-muted tabular mt-0.5 block">Ціль: {target.toLocaleString()} ₴</span>
-      </div>
-      <div className="relative flex items-center justify-center my-3">
-        <svg height={radius * 2} width={radius * 2} className="rotate-[-90deg]">
-          <circle stroke="var(--color-border)" fill="transparent" strokeWidth={stroke} r={normalizedRadius} cx={radius} cy={radius} />
-          <circle stroke="var(--color-accent)" fill="transparent" strokeWidth={stroke} strokeDasharray={circumference + " " + circumference} style={{ strokeDashoffset }} strokeLinecap="round" r={normalizedRadius} cx={radius} cy={radius} className="transition-all duration-500" />
-        </svg>
-        <div className="absolute font-display text-sm font-semibold text-ink tabular">{progress}%</div>
-      </div>
-      <div className="text-center">
-        <span className="text-xs text-muted block">Сплачено:</span>
-        <span className="text-sm font-semibold text-accent-ink tabular">{todayTotal.toLocaleString()} ₴</span>
-      </div>
-    </div>
-  );
-}
+/* Тут жили `TodaySalesStatusLine` і `SalesTargetRing` — два різні віджети
+   денного плану, і жоден не рендерився. Прогрес до цілі показує
+   `MoneyBreakdownCard` на дашборді, смугою. */
 
 export function CrossSellWidget({ conversionRate, revenue, dealsCount }: { conversionRate: number; revenue: number; dealsCount: number }) {
   return (

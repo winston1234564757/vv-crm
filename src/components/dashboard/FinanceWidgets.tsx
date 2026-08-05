@@ -1,36 +1,7 @@
 "use client";
 
-export function OpexRunwayCard({ runwayDays, dailyRate, balance }: { runwayDays: number; dailyRate: number; balance: number }) {
-  const radius = 40;
-  const stroke = 6;
-  const normalizedRadius = radius - stroke * 2;
-  const circumference = normalizedRadius * 2 * Math.PI;
-  const progress = Math.min(Math.round((runwayDays / 90) * 100), 100);
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-  return (
-    <div className="w-full md:w-[170px] card p-5 flex flex-col items-center justify-between shrink-0">
-      <div className="text-center">
-        <h3 className="text-sm font-medium text-muted">Запас OPEX</h3>
-        <span className="text-xs text-muted tabular mt-0.5 block truncate max-w-[130px]">Резерв: {balance.toLocaleString()} ₴</span>
-      </div>
-      <div className="relative flex items-center justify-center my-3">
-        <svg height={radius * 2} width={radius * 2} className="rotate-[-90deg]">
-          <circle stroke="var(--color-border)" fill="transparent" strokeWidth={stroke} r={normalizedRadius} cx={radius} cy={radius} />
-          <circle stroke="var(--color-accent)" fill="transparent" strokeWidth={stroke} strokeDasharray={circumference + " " + circumference} style={{ strokeDashoffset }} strokeLinecap="round" r={normalizedRadius} cx={radius} cy={radius} className="transition-all duration-500" />
-        </svg>
-        <div className="absolute flex flex-col items-center justify-center text-center">
-          <span className="font-display text-sm font-semibold text-ink tabular">{runwayDays}</span>
-          <span className="text-[10px] text-muted">днів</span>
-        </div>
-      </div>
-      <div className="text-center">
-        <span className="text-xs text-muted block">Витрати:</span>
-        <span className="text-xs font-semibold text-ink tabular">{dailyRate.toLocaleString()} ₴/д</span>
-      </div>
-    </div>
-  );
-}
+/* Тут був `OpexRunwayCard` — кільце «запас OPEX у днях». Не рендерився ніде:
+   те саме число показує `CashCard` на дашборді, рядком і без кільця. */
 
 export function RefurbishmentWidget({ capital, margin, onClick }: { capital: number; margin: number; onClick: () => void }) {
   return (

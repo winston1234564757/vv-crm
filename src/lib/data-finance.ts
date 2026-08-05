@@ -166,7 +166,6 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
       repairsRevenue: 0,
       repairsCost: 0,
       profit: 0,
-      ownerShare: 0,
       categoryBreakdown: [] as { name: string; amount: number }[],
       byCategory: emptyProfit.byCategory,
     };
@@ -296,42 +295,18 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
     repairsRevenue,
     repairsCost,
     profit,
-    ownerShare: Math.round(profit * 0.5),
+    /* `ownerShare` звідси прибраний: його ніхто не читав, а рахувався він
+       хардкодом `* 0.5` замість `PARTNER_SHARE` — тобто був другим, окремим
+       визначенням частки власника, яке мовчки роз'їхалося б із першим.
+       Реальну частку веде `buildLedger` у `data-dashboard.ts`. */
     categoryBreakdown,
     byCategory: report.byCategory,
   };
 }
 
-interface CustomerWithName {
-  name: string;
-}
-
-function hasCustomerName(obj: unknown): obj is CustomerWithName {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    "name" in obj &&
-    typeof (obj as Record<string, unknown>).name === "string"
-  );
-}
-
-export async function getUnreconciledSales() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sales")
-    .select("id, total_amount, created_at, notes, customers(name)")
-    .is("monobank_payment_id", null)
-    .order("created_at", { ascending: false })
-    .limit(30);
-    
-  if (error) throw error;
-  
-  return (data ?? []).map(s => ({
-    id: s.id,
-    amount: s.total_amount,
-    date: s.created_at.split("T")[0],
-    notes: s.notes ?? "",
-    customer_name: hasCustomerName(s.customers) ? s.customers.name : "Роздрібний покупець",
-  }));
-}
+/* Тут був `getUnreconciledSales` — продажі без `monobank_payment_id` для
+   звірки з виписками Monobank. Його єдиним споживачем був `ReconciliationBench`,
+   який не імпортувався жодною сторінкою; видалені разом. Реальну звірку робить
+   `CashFlowPanel`: він рахує тотожність із реєстру й червоніє, коли вона не
+   сходиться, — і на відміну від цієї гілки, він підключений. */
 
