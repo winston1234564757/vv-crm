@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { VIEW_MODES, VIEW_MODE_LABELS, type ViewMode } from "./view-mode";
 
 /**
  * Перемикач подання: графіки чи таблиця.
@@ -20,27 +21,10 @@ import { cn } from "@/lib/utils/cn";
  * Стан в URL, а не в localStorage: сторінка серверна, і localStorage дав би
  * спалах чужого подання на кожному завантаженні. URL ще й пересилається —
  * «глянь ось це» відкриється тим самим виглядом, яким його дивились.
+ *
+ * Тип і `resolveViewMode` живуть у `./view-mode` без `"use client"`: їх кличе
+ * серверна сторінка, а з клієнтського модуля це неможливо.
  */
-
-export type ViewMode = "chart" | "table";
-
-export const VIEW_MODES: ViewMode[] = ["chart", "table"];
-
-const LABELS: Record<ViewMode, string> = {
-  chart: "Графіки",
-  table: "Таблиця",
-};
-
-export function isViewMode(v: string | null | undefined): v is ViewMode {
-  return v === "chart" || v === "table";
-}
-
-/** Читає режим із `searchParams` серверної сторінки. За замовчуванням — графіки. */
-export function resolveViewMode(v: string | string[] | undefined): ViewMode {
-  const raw = Array.isArray(v) ? v[0] : v;
-  return isViewMode(raw) ? raw : "chart";
-}
-
 export function ViewToggle({ mode }: { mode: ViewMode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,7 +60,7 @@ export function ViewToggle({ mode }: { mode: ViewMode }) {
             m === mode ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
           )}
         >
-          {LABELS[m]}
+          {VIEW_MODE_LABELS[m]}
         </button>
       ))}
     </div>

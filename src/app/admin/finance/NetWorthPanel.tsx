@@ -2,7 +2,7 @@ import { BentoCell, CardStat } from "@/components/ui/BentoCell";
 import { Meter } from "@/components/charts/Meter";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
-import type { ViewMode } from "@/components/ui/ViewToggle";
+import type { ViewMode } from "@/components/ui/view-mode";
 import type { NetWorth } from "@/lib/bridge";
 
 /**

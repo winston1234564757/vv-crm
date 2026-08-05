@@ -22,7 +22,7 @@ import { CashFlowPanel } from "./CashFlowPanel";
 import { getMoneyPicture } from "@/lib/data-bridge";
 import { CashBridgePanel } from "./CashBridgePanel";
 import { NetWorthPanel } from "./NetWorthPanel";
-import { resolveViewMode } from "@/components/ui/ViewToggle";
+import { resolveViewMode } from "@/components/ui/view-mode";
 import { Meter, MeterStack } from "@/components/charts/Meter";
 import { getSkuReport } from "@/lib/data-sku";
 import { SkuPanel } from "./SkuPanel";
