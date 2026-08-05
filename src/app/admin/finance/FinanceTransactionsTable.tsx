@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Drawer from "@/components/ui/Drawer";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { ListPageShell, type Column } from "@/components/list/ListPageShell";
+import { useListQuery } from "@/components/list/useListQuery";
+import { Toolbar, SearchField } from "@/components/ui/Toolbar";
+import { Select } from "@/components/ui/Select";
 import { SaleDetailView } from "@/components/SaleDetailView";
 import { RepairDetailView } from "@/components/RepairDetailView";
 import { EditRepairForm } from "@/components/forms/EditRepairForm";
@@ -185,162 +189,170 @@ export function FinanceTransactionsTable({
     setSelectedTransaction(t);
   }
 
+  /* Системну транзакцію не можна видалити звідси: вона лише відображає продаж,
+     ремонт чи закупівлю, і зникнути має разом із першоджерелом. Правило одне
+     на таблицю й на картку — раніше воно було переписане в обох місцях. */
+  const isSystem = (t: TransactionRow) =>
+    !!t.reference_type && ["sale", "repair_payment", "purchase"].includes(t.reference_type);
+  const hasRef = (t: TransactionRow) => !!t.reference_type && !!t.reference_id;
+
+  const query = useListQuery({ mode: "client", filters: { type: "all" } });
+
+  const visible = useMemo(() => {
+    const needle = query.search.trim().toLowerCase();
+    const type = query.filters.type;
+
+    return transactions.filter((t) => {
+      if (type !== "all" && t.type !== type) return false;
+      if (!needle) return true;
+      return [t.from, t.to, t.description, String(t.amount)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle));
+    });
+  }, [transactions, query.search, query.filters.type]);
+
+  function DeleteCell({ t }: { t: TransactionRow }) {
+    if (isSystem(t)) {
+      return (
+        <span
+          className="select-none text-[10px] font-normal text-muted/50"
+          title="Для видалення видаліть первинний продаж/ремонт/закупівлю"
+        >
+          Системна
+        </span>
+      );
+    }
+    return (
+      <button
+        disabled={deletingId === t.id}
+        onClick={() => handleDeleteTransaction(t.id)}
+        className="btn-press inline-flex cursor-pointer items-center justify-center rounded-[var(--radius-md)] p-1.5 text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+        title="Видалити"
+      >
+        {deletingId === t.id ? (
+          <IconSpinner size={14} className="animate-spin" />
+        ) : (
+          <IconDelete size={14} />
+        )}
+      </button>
+    );
+  }
+
+  const columns: Column<TransactionRow>[] = [
+    {
+      key: "date",
+      header: "Дата",
+      cell: (t) => (
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted">
+          {t.date}
+          {hasRef(t) && (
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full bg-accent"
+              title="Пов'язана сума"
+            />
+          )}
+        </span>
+      ),
+    },
+    { key: "from", header: "Від", cell: (t) => <span className="text-muted">{t.from || "—"}</span> },
+    { key: "to", header: "До", cell: (t) => <span className="font-medium">{t.to}</span> },
+    {
+      key: "type",
+      header: "Тип",
+      cell: (t) => (
+        <Badge tone={typeTones[t.type] ?? "neutral"}>{typeLabels[t.type] ?? t.type}</Badge>
+      ),
+    },
+    {
+      key: "description",
+      header: "Опис",
+      hideBelow: "lg",
+      cell: (t) => (
+        <span className="block max-w-[200px] truncate text-xs text-muted" title={t.description}>
+          {t.description}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Сума",
+      align: "right",
+      cell: (t) => (
+        <span className="whitespace-nowrap font-medium tabular">
+          {t.amount.toLocaleString()} грн
+        </span>
+      ),
+    },
+    // `interactive` — оболонка сама ізолює клік, тож `stopPropagation` руками
+    // тут більше не пишеться і рядок не відкриє шухляду замість видалення.
+    { key: "actions", header: "", align: "right", interactive: true, cell: (t) => <DeleteCell t={t} /> },
+  ];
+
   return (
     <>
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">Рух коштів</h2>
         <div className="mt-4">
-          {/* Мобільні картки транзакцій */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
-            {transactions.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted">Немає транзакцій</p>
-            ) : (
-              transactions.map((t) => {
-                const hasRef = !!t.reference_type && !!t.reference_id;
-                const isSystem = t.reference_type && ["sale", "repair_payment", "purchase"].includes(t.reference_type);
-                return (
-                  <div
-                    key={t.id}
-                    onClick={() => handleRowClick(t)}
-                    className={`rounded-2xl border border-border p-4 bg-surface shadow-sm flex flex-col gap-2.5 transition-colors ${
-                      hasRef
-                        ? "cursor-pointer border-accent/20 hover:border-accent/40 bg-accent/[0.01]"
-                        : "hover:border-border-strong"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted">{t.date}</span>
-                        {hasRef && (
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" title="Пов'язана транзакція" />
-                        )}
-                      </div>
-                      <Badge tone={typeTones[t.type] ?? "neutral"}>{typeLabels[t.type] ?? t.type}</Badge>
-                    </div>
+          <ListPageShell
+            query={query}
+            rows={visible}
+            getRowId={(t) => t.id}
+            columns={columns}
+            onRowClick={handleRowClick}
+            itemLabel="рухів"
+            /* Пов'язаний рух підсвічується: по ньому є що відкрити. Раніше та
+               сама умова була переписана окремо для таблиці й для картки. */
+            rowClassName={(t) => (hasRef(t) ? "bg-accent/[0.03]" : undefined)}
+            card={(t) => ({
+              title: t.to,
+              subtitle: t.from ? `від ${t.from}` : undefined,
+              state: (
+                <Badge tone={typeTones[t.type] ?? "neutral"}>
+                  {typeLabels[t.type] ?? t.type}
+                </Badge>
+              ),
+              rows: [
+                { label: "Дата", value: t.date },
+                { label: "Сума", value: `${t.amount.toLocaleString()} грн` },
+                ...(t.description ? [{ label: "Опис", value: t.description }] : []),
+              ],
+              footer: <DeleteCell t={t} />,
+            })}
+            toolbar={
+              <Toolbar
+                search={
+                  <SearchField
+                    value={query.draftSearch}
+                    onChange={(e) => query.setDraftSearch(e.target.value)}
+                    onClear={query.clearSearch}
+                    placeholder="Пошук за рахунком, описом, сумою"
+                  />
+                }
+              >
+                <Select
+                  value={query.filters.type}
+                  onChange={(e) => query.setFilter("type", e.target.value)}
+                  inline
+                  aria-label="Тип руху"
+                >
+                  <option value="all">Усі типи</option>
+                  <option value="sale">Надходження</option>
+                  <option value="expense">Витрата</option>
+                  <option value="distribution">Розподіл</option>
+                </Select>
+              </Toolbar>
+            }
+            empty={{
+              title: "Рухів коштів немає",
+              description:
+                "Тут з'являться продажі, витрати й розподіли — щойно перший рух пройде через касу або сейф.",
+            }}
+            noResults={{
+              title: "Нічого не знайдено",
+              description: "Спробуйте інший запит або зніміть фільтр типу.",
+            }}
+          />
 
-                    <div className="text-xs text-muted flex flex-col gap-1 border-t border-border pt-2.5">
-                      <div className="flex justify-between">
-                        <span>Від:</span>
-                        <span className="text-ink font-medium">{t.from || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>До:</span>
-                        <span className="text-ink font-semibold">{t.to}</span>
-                      </div>
-                    </div>
-
-                    {t.description && (
-                      <p className="text-[11px] text-muted bg-hover p-2 rounded-lg border border-border line-clamp-2 leading-relaxed">
-                        {t.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between border-t border-border pt-2.5 text-xs">
-                      <span className="font-bold text-ink text-sm">{t.amount.toLocaleString()} грн</span>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        {!isSystem ? (
-                          <button
-                            disabled={deletingId === t.id}
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            className="text-danger hover:text-danger/85 disabled:opacity-50 p-2 cursor-pointer transition-colors inline-flex items-center justify-center rounded-xl bg-danger/5 hover:bg-danger/10"
-                            title="Видалити"
-                          >
-                            {deletingId === t.id ? (
-                              <IconSpinner size={14} className="animate-spin" />
-                            ) : (
-                              <IconDelete size={14} />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-muted/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Десктопна таблиця */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs font-medium text-muted">
-                  <th className="pb-2 pr-4">Дата</th>
-                  <th className="pb-2 pr-4">Від</th>
-                  <th className="pb-2 pr-4">До</th>
-                  <th className="pb-2 pr-4">Тип</th>
-                  <th className="pb-2 pr-4 max-w-[200px]">Опис</th>
-                  <th className="pb-2 text-right">Сума</th>
-                  <th className="pb-2 text-right w-16">Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => {
-                  const hasRef = !!t.reference_type && !!t.reference_id;
-                  return (
-                    <tr
-                      key={t.id}
-                      onClick={() => handleRowClick(t)}
-                      className={`border-b border-border text-ink transition-colors ${
-                        hasRef
-                          ? "cursor-pointer hover:bg-accent/[0.04] active:bg-accent/[0.08]"
-                          : "hover:bg-hover"
-                      }`}
-                    >
-                      <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
-                        <span className="flex items-center gap-1.5">
-                          {t.date}
-                          {hasRef && (
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" title="Пов'язана сума" />
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4 text-muted">{t.from}</td>
-                      <td className="py-3 pr-4 font-medium">{t.to}</td>
-                      <td className="py-3 pr-4">
-                        <Badge tone={typeTones[t.type] ?? "neutral"}>
-                          {typeLabels[t.type] ?? t.type}
-                        </Badge>
-                      </td>
-                      <td className="py-3 pr-4 text-muted text-xs max-w-[200px] truncate" title={t.description}>
-                        {t.description}
-                      </td>
-                      <td className="py-3 text-right font-medium whitespace-nowrap">
-                        {t.amount.toLocaleString()} грн
-                      </td>
-                      <td className="py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        {(!t.reference_type || !["sale", "repair_payment", "purchase"].includes(t.reference_type)) ? (
-                          <button
-                            disabled={deletingId === t.id}
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            className="text-danger hover:text-danger/85 disabled:opacity-50 p-1 cursor-pointer transition-colors inline-flex items-center justify-center align-middle"
-                            title="Видалити"
-                          >
-                            {deletingId === t.id ? (
-                              <IconSpinner size={14} className="animate-spin" />
-                            ) : (
-                              <IconDelete size={14} />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-muted/50 font-normal select-none" title="Для видалення видаліть первинний продаж/ремонт/закупівлю">Системна</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {transactions.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm text-muted">
-                      Немає транзакцій
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
 

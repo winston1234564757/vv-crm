@@ -82,15 +82,33 @@ export function useListQuery({
    */
   const commit = useCallback(
     (next: typeof state) => {
-      const p = new URLSearchParams();
+      /* Починаємо з ПОТОЧНИХ параметрів, а не з порожніх. Раніше тут стояло
+         `new URLSearchParams()`, і кожна зміна фільтра стирала з адреси все, що
+         цьому хуку не належить. На сторінках пристроїв і ремонтів це не
+         проявлялось — інших параметрів там немає, — але на фінансах поруч
+         живуть `?view=` (таблиця/графіки) і `?range=` (період), і гортання
+         сторінок скидало б обидва. Той самий недогляд уже був у `RangeTabs`.
+
+         Свої ключі нижче виставляються або видаляються явно, тож «фільтр
+         знято» не лишає хвоста в адресі. */
+      const p = new URLSearchParams(searchParams.toString());
+
       if (next.search) p.set(searchKey, next.search);
+      else p.delete(searchKey);
+
       for (const key of filterKeys) {
         if (next.filters[key] && next.filters[key] !== filterDefaults[key]) {
           p.set(key, next.filters[key]);
+        } else {
+          p.delete(key);
         }
       }
+
       if (next.page > 1) p.set("page", String(next.page));
+      else p.delete("page");
+
       if (next.pageSize !== defaultPageSize) p.set("size", String(next.pageSize));
+      else p.delete("size");
 
       const qs = p.toString();
       const url = qs ? `${pathname}?${qs}` : pathname;
@@ -102,7 +120,7 @@ export function useListQuery({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, pathname, router, searchKey, defaultPageSize, filterKeys],
+    [mode, pathname, router, searchKey, defaultPageSize, filterKeys, searchParams],
   );
 
   /** Any change other than paging returns to page 1. */
