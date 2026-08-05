@@ -7,6 +7,7 @@ import { uk } from "date-fns/locale";
 import { StatCard } from "@/components/ui/StatCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { BarSeries, BarAxis } from "@/components/charts/BarSeries";
+import { Meter } from "@/components/charts/Meter";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
 import type { SalesAnalyticsResult } from "@/lib/data-sales";
@@ -53,9 +54,7 @@ function Breakdown({ title, rows, total, empty, labels }: {
                     <span className="ml-2 text-xs font-normal text-muted">{pct}%</span>
                   </span>
                 </div>
-                <div className="w-full bg-hover h-1.5 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
-                </div>
+                <Meter value={pct} />
               </div>
             );
           })}

@@ -1,5 +1,7 @@
 "use client";
 
+import { Meter } from "@/components/charts/Meter";
+
 /* Тут був `OpexRunwayCard` — кільце «запас OPEX у днях». Не рендерився ніде:
    те саме число показує `CashCard` на дашборді, рядком і без кільця. */
 
@@ -35,9 +37,7 @@ export function B2BPartnerShareWidget({ share, revenue }: { share: number; reven
       <div className="my-4">
         <p className="text-xs text-muted">Оборот партнерів (30д)</p>
         <p className="text-lg font-semibold text-info tabular">{revenue.toLocaleString()} ₴</p>
-        <div className="mt-3.5 w-full bg-hover h-2 rounded-full overflow-hidden">
-          <div className="bg-info h-full rounded-full transition-all duration-500" style={{ width: `${share}%` }} />
-        </div>
+        <Meter size="md" tone="info" value={share} className="mt-3.5" />
         <p className="text-xs text-muted mt-2 tabular">Частка в загальному доході: <span className="text-ink font-semibold">{share}%</span></p>
       </div>
       <p className="text-xs text-faint border-t border-border pt-2">Розподіл B2B / B2C</p>

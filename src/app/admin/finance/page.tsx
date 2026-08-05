@@ -23,6 +23,7 @@ import { getMoneyPicture } from "@/lib/data-bridge";
 import { CashBridgePanel } from "./CashBridgePanel";
 import { NetWorthPanel } from "./NetWorthPanel";
 import { resolveViewMode } from "@/components/ui/ViewToggle";
+import { Meter, MeterStack } from "@/components/charts/Meter";
 import { getSkuReport } from "@/lib/data-sku";
 import { SkuPanel } from "./SkuPanel";
 import { isRangePreset, RANGE_LABELS, type RangePreset } from "@/lib/profit";
@@ -237,18 +238,22 @@ export default async function FinancePage({
                           єдине місце на картці, де колір несе сенс, тож вона
                           лишається двоколірною. */}
                       <div className="mt-2 space-y-1">
-                        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-hover">
-                          <div
-                            className="h-full rounded-l-full bg-accent transition-all duration-500"
-                            style={{ width: `${cashPct}%` }}
-                            title={`Готівка: ${s.cashBalance.toLocaleString()} ₴`}
-                          />
-                          <div
-                            className="h-full bg-info transition-all duration-500"
-                            style={{ width: `${cardPct}%` }}
-                            title={`Картка: ${s.cardBalance.toLocaleString()} ₴`}
-                          />
-                        </div>
+                        <MeterStack
+                          segments={[
+                            {
+                              key: "cash",
+                              value: cashPct,
+                              tone: "accent",
+                              title: `Готівка: ${s.cashBalance.toLocaleString()} ₴`,
+                            },
+                            {
+                              key: "card",
+                              value: cardPct,
+                              tone: "info",
+                              title: `Картка: ${s.cardBalance.toLocaleString()} ₴`,
+                            },
+                          ]}
+                        />
                         <div className="flex justify-between text-[11px] text-muted">
                           <span className="flex items-center gap-1">
                             <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
@@ -263,9 +268,7 @@ export default async function FinancePage({
                     </div>
 
                     <div className="mt-4 space-y-2">
-                      <div className="h-1 w-full overflow-hidden rounded-full bg-hover">
-                        <div className="h-full bg-accent" style={{ width: `${avgTarget}%` }} />
-                      </div>
+                      <Meter size="xs" value={avgTarget} />
                       <div className="grid grid-cols-3 gap-1 pt-1 text-[11px] leading-none text-muted">
                         <div className="border-r border-border pr-1">Тех: <span className="tabular">{techSplit}%</span></div>
                         <div className="border-r border-border px-1">Акс: <span className="tabular">{accSplit}%</span></div>
@@ -393,9 +396,7 @@ export default async function FinancePage({
                         <span className="font-medium text-ink">{c.name}</span>
                         <span className="tabular text-muted">{c.amount.toLocaleString()} ₴</span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
-                        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                      </div>
+                      <Meter value={pct} />
                     </div>
                   );
                 })}

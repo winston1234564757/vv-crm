@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BentoCell } from "@/components/ui/BentoCell";
+import { Meter } from "@/components/charts/Meter";
 import { cn } from "@/lib/utils/cn";
 import { uah } from "@/lib/utils/money";
 import { CATEGORY_LABELS, PROFIT_CATEGORIES, RANGE_LABELS, type RangePreset } from "@/lib/profit";
@@ -17,12 +18,8 @@ function TargetRow({ label, value, target }: { label: string; value: number; tar
           {uah(value)} / {uah(target)}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
-        <div
-          className={cn("h-full rounded-full transition-all", met ? "bg-success" : "bg-accent")}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      {/* Зелений лише коли ціль ДОСЯГНУТА — тон тут означає стан, а не серію. */}
+      <Meter value={pct} tone={met ? "success" : "accent"} />
     </div>
   );
 }

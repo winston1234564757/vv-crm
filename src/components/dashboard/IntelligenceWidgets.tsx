@@ -1,6 +1,7 @@
 "use client";
 
 import { IconBox } from "@/components/icons";
+import { Meter } from "@/components/charts/Meter";
 import { DOW_UA, URGENCY_CONFIG, ModelAnalyticsItem, StockoutItem, HeatmapRow } from "./widget-types";
 
 export function PhoneModelDemandWidget({ models }: { models: ModelAnalyticsItem[] }) {
@@ -23,9 +24,7 @@ export function PhoneModelDemandWidget({ models }: { models: ModelAnalyticsItem[
                 <span className="text-xs tabular text-muted">{m.repair_count} рем.</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-hover h-1.5 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-700 bg-accent" style={{ width: `${percent}%` }} />
-                </div>
+                <Meter value={percent} className="flex-1" />
                 <span className={`text-xs tabular font-semibold w-12 text-right ${scoreTone}`}>{m.demand_score.toFixed(1)}/10</span>
               </div>
               <div className="hidden group-hover:flex items-center gap-3 mt-1.5 p-1.5 bg-hover rounded-[var(--radius-sm)] text-xs tabular text-muted animate-entry">

@@ -1,6 +1,7 @@
 "use client";
 
 import { pluralUk } from "@/lib/utils/plural";
+import { Meter, type MeterTone } from "@/components/charts/Meter";
 
 /* Тут жили `TodaySalesStatusLine` і `SalesTargetRing` — два різні віджети
    денного плану, і жоден не рендерився. Прогрес до цілі показує
@@ -31,11 +32,18 @@ export function CrossSellWidget({ conversionRate, revenue, dealsCount }: { conve
 export function SalesVelocityMatrix({ velocity, peakHours }: { velocity: { device: number; accessory: number; part: number; service: number }; peakHours: number[] }) {
   const totals = Object.values(velocity);
   const maxVal = Math.max(...totals, 1);
-  const categories = [
-    { key: "device", label: "Пристрої", color: "var(--color-accent)" },
-    { key: "accessory", label: "Аксесуари", color: "var(--color-info)" },
-    { key: "part", label: "Запчастини", color: "var(--color-warning)" },
-    { key: "service", label: "Послуги / Роботи", color: "var(--color-success)" },
+  /* ЗАСТЕРЕЖЕННЯ, свідомо лишене як є при переїзді на `Meter`: тут статусні
+     тони (`warning`, `success`) розфарбовують КАТЕГОРІЇ, а не стан. За
+     дизайн-системою і за скілом dataviz статусні кольори зарезервовані — читач
+     шукає тривогу там, де її немає, бо «Запчастини» жовті. Кольори тут не
+     змінені навмисно: це видима зміна, і вирішувати її має власник, а не
+     рефакторинг заодно. Правильний хід — категоріальна палітра з валідацією
+     на дальтонізм або взагалі один тон, бо серії розрізняє підпис. */
+  const categories: { key: string; label: string; tone: MeterTone }[] = [
+    { key: "device", label: "Пристрої", tone: "accent" },
+    { key: "accessory", label: "Аксесуари", tone: "info" },
+    { key: "part", label: "Запчастини", tone: "warning" },
+    { key: "service", label: "Послуги / Роботи", tone: "success" },
   ];
   return (
     <div className="card p-5 flex flex-col justify-between">
@@ -50,9 +58,7 @@ export function SalesVelocityMatrix({ velocity, peakHours }: { velocity: { devic
                 <span>{c.label}</span>
                 <span className="tabular font-semibold">{val.toLocaleString()} ₴</span>
               </div>
-              <div className="w-full bg-hover h-1.5 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${percent}%`, backgroundColor: c.color }} />
-              </div>
+              <Meter value={percent} tone={c.tone} />
             </div>
           );
         })}

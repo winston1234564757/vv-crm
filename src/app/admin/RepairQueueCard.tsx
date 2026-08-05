@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BentoCell, BentoLink, CardStat } from "@/components/ui/BentoCell";
+import { Meter, type MeterTone } from "@/components/charts/Meter";
 import { cn } from "@/lib/utils/cn";
 import { pluralUk } from "@/lib/utils/plural";
 import { repairGroup } from "@/lib/repair-flow";
@@ -20,15 +21,12 @@ import type { QueueBucket } from "@/lib/data-operations";
  * фільтр відкривало б порожню сторінку.
  */
 
-const TONE: Record<string, string> = {
-  active: "bg-accent",
-  ready: "bg-success",
-  waiting: "bg-warning",
-};
-
-function barTone(status: string): string {
-  if (status === "awaiting_parts") return TONE.waiting;
-  return repairGroup(status) === "ready" ? TONE.ready : TONE.active;
+/* Тон, а не клас: колір смуги тепер веде `Meter`, і назви тут семантичні —
+   `warning` стоїть на очікуванні деталей саме тому, що це єдиний крок, де
+   затримка не залежить від майстерні. */
+function barTone(status: string): MeterTone {
+  if (status === "awaiting_parts") return "warning";
+  return repairGroup(status) === "ready" ? "success" : "accent";
 }
 
 export function RepairQueueCard({
@@ -77,14 +75,12 @@ export function RepairQueueCard({
                 >
                   {b.count}
                 </span>
-                <span className="col-span-2 h-1 overflow-hidden rounded-full bg-hover">
-                  {b.count > 0 && (
-                    <span
-                      className={cn("block h-full rounded-full", barTone(b.status))}
-                      style={{ width: `${(b.count / peak) * 100}%` }}
-                    />
-                  )}
-                </span>
+                <Meter
+                  size="xs"
+                  className="col-span-2"
+                  tone={barTone(b.status)}
+                  value={(b.count / peak) * 100}
+                />
               </Link>
             </li>
           ))}

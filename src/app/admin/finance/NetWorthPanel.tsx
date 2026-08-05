@@ -1,4 +1,5 @@
 import { BentoCell, CardStat } from "@/components/ui/BentoCell";
+import { Meter } from "@/components/charts/Meter";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import type { ViewMode } from "@/components/ui/ViewToggle";
@@ -33,12 +34,7 @@ export function NetWorthPanel({ worth, mode }: { worth: NetWorth; mode: ViewMode
             <li key={p.key} className="grid grid-cols-[minmax(0,7rem)_1fr] items-center gap-2">
               <span className="truncate text-xs text-muted">{p.label}</span>
               <span className="flex items-center gap-2">
-                <span className="flex h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-hover">
-                  <span
-                    className="h-full rounded-full bg-accent"
-                    style={{ width: `${Math.max((p.amount / scale) * 100, 1.5)}%` }}
-                  />
-                </span>
+                <Meter value={(p.amount / scale) * 100} className="min-w-0 flex-1" />
                 <span className="w-20 shrink-0 text-right text-xs tabular text-ink">
                   {uah(p.amount)}
                 </span>

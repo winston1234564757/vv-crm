@@ -1,4 +1,5 @@
 import { BentoCell } from "@/components/ui/BentoCell";
+import { Meter } from "@/components/charts/Meter";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_LABELS } from "@/lib/profit";
@@ -63,12 +64,7 @@ export function SkuPanel({
                       {CATEGORY_LABELS[l.itemType]}
                     </span>
                   </span>
-                  <span className="flex h-2 items-center overflow-hidden rounded-full bg-hover">
-                    <span
-                      className="h-full rounded-full bg-accent"
-                      style={{ width: `${Math.max((l.units / maxUnits) * 100, 2)}%` }}
-                    />
-                  </span>
+                  <Meter size="md" value={(l.units / maxUnits) * 100} />
                   <span className="flex shrink-0 items-baseline gap-3 text-xs">
                     <span className="w-12 text-right font-semibold tabular text-ink">
                       {l.units} шт

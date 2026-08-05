@@ -1,5 +1,6 @@
 import { BentoCell } from "@/components/ui/BentoCell";
 import { ViewToggle, type ViewMode } from "@/components/ui/ViewToggle";
+import { Meter } from "@/components/charts/Meter";
 import { uah } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
 import type { CashBridge } from "@/lib/bridge";
@@ -65,6 +66,16 @@ export function CashBridgePanel({ bridge, mode }: { bridge: CashBridge; mode: Vi
 
 /* ── Графіки: водоспад ──────────────────────────────────────────────────── */
 
+/* Роль рядка в ланцюгу → тон смуги. `base` і `total` — опорні рядки (з чого
+   почали, чим скінчили), тож нейтральний і акцентний; проміжні пояснення
+   несуть знак, тож зелений і червоний. */
+const METER_TONE = {
+  base: "neutral",
+  total: "accent",
+  plus: "success",
+  minus: "danger",
+} as const;
+
 function Bar({
   label,
   amount,
@@ -78,7 +89,7 @@ function Bar({
   tone: "base" | "plus" | "minus" | "total";
   hint?: string;
 }) {
-  const width = `${Math.max((Math.abs(amount) / scale) * 100, amount === 0 ? 0 : 1.5)}%`;
+  const pct = amount === 0 ? 0 : (Math.abs(amount) / scale) * 100;
 
   return (
     <li className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3">
@@ -88,18 +99,7 @@ function Bar({
       {/* Смужки ростуть від спільної лівої межі, а не від нуля посередині:
           при восьми рядках центрована вісь дає дві розріджені половини й
           читається гірше, ніж напрям, заданий кольором і знаком. */}
-      <span className="flex h-2 items-center overflow-hidden rounded-full bg-hover">
-        <span
-          className={cn(
-            "h-full rounded-full",
-            tone === "base" && "bg-ink/70",
-            tone === "total" && "bg-accent",
-            tone === "plus" && "bg-success",
-            tone === "minus" && "bg-danger",
-          )}
-          style={{ width }}
-        />
-      </span>
+      <Meter size="md" value={pct} tone={METER_TONE[tone]} />
       <span
         className={cn(
           "w-24 shrink-0 text-right text-xs tabular",

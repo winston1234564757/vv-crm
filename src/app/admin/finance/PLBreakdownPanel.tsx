@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
+import { Meter, type MeterTone } from "@/components/charts/Meter";
 import { cn } from "@/lib/utils/cn";
 import {
   CATEGORY_LABELS,
@@ -70,9 +71,7 @@ function BreakdownRow({ row, total }: { row: Row; total: number }) {
         <span className="shrink-0 font-semibold tabular text-ink">{money(row.amount)}</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-hover">
-          <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-        </div>
+        <Meter value={pct} className="flex-1" />
         <span className="w-9 shrink-0 text-right text-[11px] tabular text-faint">{pct}%</span>
       </div>
     </div>
@@ -87,7 +86,7 @@ function MeterTile({
   left,
   right,
   fillPct,
-  fillClass,
+  fillTone,
   onClick,
 }: {
   label: string;
@@ -96,7 +95,7 @@ function MeterTile({
   left: string;
   right: string;
   fillPct: number;
-  fillClass: string;
+  fillTone: MeterTone;
   onClick: () => void;
 }) {
   return (
@@ -112,9 +111,7 @@ function MeterTile({
         </span>
         <span className={cn("font-semibold tabular", accentClass)}>{money(total)}</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
-        <div className={cn("h-full rounded-full", fillClass)} style={{ width: `${fillPct}%` }} />
-      </div>
+      <Meter value={fillPct} tone={fillTone} />
       <div className="flex justify-between text-[11px] text-faint">
         <span>{left}</span>
         <span>{right}</span>
@@ -171,7 +168,7 @@ export function PLBreakdownPanel({
           left={`Продажі: ${money(totalSales)}`}
           right={`Ремонти: ${money(repairsRevenue)}`}
           fillPct={100}
-          fillClass="bg-success"
+          fillTone="success"
           onClick={() => setOpen("income")}
         />
 
@@ -182,7 +179,7 @@ export function PLBreakdownPanel({
           left={`Собівартість: ${money(cogsTotal)}`}
           right={`Витрати: ${money(totalExpenses)}`}
           fillPct={Math.min(100, grossIncome > 0 ? Math.round((totalCost / grossIncome) * 100) : 100)}
-          fillClass="bg-danger"
+          fillTone="danger"
           onClick={() => setOpen("cost")}
         />
       </div>
