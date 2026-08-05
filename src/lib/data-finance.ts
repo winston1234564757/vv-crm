@@ -13,12 +13,13 @@ import {
   type RangePreset,
   type RepairPnlRow,
 } from "./profit";
+import { getAllRegistersRaw, getAllSafesRaw, getAllTransactions } from "./request-cache";
+
+/** Скільки останніх рухів показує таблиця «Рух коштів». */
+const RECENT_TX_LIMIT = 50;
 
 export async function getCashRegisters() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("cash_registers").select("*");
-  if (error) throw error;
-  return data ?? [];
+  return getAllRegistersRaw();
 }
 
 export interface SafeWithSplit {
@@ -52,22 +53,9 @@ export interface SafeWithSplit {
  * перегенеровується), тому каст.
  */
 export async function getSafes(): Promise<SafeWithSplit[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("safes").select("*");
-  if (error) throw error;
-
-  const rows = supabaseCast<
-    {
-      id: string;
-      name: string;
-      type: string;
-      balance: number;
-      balance_cash: number | null;
-      balance_cashless: number | null;
-      created_at?: string;
-      updated_at?: string;
-    }[]
-  >(data ?? []);
+  // Через `request-cache`: сейфи на сторінці фінансів читають ще `getCashFlow`
+  // і `getMoneyPicture`, і без спільного кешу це було б чотири однакові запити.
+  const rows = await getAllSafesRaw();
 
   return rows.map((s) => ({
     id: s.id,
@@ -90,16 +78,25 @@ const typeNameMap: Record<string, string> = {
 
 export async function getFinanceData() {
   const supabase = await createClient();
-  const [crRes, sfRes, txRes, catRes] = await Promise.all([
-    supabase.from("cash_registers").select("*"),
+  const [cashRegisters, sfRes, allTx, catRes] = await Promise.all([
+    getAllRegistersRaw(),
     getSafes(),
-    supabase.from("transactions").select("*").order("created_at", { ascending: false }).limit(50),
+    getAllTransactions(),
     supabase.from("expense_categories").select("*"),
   ]);
 
-  const cashRegisters = crRes.data ?? [];
   const safes = sfRes; // getSafes() повертає масив напряму, без .data
-  const transactions = txRes.data ?? [];
+
+  /* Останні 50 рухів беремо зі спільного кешу, а не окремим `.order().limit(50)`:
+     увесь реєстр на цій сторінці все одно вже вичитаний для `getCashFlow` і
+     `getMoneyPicture`, тож окремий запит був би четвертим читанням тієї самої
+     таблиці заради того, що вже лежить у пам'яті.
+
+     Сортуємо КОПІЮ: `cache()` віддає спільний об'єкт, і `.sort()` на ньому
+     перевпорядкував би масив іншим читачам у тому ж рендері. */
+  const transactions = [...allTx]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, RECENT_TX_LIMIT);
   const expenseCategories = catRes.data ?? [];
 
   const crMap = new Map(cashRegisters.map((cr) => [cr.id, cr.name]));
@@ -189,10 +186,10 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
       // Ремонт закривається видачею; точний відбір — `toDatedRepairs`.
       .gte("completed_at", startStr)
       .lt("completed_at", endStr),
-    supabase.from("safes").select("id, type"),
+    getAllSafesRaw(),
   ]);
 
-  const netProfitSafeId = (safesForReport.data ?? []).find((s) => s.type === "net_profit")?.id ?? null;
+  const netProfitSafeId = safesForReport.find((s) => s.type === "net_profit")?.id ?? null;
 
   const salesData = salesRes.data ?? [];
   /* Закупівлі — витрати, а не виторг, тож рушій до них не стосується. Але

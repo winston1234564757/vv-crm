@@ -1,4 +1,3 @@
-import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
 import {
   summarize,
@@ -10,6 +9,7 @@ import {
 } from "./cashflow";
 import { supabaseCast } from "./utils/supabase";
 import { isCashless } from "@/lib/utils/finance";
+import { getAllTransactions, getAllRegistersRaw, getAllSafesRaw } from "./request-cache";
 
 /**
  * Рух грошей від фінансової епохи.
@@ -41,28 +41,18 @@ export interface CashFlowReport extends CashFlowSummary {
 }
 
 export async function getCashFlow(): Promise<CashFlowReport> {
-  const supabase = await createClient();
   const { finance_epoch } = await getSettings();
 
-  const [txRes, crRes, safeRes] = await Promise.all([
-    /* `*`, а не перелік колонок: для звірки половин потрібні `from_id`,
-       `to_id` і `payment_method`, а `payment_method` у згенерованих типах
-       немає (`database.ts` навмисно не перегенеровується — див. HANDOFF).
-       Названа в `.select()` невідома колонка ламає типізацію всього запиту,
-       тож беремо всі й кастимо, як це вже робить `getSafes`. Окремого запиту
-       звірка не потребує: усі рядки реєстру вже тут. */
-    supabase.from("transactions").select("*"),
-    supabase.from("cash_registers").select("balance, type"),
-    supabase.from("safes").select("*"),
+  /* Через `request-cache`, а не напряму: ті самі три таблиці на цій сторінці
+     читають ще `getMoneyPicture` і `getFinanceData`. `cache()` віддає їм
+     спільний результат у межах одного рендера, а помилки ці обгортки кидають
+     самі — ковтати їх не можна, бо зламаний запит і порожній період інакше
+     виглядали б однаково, і звірка «зійшлась» була б неправдою. */
+  const [all, registersRaw, safesRaw] = await Promise.all([
+    getAllTransactions(),
+    getAllRegistersRaw(),
+    getAllSafesRaw(),
   ]);
-
-  // Помилки не ковтаємо: зламаний запит і порожній період інакше виглядали б
-  // однаково, і звірка «зійшлась» була б неправдою.
-  if (txRes.error) throw new Error(txRes.error.message);
-  if (crRes.error) throw new Error(crRes.error.message);
-  if (safeRes.error) throw new Error(safeRes.error.message);
-
-  const all = txRes.data ?? [];
   const epochMs = finance_epoch ? new Date(finance_epoch).getTime() : null;
   const isBefore = (iso: string) => epochMs !== null && new Date(iso).getTime() < epochMs;
 
@@ -88,10 +78,8 @@ export async function getCashFlow(): Promise<CashFlowReport> {
   /* Загальний залишок — саме СУМА всього, без поділу на готівку й картку:
      тотожність із леджером не знає про способи оплати, і будь-який поділ їй
      лише завадив би. */
-  const registers = supabaseCast<{ balance: number; type: string }[]>(crRes.data ?? []);
-  const safes = supabaseCast<
-    { id: string; name: string; balance: number; balance_cash: number | null; balance_cashless: number | null }[]
-  >(safeRes.data ?? []);
+  const registers = registersRaw;
+  const safes = safesRaw;
 
   const closing =
     registers.reduce((s, r) => s + r.balance, 0) + safes.reduce((s, r) => s + r.balance, 0);

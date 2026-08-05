@@ -4,6 +4,7 @@ import { loadDataset } from "./profit-dataset";
 import { sliceProfit, sliceExpenses } from "./profit";
 import { buildBridge, netWorth, type CashBridge, type NetWorth } from "./bridge";
 import { supabaseCast } from "./utils/supabase";
+import { getAllTransactions, getAllRegistersRaw, getAllSafesRaw } from "./request-cache";
 
 /**
  * Дані для містка «прибуток → гроші» і для «скільки коштує бізнес».
@@ -42,25 +43,25 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
   const start = epochIso ? new Date(epochIso) : new Date(0);
   const end = new Date();
 
-  const [loaded, txRes, crRes, safeRes, devRes, accRes, partRes, repairRes] = await Promise.all([
+  /* Реєстр, каси й сейфи — через `request-cache`: ті самі три таблиці на цій
+     сторінці читає ще `getCashFlow`, і без спільного кешу вони летіли б у базу
+     двічі. Решта запитів тут свої, бо більше нікому не потрібні. */
+  const [loaded, txRows, registers, safes, devRes, accRes, partRes, repairRes] = await Promise.all([
     loadDataset(supabase, start, end),
-    supabase.from("transactions").select("*"),
-    supabase.from("cash_registers").select("balance"),
-    supabase.from("safes").select("*"),
+    getAllTransactions(),
+    getAllRegistersRaw(),
+    getAllSafesRaw(),
     supabase.from("devices").select("cost_price, repair_cost, status"),
     supabase.from("accessories").select("cost_price, stock"),
     supabase.from("parts").select("*"),
     supabase.from("repairs").select("id, price, status, completed_at, inventory_device_id"),
   ]);
 
-  for (const r of [txRes, crRes, safeRes, devRes, accRes, partRes, repairRes]) {
+  for (const r of [devRes, accRes, partRes, repairRes]) {
     if (r.error) throw new Error(r.error.message);
   }
 
-  const netProfitSafeId =
-    supabaseCast<{ id: string; type: string }[]>(safeRes.data ?? []).find(
-      (s) => s.type === "net_profit",
-    )?.id ?? null;
+  const netProfitSafeId = safes.find((s) => s.type === "net_profit")?.id ?? null;
 
   const dataset = loaded.dataset;
   const profit = sliceProfit(dataset, start, end);
@@ -68,7 +69,7 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
   const netProfit = profit.profit - opex;
 
   const ledger = summariseLedger(
-    supabaseCast<LedgerRow[]>(txRes.data ?? []),
+    txRows,
     supabaseCast<{ id: string; status: string }[]>(repairRes.data ?? []),
     epochIso,
   );
@@ -100,8 +101,6 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
     actualCashChange: ledger.cashChange,
   });
 
-  const registers = supabaseCast<{ balance: number }[]>(crRes.data ?? []);
-  const safes = supabaseCast<{ balance: number }[]>(safeRes.data ?? []);
   const devices = supabaseCast<DeviceRow[]>(devRes.data ?? []);
   const accessories = supabaseCast<{ cost_price: number; stock: number }[]>(accRes.data ?? []);
   const parts = supabaseCast<PartRow[]>(partRes.data ?? []);
