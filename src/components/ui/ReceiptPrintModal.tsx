@@ -533,7 +533,7 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
                 </table>
                 <div className="text-right pt-0.5">
                   <span className="text-[10px] font-bold">
-                    РАЗОМ: {data.repairItems.reduce((s, i) => s + i.unit_price * i.quantity, 0).toLocaleString()} ₴ (Сплачено)
+                    РАЗОМ: {(data.price || 0).toLocaleString()} ₴ (Сплачено)
                   </span>
                 </div>
               </>

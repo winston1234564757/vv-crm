@@ -175,24 +175,33 @@ export function composeRepairBreakdown(
 ): RepairBreakdownLine[] {
   if (parts.length === 0 && services.length === 0) return [];
 
-  const partsTotal = parts.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0);
-  const servicesTotal = services.reduce((sum, s) => sum + s.unitPrice * s.quantity, 0);
-  const labor = price - partsTotal - servicesTotal;
-  if (labor < 0) return [];
-
   const lines: RepairBreakdownLine[] = [];
 
-  // Іменовані послуги (з repair_services) — рядок на кожну.
-  // Якщо послуг немає, залишок ціни друкується як «Ремонтні роботи».
   if (services.length > 0) {
+    // Явно додані послуги — завжди показуємо як окремі рядки.
+    // Перевірка «labor < 0» тут не застосовується: майстер сам визначив
+    // перелік і вартість, ми просто відображаємо що він додав.
     for (const s of services) {
       if (s.unitPrice <= 0) continue;
       lines.push({ name: s.name, quantity: s.quantity, unit_price: s.unitPrice });
     }
-  } else if (labor > 0) {
-    lines.push({ name: "Ремонтні роботи", quantity: 1, unit_price: labor });
+    for (const p of parts) {
+      if (p.unitPrice <= 0) continue;
+      lines.push({
+        name: p.compatibleWith ? `${p.name} (${p.compatibleWith})` : p.name,
+        quantity: p.quantity,
+        unit_price: p.unitPrice,
+      });
+    }
+    return lines;
   }
 
+  // Послуг немає — стара поведінка: залишок ціни = «Ремонтні роботи».
+  const partsTotal = parts.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0);
+  const labor = price - partsTotal;
+  if (labor < 0) return [];
+
+  if (labor > 0) lines.push({ name: "Ремонтні роботи", quantity: 1, unit_price: labor });
   for (const p of parts) {
     if (p.unitPrice <= 0) continue;
     lines.push({
