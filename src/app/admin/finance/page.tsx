@@ -23,6 +23,8 @@ import { getMoneyPicture } from "@/lib/data-bridge";
 import { CashBridgePanel } from "./CashBridgePanel";
 import { NetWorthPanel } from "./NetWorthPanel";
 import { resolveViewMode } from "@/components/ui/ViewToggle";
+import { getSkuReport } from "@/lib/data-sku";
+import { SkuPanel } from "./SkuPanel";
 
 export default async function FinancePage({
   searchParams,
@@ -43,6 +45,7 @@ export default async function FinancePage({
     purchases,
     cashFlow,
     picture,
+    sku,
   ] = await Promise.all([
     getFinanceData(),
     getFinanceReport(),
@@ -52,6 +55,7 @@ export default async function FinancePage({
     getPurchases(),
     getCashFlow(),
     getMoneyPicture(),
+    getSkuReport(),
   ]);
 
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
@@ -271,6 +275,7 @@ export default async function FinancePage({
           <div className="grid grid-cols-1 gap-6 md:grid-cols-6 lg:grid-cols-12">
             <CashBridgePanel bridge={picture.bridge} mode={viewMode} />
             <NetWorthPanel worth={picture.worth} mode={viewMode} />
+            <SkuPanel report={sku} mode={viewMode} />
           </div>
 
           {/* C. Reconciliation & Transactions tables */}
