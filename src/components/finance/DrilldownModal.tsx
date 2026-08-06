@@ -41,11 +41,17 @@ export function DrilldownModal({
 
     load()
       .then((r) => {
-        if (alive) setData(r);
+        if (!alive) return;
+        /* Дія тепер ПОВЕРТАЄ причину збою замість того, щоб кидати виняток:
+           кинутий Next замінює на «An error occurred in the Server Components
+           render… omitted in production builds», і власник бачить англійський
+           абзац без жодної підказки. Ми самі на цьому застрягли. */
+        if (r.error) setError(r.error);
+        else setData(r);
       })
       .catch((e: unknown) => {
-        // Помилку показуємо, а не ковтаємо: порожній список і зламаний запит
-        // інакше виглядали б однаково, і «операцій немає» було б неправдою.
+        // Лишається як остання сітка: сюди падає збій самого транспорту дії,
+        // до якого `guard` уже не дотягується.
         if (alive) setError(e instanceof Error ? e.message : "Не вдалося завантажити деталі");
       });
 

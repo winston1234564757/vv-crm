@@ -6,7 +6,7 @@ import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
 import { supabaseCast } from "./utils/supabase";
 import { classifyMove } from "./cashflow";
-import { writtenOffValue } from "./data-bridge";
+import { writtenOffValue, type StockMovement } from "./inventory-cost";
 import {
   allocateSaleRevenue,
   itemCost,
@@ -48,6 +48,16 @@ export interface DrillResult {
   /** Пояснення статті — те саме, що раніше займало пів таблиці колонкою «ЧОМУ». */
   hint: string;
   /**
+   * Чому не вийшло. `null` — вийшло.
+   *
+   * Помилка ПОВЕРТАЄТЬСЯ, а не кидається. Кинутий виняток у серверній дії
+   * Next замінює на «An error occurred in the Server Components render. The
+   * specific message is omitted in production builds» — і власник бачить
+   * англійський абзац без жодної підказки, що саме зламалось. Ми теж бачили
+   * рівно його й гадали замість того, щоб прочитати причину.
+   */
+  error?: string | null;
+  /**
    * Чому підсумок списку НЕ дорівнює числу, з якого модалку відкрили.
    *
    * Потрібно рівно там, де стаття містка — це різниця двох потоків, а не сам
@@ -60,6 +70,28 @@ export interface DrillResult {
 }
 
 const EMPTY = (hint: string): DrillResult => ({ rows: [], total: 0, hint, reconcile: null });
+
+/**
+ * Обгортка, яка перетворює виняток у видиме повідомлення.
+ *
+ * Кожна дія заглиблення проходить через неї. Без цього будь-який збій —
+ * від зміненої колонки до відмови RLS — виглядав однаково: загальний текст
+ * Next.js про Server Components. Для звіту, за яким двоє власників ділять
+ * гроші, «щось зламалось» без назви причини гірше за саму поломку.
+ */
+async function guard(run: () => Promise<DrillResult>): Promise<DrillResult> {
+  try {
+    return await run();
+  } catch (e) {
+    return {
+      rows: [],
+      total: 0,
+      hint: "",
+      reconcile: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
 
 /** Увесь реєстр разом із назвами кас і сейфів для підпису сторін. */
 async function fetchLedger(): Promise<{ txs: LedgerTx[]; names: Map<string, string> }> {
@@ -135,7 +167,7 @@ function sideLabel(t: LedgerTx, names: Map<string, string>): string {
 
 const INVENTORY_KINDS = new Set(["inventory", "device", "part", "accessory", "purchase"]);
 
-export async function getBridgeLineRows(key: string): Promise<DrillResult> {
+async function getBridgeLineRowsInner(key: string): Promise<DrillResult> {
   await requireRole(MONEY_ROLES);
   const supabase = await createClient();
   const { finance_epoch } = await getSettings();
@@ -497,7 +529,7 @@ async function writeOffsSinceEpoch(epochIso: string | null): Promise<number> {
     .gte("created_at", epochIso ?? "1970-01-01T00:00:00Z");
 
   return writtenOffValue(
-    supabaseCast<{ quantity_change: number; unit_cost: number | null }[]>(data ?? []),
+    supabaseCast<StockMovement[]>(data ?? []),
   );
 }
 
@@ -554,7 +586,7 @@ const DIRECTION_HINTS: Record<string, string> = {
  * стояла своя копія правила «рахунок → назовні», заглиблення рано чи пізно
  * розійшлось би з числом, під яким воно відкривається.
  */
-export async function getCashFlowLineRows(key: string): Promise<DrillResult> {
+async function getCashFlowLineRowsInner(key: string): Promise<DrillResult> {
   await requireRole(MONEY_ROLES);
   const { finance_epoch } = await getSettings();
   const { txs, names } = await fetchLedger();
@@ -640,7 +672,7 @@ function signRow(row: DrillRow, t: LedgerTx): DrillRow {
 
 /* ── Вартість бізнесу ────────────────────────────────────────────────────── */
 
-export async function getWorthPartRows(key: string): Promise<DrillResult> {
+async function getWorthPartRowsInner(key: string): Promise<DrillResult> {
   await requireRole(MONEY_ROLES);
   const supabase = await createClient();
 
@@ -750,7 +782,7 @@ export async function getWorthPartRows(key: string): Promise<DrillResult> {
  * Виторг рядка — з розподілу знижки по чеку, а не `total_price`: інакше сума
  * заглиблення розійшлась би з числом, під яким воно відкрилось.
  */
-export async function getSkuSaleRows(key: string, preset: string): Promise<DrillResult> {
+async function getSkuSaleRowsInner(key: string, preset: string): Promise<DrillResult> {
   await requireRole(MONEY_ROLES);
   const supabase = await createClient();
   const { finance_epoch } = await getSettings();
@@ -822,4 +854,26 @@ async function deviceCosts(ids: string[]): Promise<Map<string, ProfitDeviceCost>
 
   for (const d of data ?? []) map.set(d.id, { cost_price: d.cost_price, repair_cost: d.repair_cost });
   return map;
+}
+
+/* ── Публічні дії ─────────────────────────────────────────────────────────────
+ *
+ * Тонкі обгортки, і це єдина їхня робота: віддати причину збою замість того,
+ * щоб дати Next.js замінити її на англійський абзац про Server Components.
+ * `guard` ловить усе — від зміненої колонки до відмови RLS.
+ */
+export async function getBridgeLineRows(key: string): Promise<DrillResult> {
+  return guard(() => getBridgeLineRowsInner(key));
+}
+
+export async function getCashFlowLineRows(key: string): Promise<DrillResult> {
+  return guard(() => getCashFlowLineRowsInner(key));
+}
+
+export async function getWorthPartRows(key: string): Promise<DrillResult> {
+  return guard(() => getWorthPartRowsInner(key));
+}
+
+export async function getSkuSaleRows(key: string, preset: string): Promise<DrillResult> {
+  return guard(() => getSkuSaleRowsInner(key, preset));
 }

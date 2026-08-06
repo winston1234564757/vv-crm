@@ -17,6 +17,29 @@
  * тут не косметика: усі гроші в проєкті цілі, і дробова собівартість поїхала б
  * у першому ж множенні на залишок.
  */
+export interface StockMovement {
+  quantity_change: number;
+  unit_cost: number | null;
+}
+
+/**
+ * Вартість товару, що вибув зі складу не через продаж.
+ *
+ * Живе тут, а не в `data-bridge.ts`, хоч звірка містка — головний читач.
+ * Причина не косметична: `data-drilldown.ts` (модуль серверних дій) теж
+ * рахує це число, і імпорт із `data-bridge` тягнув би в шар дій усе, що той
+ * модуль підключає — Supabase-клієнт, завантажувач датасету, request-cache.
+ * Чиста функція такої компанії не потребує.
+ *
+ * Рахує по `unit_cost` руху, а не по поточному `cost_price` картки: картка
+ * після списання ще не раз зміниться закупівлями, а вибуло стільки, скільки
+ * коштувало ТОДІ. Рухи без `unit_cost` (записані до появи колонки) дають нуль —
+ * вигадувати їм ціну гірше, ніж визнати, що її не записали.
+ */
+export function writtenOffValue(moves: StockMovement[]): number {
+  return moves.reduce((s, m) => s + Math.abs(m.quantity_change) * (m.unit_cost ?? 0), 0);
+}
+
 export function weightedCost(
   stock: number,
   cost: number,

@@ -5,6 +5,7 @@ import { sliceProfit, sliceExpenses } from "./profit";
 import { buildBridge, netWorth, type CashBridge, type NetWorth } from "./bridge";
 import { supabaseCast } from "./utils/supabase";
 import { getAllTransactions, getAllRegistersRaw, getAllSafesRaw } from "./request-cache";
+import { writtenOffValue, type StockMovement } from "./inventory-cost";
 
 /**
  * Дані для містка «прибуток → гроші» і для «скільки коштує бізнес».
@@ -105,7 +106,7 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
      `write_off` (товар був і зник) і `adjustment` (товару ніколи не було)
      рахуються разом. Для розбору різниця важлива й лежить у `note`, але для
      містка вона одна: вартість пішла зі складу без продажу. */
-  const writtenOff = writtenOffValue(supabaseCast<MovementRow[]>(moveRes.data ?? []));
+  const writtenOff = writtenOffValue(supabaseCast<StockMovement[]>(moveRes.data ?? []));
   const inventoryDelta = ledger.inventorySpend - profit.cost - writtenOff;
 
   const bridge = buildBridge({
@@ -165,23 +166,6 @@ interface DeviceRow {
   cost_price: number;
   repair_cost: number;
   status: string;
-}
-
-interface MovementRow {
-  quantity_change: number;
-  unit_cost: number | null;
-}
-
-/**
- * Вартість товару, що вибув зі складу не через продаж.
- *
- * Рахує по `unit_cost` руху, а не по поточному `cost_price` картки: картка
- * після списання ще не раз зміниться закупівлями, а вибуло стільки, скільки
- * коштувало ТОДІ. Рухи без `unit_cost` (записані до цієї колонки) дають нуль —
- * вигадувати їм ціну гірше, ніж визнати, що її не записали.
- */
-export function writtenOffValue(moves: MovementRow[]): number {
-  return moves.reduce((s, m) => s + Math.abs(m.quantity_change) * (m.unit_cost ?? 0), 0);
 }
 
 /** Борг постачальникам: запчастини, взяті з відтермінуванням і ще не оплачені. */
