@@ -7,7 +7,7 @@ import { getPurchases } from "@/lib/data-purchases";
 import { PurchasesTable } from "./table";
 import { AddPurchaseButton } from "./AddPurchaseButton";
 import { pluralUk } from "@/lib/utils/plural";
-import { getSafes } from "@/lib/data-finance";
+import { getSafes, getCashRegisters } from "@/lib/data-finance";
 
 function GlassCard({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={`card p-5 ${className ?? ""}`}>{children}</div>;
@@ -18,9 +18,10 @@ export default async function PurchasesPage() {
   // і рухи по сейфах, тобто рівно те, що ховається на дашборді.
   await requirePageRole(MONEY_ROLES);
 
-  const [purchases, safes] = await Promise.all([
+  const [purchases, safes, registers] = await Promise.all([
     getPurchases(),
     getSafes(),
+    getCashRegisters(),
   ]);
   const total = purchases.reduce((s, p) => s + p.total_amount, 0);
 
@@ -48,7 +49,7 @@ export default async function PurchasesPage() {
         </StandardCard>
       </div>
       <StandardCard>
-        <PurchasesTable purchases={purchases} safes={safes} />
+        <PurchasesTable purchases={purchases} safes={safes} registers={registers} />
       </StandardCard>
     </div>
   );

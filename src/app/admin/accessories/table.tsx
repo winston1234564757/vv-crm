@@ -65,10 +65,12 @@ export function AccessoriesTable({
   accessories,
   sales = [],
   safes = [],
+  registers = [],
 }: {
   accessories: AccessoryRow[];
   sales?: SaleWithDetails[];
   safes?: SafeOption[];
+  registers?: SafeOption[];
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -429,6 +431,7 @@ export function AccessoriesTable({
           key={`purchase-${move.item.id}`}
           item={move.item}
           safes={safes}
+          registers={registers}
           onClose={() => setMove(null)}
         />
       )}

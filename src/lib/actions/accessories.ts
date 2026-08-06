@@ -74,34 +74,28 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
-    // 1. Determine safe and check balance BEFORE insert
-    const safeId = formData.get("safe_id") as string | null;
-    let chosenSafeId = safeId;
-    if (!chosenSafeId) {
+    /* Джерело оплати — сейф або каса. Попередньої перевірки балансу тут
+       більше немає: її робить `account_apply` усередині RPC, разом зі
+       списанням. Окремий SELECT нічого не гарантував — між ним і списанням
+       баланс міг змінитись, — зате давав другий текст помилки для того самого
+       правила. */
+    const sourceTypeRaw = (formData.get("source_type") as string | null) ?? "safe";
+    const sourceType: "safe" | "cash_register" =
+      sourceTypeRaw === "cash_register" ? "cash_register" : "safe";
+    let sourceId = (formData.get("source_id") as string | null) || (formData.get("safe_id") as string | null);
+
+    let chosenType = sourceType;
+    if (!sourceId) {
       const { data: opexSafe } = await supabase
         .from("safes")
         .select("id")
         .eq("type", "opex")
         .single();
-      chosenSafeId = opexSafe?.id ?? null;
+      sourceId = opexSafe?.id ?? null;
+      chosenType = "safe";
     }
 
     const totalCost = parsed.cost_price * parsed.stock;
-    if (totalCost > 0 && chosenSafeId) {
-      const { data: safeData } = await supabase
-        .from("safes")
-        .select("balance, name")
-        .eq("id", chosenSafeId)
-        .single();
-
-      if (!safeData) {
-        throw new Error("Сейф для списання коштів не знайдено");
-      }
-
-      if (safeData.balance < totalCost) {
-        throw new Error(`Недостатньо коштів на сейфі "${safeData.name}". Доступно: ${safeData.balance} грн`);
-      }
-    }
 
     // 2. Perform insert
     const { data: inserted, error } = await supabase.from("accessories").insert({
@@ -125,17 +119,23 @@ export async function createAccessory(prevState: ActionState | null, formData: F
     if (error) throw error;
 
     // 3. Perform safe balance deduction
-    if (totalCost > 0 && chosenSafeId && inserted?.id) {
+    if (totalCost > 0 && sourceId && inserted?.id) {
       try {
         const description = `Закупівля аксесуарів: ${parsed.name} (Кількість: ${parsed.stock} шт.)`;
         const { error: rpcErr } = await supabase.rpc("purchase_inventory_item", {
           item_type: "accessory",
           item_id: inserted.id,
-          safe_id: chosenSafeId,
+          /* Веде перед `p_source_id`; для каси мусить бути null. У згенерованих
+             типах поле не nullable — `database.ts` навмисно не
+             перегенеровується (див. AGENTS.md). */
+          // @ts-expect-error — див. коментар вище
+          safe_id: chosenType === "safe" ? sourceId : null,
           amount: totalCost,
           description,
           user_id: user.id,
           payment_method: parsed.payment_method,
+          p_source_type: chosenType,
+          p_source_id: sourceId,
         });
         if (rpcErr) throw rpcErr;
       } catch (rpcError) {
@@ -338,6 +338,10 @@ const purchaseStockSchema = z.object({
      розійшлись би, і власник побачив би в модалці одне, а в картці інше. */
   newCostPrice: z.coerce.number().int().min(0),
   safeId: z.string().uuid().nullable().optional(),
+  /* Джерело — пара (тип, id). Сейф лишається типовим, щоб старі виклики без
+     цих полів працювали так само. */
+  sourceType: z.enum(["safe", "cash_register"]).default("safe"),
+  sourceId: z.string().uuid().nullable().optional(),
   paymentMethod: z.enum(["cash", "cashless"]).default("cash"),
 });
 
@@ -352,18 +356,20 @@ export async function purchaseAccessoryStock(
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user) throw new Error("Неавторизовано: " + (authError?.message || ""));
 
-    /* Сейф питає форма, але типове значення лишається тут, поруч із рештою
+    /* Джерело питає форма, але типове значення лишається тут, поруч із рештою
        закупівель: `createAccessory` та `importAccessories` беруть OPEX так
        само, і три різні дефолти на одну операцію були б трьома різними
        відповідями на одне питання. */
-    let safeId = parsed.safeId ?? null;
-    if (!safeId) {
+    let sourceId = parsed.sourceId ?? parsed.safeId ?? null;
+    let sourceType = parsed.sourceType;
+    if (!sourceId) {
       const { data: opex } = await supabase
         .from("safes")
         .select("id")
         .eq("type", "opex")
         .single();
-      safeId = opex?.id ?? null;
+      sourceId = opex?.id ?? null;
+      sourceType = "safe";
     }
 
     // @ts-expect-error — purchase_accessory_stock немає в згенерованих типах
@@ -372,10 +378,13 @@ export async function purchaseAccessoryStock(
       p_accessory_id: parsed.accessoryId,
       p_quantity: parsed.quantity,
       p_unit_cost: parsed.unitCost,
+      // Веде перед `p_source_id`; для каси мусить бути NULL.
+      p_safe_id: sourceType === "safe" ? sourceId : null,
       p_new_cost_price: parsed.newCostPrice,
-      p_safe_id: safeId,
       p_payment_method: parsed.paymentMethod,
       p_user_id: user.id,
+      p_source_type: sourceType,
+      p_source_id: sourceId,
     });
     if (error) throw error;
 

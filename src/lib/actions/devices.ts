@@ -120,9 +120,13 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       throw new Error("Неавторизовано: " + (authError?.message || "Користувач не знайдений"));
     }
 
-    // 1. Determine safe
-    const safeId = formData.get("safe_id") as string | null;
-    let chosenSafeId = safeId;
+    /* Джерело оплати — сейф або каса. `safe_id` лишається для сумісності зі
+       старими викликами й веде перед `p_source_id`. */
+    const sourceTypeRaw = (formData.get("source_type") as string | null) ?? "safe";
+    let chosenType: "safe" | "cash_register" =
+      sourceTypeRaw === "cash_register" ? "cash_register" : "safe";
+    let chosenSafeId =
+      (formData.get("source_id") as string | null) || (formData.get("safe_id") as string | null);
     if (!chosenSafeId && parsed.cost_price > 0) {
       const { data: opexSafe } = await supabase
         .from("safes")
@@ -130,6 +134,7 @@ export async function createDevice(prevState: ActionState | null, formData: Form
         .eq("type", "opex")
         .single();
       chosenSafeId = opexSafe?.id ?? null;
+      chosenType = "safe";
     }
 
     // 2. Execute ATOMIC RPC for Device Purchase
@@ -166,9 +171,12 @@ export async function createDevice(prevState: ActionState | null, formData: Form
       p_serial_number: parsed.serial_number,
       p_warehouse_location: parsed.warehouse_location,
       p_photo_urls: parsed.photo_urls,
-      p_safe_id: chosenSafeId,
+      // Веде перед `p_source_id`; для каси мусить бути null.
+      p_safe_id: chosenType === "safe" ? chosenSafeId : null,
       p_user_id: user.id,
       p_payment_method: parsed.payment_method,
+      p_source_type: chosenType,
+      p_source_id: chosenSafeId,
     });
 
     if (rpcError) throw rpcError;

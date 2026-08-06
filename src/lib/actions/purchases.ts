@@ -184,9 +184,12 @@ export async function updatePurchaseStatus(
   id: string,
   status: string,
   safeId?: string | null,
-  /* Оплата закупівлі списує з конкретної половини сейфа, тож спосіб має
-     приїхати з інтерфейсу, а не вгадуватись тут. */
+  /* Оплата з сейфа списує з конкретної половини, тож спосіб має приїхати з
+     інтерфейсу, а не вгадуватись тут. Для каси його визначає сама каса. */
   paymentMethod: "cash" | "cashless" = "cash",
+  /* Джерело оплати. `safe` за замовчуванням — щоб старі виклики з самим
+     `safeId` працювали без змін. */
+  sourceType: "safe" | "cash_register" = "safe",
 ): Promise<ActionState> {
   try {
     const supabase = await createClient();
@@ -200,13 +203,19 @@ export async function updatePurchaseStatus(
       if (rpcError) throw rpcError;
     } else if (status === "paid") {
       if (!safeId) {
-        throw new Error("Оберіть сейф для оплати закупівлі");
+        throw new Error("Оберіть, звідки оплатити закупівлю");
       }
       const { error: rpcError } = await supabase.rpc("pay_purchase_atomic", {
         p_id: id,
-        p_safe_id: safeId,
+        /* Веде перед `p_source_id`; для каси мусить бути null. У згенерованих
+           типах поле не nullable — `database.ts` навмисно не перегенеровується
+           (див. AGENTS.md). */
+        // @ts-expect-error — див. коментар вище
+        p_safe_id: sourceType === "safe" ? safeId : null,
         user_id: user.id,
         p_payment_method: paymentMethod,
+        p_source_type: sourceType,
+        p_source_id: safeId,
       });
       if (rpcError) throw rpcError;
     } else {

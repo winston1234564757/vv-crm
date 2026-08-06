@@ -8,7 +8,13 @@ import { IconPlus } from "@/components/icons";
 
 import type { Database } from "@/types/database";
 
-export function AddAccessoryButton({ safes = [] }: { safes?: Database["public"]["Tables"]["safes"]["Row"][] }) {
+export function AddAccessoryButton({
+  safes = [],
+  registers = [],
+}: {
+  safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  registers?: Database["public"]["Tables"]["cash_registers"]["Row"][];
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -18,7 +24,7 @@ export function AddAccessoryButton({ safes = [] }: { safes?: Database["public"][
       </Button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Новий аксесуар">
-        <AccessoryForm onSuccess={() => setIsOpen(false)} safes={safes} />
+        <AccessoryForm onSuccess={() => setIsOpen(false)} safes={safes} registers={registers} />
       </Drawer>
     </>
   );

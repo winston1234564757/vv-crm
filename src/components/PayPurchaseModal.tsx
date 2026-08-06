@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { IconClose } from "@/components/icons";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+} from "@/components/ui/PaymentSourcePicker";
 
 interface Safe {
   id: string;
@@ -15,22 +20,31 @@ export function PayPurchaseModal({
   onClose,
   onConfirm,
   safes,
+  registers = [],
   amount,
   isPending,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (safeId: string) => void;
+  onConfirm: (source: ChosenSource) => void;
   safes: Safe[];
+  /** Каси як джерело. Пікер лишить із них лише безготівкові. */
+  registers?: Safe[];
   amount: number;
   isPending: boolean;
 }) {
-  const [selectedSafeId, setSelectedSafeId] = useState("");
+  const [source, setSource] = useState<ChosenSource | null>(null);
 
   if (!isOpen) return null;
 
-  const selectedSafe = safes.find(s => s.id === selectedSafeId);
-  const hasOverdraft = selectedSafe ? amount > selectedSafe.balance : false;
+  /* Баланс шукаємо і серед сейфів, і серед кас: підказка про нестачу мусить
+     знати про обидва види джерел, інакше оплата з рахунку показувала б
+     «баланс невідомий» і кнопка ніколи не блокувалась би. */
+  const selectedBalance =
+    source === null
+      ? null
+      : (source.type === "safe" ? safes : registers).find((a) => a.id === source.id)?.balance ?? null;
+  const hasOverdraft = selectedBalance !== null && amount > selectedBalance;
 
   return (
     <div className="fixed inset-0 bg-text-primary/40 z-50 flex items-center justify-center p-4">
@@ -48,30 +62,20 @@ export function PayPurchaseModal({
         </p>
 
         <div className="space-y-3">
-          <div>
-            <label htmlFor="safe_payment_select" className="mb-1.5 block text-xs font-medium text-text-secondary">Сейф для оплати</label>
-            <select
-              id="safe_payment_select"
-              required
-              value={selectedSafeId}
-              onChange={(e) => setSelectedSafeId(e.target.value)}
-              className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
-            >
-              <option value="" disabled>Оберіть сейф...</option>
-              {safes.map((safe) => (
-                <option key={safe.id} value={safe.id}>
-                  {safe.name} ({safe.balance.toLocaleString()} грн)
-                </option>
-              ))}
-            </select>
-          </div>
+          <PaymentSourcePicker
+            label="Чим платимо"
+            safes={safes}
+            registers={spendableRegisters(registers)}
+            value={source}
+            onChange={setSource}
+          />
 
-          {selectedSafe && (
+          {selectedBalance !== null && (
             <div className={`rounded-xl p-3 text-xs border animate-entry ${hasOverdraft ? "bg-rose/5 border-rose/20 text-rose" : "bg-emerald/5 border-emerald/20 text-emerald"}`}>
               {hasOverdraft ? (
-                <span>⚠️ Недостатньо коштів на цьому сейфі (Баланс: {selectedSafe.balance.toLocaleString()} грн)</span>
+                <span>⚠️ Недостатньо коштів (Баланс: {selectedBalance.toLocaleString()} грн)</span>
               ) : (
-                <span>Залишок після оплати: {(selectedSafe.balance - amount).toLocaleString()} грн</span>
+                <span>Залишок після оплати: {(selectedBalance - amount).toLocaleString()} грн</span>
               )}
             </div>
           )}
@@ -85,8 +89,8 @@ export function PayPurchaseModal({
             Скасувати
           </button>
           <button
-            onClick={() => onConfirm(selectedSafeId)}
-            disabled={isPending || hasOverdraft || !selectedSafeId}
+            onClick={() => source && onConfirm(source)}
+            disabled={isPending || hasOverdraft || !source}
             className="rounded-xl bg-emerald hover:bg-emerald/90 text-white px-5 py-2 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50"
           >
             {isPending ? "Оплата..." : "Підтвердити оплату"}

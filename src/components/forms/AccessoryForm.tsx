@@ -1,7 +1,13 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+  type SourceAccount,
+} from "@/components/ui/PaymentSourcePicker";
 import { createAccessory, updateAccessory } from "@/lib/actions/accessories";
 import { Input } from "@/components/ui/Input";
 import { accessoryType, optionsOf } from "@/lib/domain-labels";
@@ -12,17 +18,21 @@ import type { Database } from "@/types/database";
 
 type Safe = Database["public"]["Tables"]["safes"]["Row"];
 
-export function AccessoryForm({ 
-  onSuccess, 
+export function AccessoryForm({
+  onSuccess,
   accessory,
-  safes = []
-}: { 
-  onSuccess: () => void; 
+  safes = [],
+  registers = []
+}: {
+  onSuccess: () => void;
   accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; min_stock?: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null; supplier_sku?: string | null };
   safes?: Safe[];
+  /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
+  registers?: SourceAccount[];
 }) {
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [source, setSource] = useState<ChosenSource | null>(null);
 
   useEffect(() => {
     if (state.success) onSuccess();
@@ -166,22 +176,16 @@ export function AccessoryForm({
 
         {!accessory && safes.length > 0 && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
-              <select
-                name="safe_id"
-                required
-                defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
-                className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
-              >
-                {safes.map((safe) => (
-                  <option key={safe.id} value={safe.id}>
-                    {safe.name} ({safe.balance.toLocaleString()} грн)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <PaymentMethodPicker />
+            <PaymentSourcePicker
+              label="Списати з"
+              safes={safes}
+              registers={spendableRegisters(registers)}
+              legacyName="safe_id"
+              value={source}
+              onChange={setSource}
+            />
+            {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
+            {source?.type === "safe" && <PaymentMethodPicker />}
           </div>
         )}
       </div>

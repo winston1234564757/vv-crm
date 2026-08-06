@@ -8,12 +8,14 @@ import { PartForm } from "@/components/forms/PartForm";
 
 import type { Database } from "@/types/database";
 
-export function AddPartButton({ 
+export function AddPartButton({
   suppliers,
-  safes = []
-}: { 
+  safes = [],
+  registers = []
+}: {
   suppliers: { id: string; name: string }[];
   safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  registers?: Database["public"]["Tables"]["cash_registers"]["Row"][];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -22,7 +24,7 @@ export function AddPartButton({
         <IconPlus /> Деталь
       </Button>
       <Drawer isOpen={open} onClose={() => setOpen(false)} title="Нова деталь">
-        <PartForm onSuccess={() => setOpen(false)} suppliers={suppliers} safes={safes} />
+        <PartForm onSuccess={() => setOpen(false)} suppliers={suppliers} safes={safes} registers={registers} />
       </Drawer>
     </>
   );

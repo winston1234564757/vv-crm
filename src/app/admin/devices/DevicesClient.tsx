@@ -52,6 +52,7 @@ interface DevicesClientProps {
   services: Database["public"]["Tables"]["services"]["Row"][];
   parts: Database["public"]["Tables"]["parts"]["Row"][];
   safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  registers?: Database["public"]["Tables"]["cash_registers"]["Row"][];
 }
 
 export function DevicesClient({
@@ -63,6 +64,7 @@ export function DevicesClient({
   services,
   parts,
   safes = [],
+  registers = [],
 }: DevicesClientProps) {
   const query = useListQuery({
     mode: "client",
@@ -460,7 +462,7 @@ export function DevicesClient({
               ? "Дані про ремонти узгоджені з картками пристроїв."
               : "Додайте перший пристрій — він одразу стане на конвеєр.",
           icon: <IconDevice size={20} />,
-          action: segment === "all" ? <AddDeviceButton parts={parts} safes={safes} size="half" /> : undefined,
+          action: segment === "all" ? <AddDeviceButton parts={parts} safes={safes} registers={registers} size="half" /> : undefined,
         }}
         noResults={{
           title: "Нічого не знайдено",
@@ -488,6 +490,7 @@ export function DevicesClient({
               device={selectedDevice}
               parts={parts}
               safes={safes}
+              registers={registers}
             />
           ) : (
             <DeviceDetailView

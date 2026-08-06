@@ -2,6 +2,12 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+  type SourceAccount,
+} from "@/components/ui/PaymentSourcePicker";
 import { createPart, updatePart } from "@/lib/actions/parts";
 import { Input } from "@/components/ui/Input";
 import type { Database } from "@/types/database";
@@ -10,19 +16,23 @@ type PartRow = Database['public']['Tables']['parts']['Row'];
 
 const initialState = { success: false, error: "" };
 
-export function PartForm({ 
-  onSuccess, 
-  part, 
+export function PartForm({
+  onSuccess,
+  part,
   suppliers,
-  safes = []
+  safes = [],
+  registers = []
 }: {
   onSuccess: () => void;
   part?: PartRow;
   suppliers: { id: string; name: string }[];
   safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
+  registers?: SourceAccount[];
 }) {
   const action = part ? updatePart.bind(null, part.id) : createPart;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [source, setSource] = useState<ChosenSource | null>(null);
   const [status, setStatus] = useState<"in_stock" | "transit">(
     (part?.status as "in_stock" | "transit") ?? "in_stock"
   );
@@ -181,22 +191,20 @@ export function PartForm({
 
           {paymentStatus === "paid" && safes.length > 0 && (
             <div>
-              <label className="mb-1.5 block text-[11px] font-medium text-text-secondary">Списати з сейфу</label>
-              <select
-                name="safe_id"
-                required
-                defaultValue={safes.find(s => s.type === "opex")?.id ?? safes[0]?.id ?? ""}
-                className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-2.5 text-sm text-text-primary outline-none focus:border-violet/40 cursor-pointer"
-              >
-                {safes.map((safe) => (
-                  <option key={safe.id} value={safe.id}>
-                    {safe.name} ({safe.balance.toLocaleString()} грн)
-                  </option>
-                ))}
-              </select>
-              <div className="mt-3">
-                <PaymentMethodPicker />
-              </div>
+              <PaymentSourcePicker
+                label="Списати з"
+                safes={safes}
+                registers={spendableRegisters(registers)}
+                legacyName="safe_id"
+                value={source}
+                onChange={setSource}
+              />
+              {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
+              {source?.type === "safe" && (
+                <div className="mt-3">
+                  <PaymentMethodPicker />
+                </div>
+              )}
             </div>
           )}
 

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getParts, getPartsAlerts, getPartsUsage } from "@/lib/data-parts";
 import { getSuppliers } from "@/lib/data-suppliers";
-import { getSafes } from "@/lib/data-finance";
+import { getSafes, getCashRegisters } from "@/lib/data-finance";
 import { createClient } from "@/lib/supabase/server";
 import { PartsTable } from "./table";
 import { AddPartButton } from "./AddPartButton";
@@ -13,14 +13,16 @@ import StandardCard from "@/components/ui/StandardCard";
 export default async function PartsPage() {
   const supabase = await createClient();
 
-  const [parts, alerts, suppliers, usage, { data: stockoutForecast }, safes] = await Promise.all([
-    getParts(),
-    getPartsAlerts(),
-    getSuppliers(),
-    getPartsUsage(),
-    supabase.rpc("get_inventory_stockout_forecast"),
-    getSafes(),
-  ]);
+  const [parts, alerts, suppliers, usage, { data: stockoutForecast }, safes, registers] =
+    await Promise.all([
+      getParts(),
+      getPartsAlerts(),
+      getSuppliers(),
+      getPartsUsage(),
+      supabase.rpc("get_inventory_stockout_forecast"),
+      getSafes(),
+      getCashRegisters(),
+    ]);
 
   const totalParts = parts.length;
   const totalValue = parts.reduce((s, p) => s + p.cost_price * p.stock, 0);
@@ -38,7 +40,7 @@ export default async function PartsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary text-balance">Запчастини</h1>
           <p className="mt-0.5 text-sm text-text-secondary">{totalParts} {pluralUk(totalParts, "деталь", "деталі", "деталей")}</p>
         </div>
-        <AddPartButton suppliers={suppliers} safes={safes} />
+        <AddPartButton suppliers={suppliers} safes={safes} registers={registers} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:gap-6 sm:grid-cols-2 md:grid-cols-4">

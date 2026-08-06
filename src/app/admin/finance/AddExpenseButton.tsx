@@ -22,9 +22,12 @@ interface Safe {
 export function AddExpenseButton({
   expenseCategories,
   safes,
+  registers = [],
 }: {
   expenseCategories: ExpenseCategory[];
   safes: Safe[];
+  /** Каси як джерело оплати. Форма сама лишить із них лише безготівкові. */
+  registers?: Safe[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -38,6 +41,7 @@ export function AddExpenseButton({
         <ExpenseForm
           expenseCategories={expenseCategories}
           safes={safes}
+          registers={registers}
           onSuccess={() => setIsOpen(false)}
         />
       </Drawer>

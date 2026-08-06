@@ -66,10 +66,24 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
   }
 }
 
+/**
+ * Джерело оплати — пара (тип, id), а не сейф.
+ *
+ * Доти витрату можна було зробити тільки з сейфа, і гроші на рахунку
+ * «Безготівка» доводилось спершу переказувати. Тепер `paid_from_safe_id`
+ * лишається для сумісності зі старими викликами, але веде перед `source_id`.
+ */
+export const paymentSourceSchema = z.object({
+  source_type: z.enum(["safe", "cash_register"]).optional().default("safe"),
+  source_id: z.string().uuid().nullable().optional(),
+});
+
 const expenseSchema = z.object({
   category_id: z.string().uuid("Оберіть категорію витрати"),
   amount: z.coerce.number().min(1, "Сума витрати має бути більше 0"),
-  paid_from_safe_id: z.string().uuid("Оберіть сейф для оплати"),
+  paid_from_safe_id: z.string().uuid().nullable().optional(),
+  source_type: z.enum(["safe", "cash_register"]).optional().default("safe"),
+  source_id: z.string().uuid("Оберіть, звідки платити"),
   description: z.string().optional(),
   // Сейф тримає дві половини, і витрата мусить сказати, з якої брати.
   // Замовчування — готівка: це найчастіший випадок за прилавком.
@@ -81,7 +95,9 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
     const data = {
       category_id: formData.get("category_id"),
       amount: formData.get("amount"),
-      paid_from_safe_id: formData.get("paid_from_safe_id"),
+      paid_from_safe_id: formData.get("paid_from_safe_id") || null,
+      source_type: formData.get("source_type") || "safe",
+      source_id: formData.get("source_id") || formData.get("paid_from_safe_id"),
       description: formData.get("description") || "",
       payment_method: formData.get("payment_method") || "cash",
     };
@@ -94,10 +110,20 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
     const { error: rpcError } = await supabase.rpc("create_expense", {
       category_id: parsed.category_id,
       amount: parsed.amount,
-      paid_from_safe_id: parsed.paid_from_safe_id,
+      /* Поле лишається в сигнатурі RPC, але веде перед `p_source_id`. Для каси
+         сюди мусить їхати NULL: колонка `expenses.paid_from_safe_id` тримає FK
+         на `safes`, і id каси в ній був би посиланням у нікуди.
+
+         У згенерованих типах поле не nullable — воно стало таким міграцією
+         `20260806080657`, а `database.ts` навмисно не перегенеровується
+         (див. AGENTS.md). */
+      // @ts-expect-error — див. коментар вище
+      paid_from_safe_id: parsed.source_type === "safe" ? parsed.source_id : null,
       description: parsed.description || "",
       user_id: user.id,
       payment_method: parsed.payment_method,
+      p_source_type: parsed.source_type,
+      p_source_id: parsed.source_id,
     });
 
     if (rpcError) throw rpcError;

@@ -1,5 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+  type SourceAccount,
+} from "@/components/ui/PaymentSourcePicker";
 import { DeviceFormData } from "@/lib/types/device.types";
 import type { Database } from "@/types/database";
 
@@ -8,11 +17,13 @@ type Safe = Database["public"]["Tables"]["safes"]["Row"];
 interface DeviceFormSourceProps {
   device: DeviceFormData;
   safes?: Safe[];
+  /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
+  registers?: SourceAccount[];
 }
 
-export function DeviceFormSource({ device, safes = [] }: DeviceFormSourceProps) {
+export function DeviceFormSource({ device, safes = [], registers = [] }: DeviceFormSourceProps) {
   const isEdit = !!device.id;
-  const defaultSafe = safes.find(s => s.type === "opex") || safes[0];
+  const [source, setSource] = useState<ChosenSource | null>(null);
 
   return (
     <div className="border-t border-warm-border/50 pt-4 space-y-4">
@@ -36,22 +47,16 @@ export function DeviceFormSource({ device, safes = [] }: DeviceFormSourceProps) 
 
       {!isEdit && safes.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
-            <select
-              name="safe_id"
-              required
-              defaultValue={defaultSafe?.id ?? ""}
-              className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40 cursor-pointer"
-            >
-              {safes.map((safe) => (
-                <option key={safe.id} value={safe.id}>
-                  {safe.name} ({safe.balance.toLocaleString()} грн)
-                </option>
-              ))}
-            </select>
-          </div>
-          <PaymentMethodPicker />
+          <PaymentSourcePicker
+            label="Списати з"
+            safes={safes}
+            registers={spendableRegisters(registers)}
+            legacyName="safe_id"
+            value={source}
+            onChange={setSource}
+          />
+          {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
+          {source?.type === "safe" && <PaymentMethodPicker />}
         </div>
       )}
     </div>

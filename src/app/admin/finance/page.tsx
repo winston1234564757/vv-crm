@@ -104,7 +104,11 @@ export default async function FinancePage({
               не вистачило. Джерело частки кнопка відбирає сама. */}
           <WithdrawShareButton safes={safes as SafeWithSplit[]} />
           <AddTopUpButton safes={safes} />
-          <AddExpenseButton expenseCategories={expenseCategories} safes={safes} />
+          <AddExpenseButton
+            expenseCategories={expenseCategories}
+            safes={safes}
+            registers={cashRegisters}
+          />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
           <AddTransferButton cashRegisters={cashRegisters} safes={safes} />
         </div>

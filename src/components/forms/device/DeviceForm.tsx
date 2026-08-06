@@ -16,9 +16,11 @@ interface DeviceFormProps {
   device: DeviceFormData;
   parts?: WarehousePart[];
   safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
+  registers?: Database["public"]["Tables"]["cash_registers"]["Row"][];
 }
 
-export function DeviceForm({ onSuccess, device, parts = [], safes = [] }: DeviceFormProps) {
+export function DeviceForm({ onSuccess, device, parts = [], safes = [], registers = [] }: DeviceFormProps) {
   const form = useDeviceForm({ onSuccess, device, parts });
 
   return (
@@ -57,7 +59,7 @@ export function DeviceForm({ onSuccess, device, parts = [], safes = [] }: Device
 
       <DeviceFormPhotos device={device} />
 
-      <DeviceFormSource device={device} safes={safes} />
+      <DeviceFormSource device={device} safes={safes} registers={registers} />
 
       <DeviceFormCondition device={device} />
 

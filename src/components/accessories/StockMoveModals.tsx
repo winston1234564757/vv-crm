@@ -5,6 +5,11 @@ import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, FieldLabel, fieldClass, fieldTone } from "@/components/ui/Input";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+} from "@/components/ui/PaymentSourcePicker";
 import { purchaseAccessoryStock, writeOffAccessoryStock } from "@/lib/actions/accessories";
 import { weightedCost } from "@/lib/inventory-cost";
 import { cn } from "@/lib/utils/cn";
@@ -34,6 +39,7 @@ export interface SafeOption {
   id: string;
   name: string;
   type: string;
+  balance: number;
 }
 
 /* ── Закупівля ───────────────────────────────────────────────────────────── */
@@ -41,11 +47,14 @@ export interface SafeOption {
 export function PurchaseStockModal({
   item,
   safes,
+  registers = [],
   onClose,
   onDone,
 }: {
   item: StockMoveTarget;
   safes: SafeOption[];
+  /** Каси як джерело. Компонент лишить із них лише безготівкові. */
+  registers?: SafeOption[];
   onClose: () => void;
   onDone?: () => void;
 }) {
@@ -58,7 +67,7 @@ export function PurchaseStockModal({
      стільки»; без нього перебите число стиралось би на кожен рух кількості. */
   const [costPrice, setCostPrice] = useState("");
   const [touched, setTouched] = useState(false);
-  const [safeId, setSafeId] = useState(defaultSafe(safes));
+  const [source, setSource] = useState<ChosenSource | null>(defaultSource(safes));
   const [method, setMethod] = useState<"cash" | "cashless">("cash");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -77,8 +86,10 @@ export function PurchaseStockModal({
       quantity: qty,
       unitCost: cost,
       newCostPrice: effectiveCost,
-      safeId: total > 0 ? safeId : null,
-      paymentMethod: method,
+      sourceType: source?.type ?? "safe",
+      sourceId: total > 0 ? source?.id ?? null : null,
+      // Каса диктує спосіб сама; для сейфа шлемо вибір користувача.
+      paymentMethod: source?.method ?? method,
     });
     setPending(false);
     if (!res.success) {
@@ -175,8 +186,16 @@ export function PurchaseStockModal({
             немає. */}
         {total > 0 && (
           <>
-            <SafePicker safes={safes} value={safeId} onChange={setSafeId} />
-            <PaymentMethodPicker value={method} onChange={setMethod} />
+            <PaymentSourcePicker
+              safes={safes}
+              registers={spendableRegisters(registers)}
+              value={source}
+              onChange={setSource}
+            />
+            {/* Половини має лише сейф. У каси спосіб оплати — це вона сама. */}
+            {source?.type === "safe" && (
+              <PaymentMethodPicker value={method} onChange={setMethod} />
+            )}
           </>
         )}
       </div>
@@ -314,34 +333,6 @@ export function WriteOffStockModal({
 
 /* ── Спільне ─────────────────────────────────────────────────────────────── */
 
-function SafePicker({
-  safes,
-  value,
-  onChange,
-}: {
-  safes: SafeOption[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <FieldLabel htmlFor="purchase-safe">Звідки платимо</FieldLabel>
-      <select
-        id="purchase-safe"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(fieldClass, fieldTone(false))}
-      >
-        {safes.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 function ErrorNote({ message }: { message: string }) {
   return (
     <p className="rounded-[var(--radius-md)] border border-danger/30 bg-danger/5 px-3 py-2 text-xs leading-relaxed text-danger">
@@ -350,9 +341,10 @@ function ErrorNote({ message }: { message: string }) {
   );
 }
 
-/** OPEX як типовий сейф — так само, як у `createAccessory` й `importAccessories`. */
-function defaultSafe(safes: SafeOption[]): string {
-  return (safes.find((s) => s.type === "opex") ?? safes[0])?.id ?? "";
+/** OPEX як типове джерело — так само, як у `createAccessory` й `importAccessories`. */
+function defaultSource(safes: SafeOption[]): ChosenSource | null {
+  const s = safes.find((x) => x.type === "opex") ?? safes[0];
+  return s ? { type: "safe", id: s.id, method: null, name: s.name } : null;
 }
 
 /** Порожнє поле — це нуль, а не NaN: інакше сума мовчки стає «NaN ₴». */

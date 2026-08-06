@@ -8,6 +8,7 @@ import Drawer from "@/components/ui/Drawer";
 import { PurchaseDetailView } from "@/components/PurchaseDetailView";
 import { InlineError } from "@/components/ui/InlineError";
 import { PayPurchaseModal } from "@/components/PayPurchaseModal";
+import type { ChosenSource } from "@/components/ui/PaymentSourcePicker";
 
 interface Safe {
   id: string;
@@ -30,7 +31,15 @@ const statusColors: Record<string, string> = { pending: "text-amber bg-amber/10"
 const paymentTypeLabels: Record<string, string> = { transit: "🚚 В дорозі", on_receipt: "📦 При отриманні", prepaid: "💳 Передплата" };
 const paymentTypeColors: Record<string, string> = { transit: "text-info bg-info-subtle", on_receipt: "text-amber bg-amber/10", prepaid: "text-emerald bg-emerald/10" };
 
-export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseRow[]; safes?: Safe[] }) {
+export function PurchasesTable({
+  purchases,
+  safes = [],
+  registers = [],
+}: {
+  purchases: PurchaseRow[];
+  safes?: Safe[];
+  registers?: Safe[];
+}) {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
@@ -50,10 +59,18 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
     if (!res.success) setError(res.error ?? "");
   }
 
-  async function handleConfirmPayment(safeId: string) {
+  async function handleConfirmPayment(source: ChosenSource) {
     if (!payPurchaseId) return;
     setIsPaying(true);
-    const res = await updatePurchaseStatus(payPurchaseId, "paid", safeId);
+    /* Каса диктує спосіб оплати сама; для сейфа лишається «готівка» як
+       типовий випадок за прилавком. */
+    const res = await updatePurchaseStatus(
+      payPurchaseId,
+      "paid",
+      source.id,
+      source.method ?? "cash",
+      source.type,
+    );
     setIsPaying(false);
     if (res.success) {
       setPayPurchaseId(null);
@@ -273,6 +290,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
           <PurchaseDetailView
             purchase={selectedPurchase}
             safes={safes}
+            registers={registers}
             onStatusUpdated={() => {
               setSelectedPurchase(null);
             }}
@@ -286,6 +304,7 @@ export function PurchasesTable({ purchases, safes = [] }: { purchases: PurchaseR
         onClose={() => setPayPurchaseId(null)}
         onConfirm={handleConfirmPayment}
         safes={safes}
+        registers={registers}
         amount={payAmount}
         isPending={isPaying}
       />

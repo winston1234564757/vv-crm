@@ -12,13 +12,15 @@ export function AddDeviceButton({
   children = <><IconPlus /> Додати техніку</>,
   size = "default",
   parts = [],
-  safes = []
+  safes = [],
+  registers = []
 }: {
   className?: string;
   children?: React.ReactNode;
   size?: "default" | "full" | "half";
   parts?: Database["public"]["Tables"]["parts"]["Row"][];
   safes?: Database["public"]["Tables"]["safes"]["Row"][];
+  registers?: Database["public"]["Tables"]["cash_registers"]["Row"][];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -68,7 +70,7 @@ export function AddDeviceButton({
       </button>
 
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Новий пристрій" size={size}>
-        <DeviceForm onSuccess={() => setIsOpen(false)} device={emptyDevice} parts={parts} safes={safes} />
+        <DeviceForm onSuccess={() => setIsOpen(false)} device={emptyDevice} parts={parts} safes={safes} registers={registers} />
       </Drawer>
     </>
   );

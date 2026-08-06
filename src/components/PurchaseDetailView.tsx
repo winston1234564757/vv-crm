@@ -6,6 +6,7 @@ import {
 import { updatePurchaseStatus } from "@/lib/actions/purchases";
 import { useState } from "react";
 import { PayPurchaseModal } from "@/components/PayPurchaseModal";
+import type { ChosenSource } from "@/components/ui/PaymentSourcePicker";
 
 interface PurchaseItem {
   id: string;
@@ -39,6 +40,8 @@ type PurchaseDetailViewProps = {
     purchase_items?: PurchaseItem[];
   };
   safes?: Safe[];
+  /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
+  registers?: Safe[];
   onStatusUpdated?: () => void;
   onClose: () => void;
 };
@@ -64,7 +67,7 @@ const typeLabels: Record<string, string> = {
   service: "Послуга"
 };
 
-export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onClose }: PurchaseDetailViewProps) {
+export function PurchaseDetailView({ purchase, safes = [], registers = [], onStatusUpdated, onClose }: PurchaseDetailViewProps) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -81,10 +84,17 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
     }
   }
 
-  async function handleConfirmPayment(safeId: string) {
+  async function handleConfirmPayment(source: ChosenSource) {
     setError("");
     setPending(true);
-    const res = await updatePurchaseStatus(purchase.id, "paid", safeId);
+    // Каса диктує спосіб оплати сама; для сейфа лишається типова готівка.
+    const res = await updatePurchaseStatus(
+      purchase.id,
+      "paid",
+      source.id,
+      source.method ?? "cash",
+      source.type,
+    );
     setPending(false);
     if (res.success) {
       setIsPayModalOpen(false);
@@ -285,6 +295,7 @@ export function PurchaseDetailView({ purchase, safes = [], onStatusUpdated, onCl
         onClose={() => setIsPayModalOpen(false)}
         onConfirm={handleConfirmPayment}
         safes={safes}
+        registers={registers}
         amount={purchase.total_amount}
         isPending={pending}
       />

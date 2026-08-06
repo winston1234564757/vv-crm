@@ -58,14 +58,23 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
     const stockToInsert = isTransit ? 0 : parsed.stock;
     const totalCost = parsed.cost_price * stockToInsert;
 
-    let chosenSafeId = formData.get("safe_id") as string | null;
-    if (!chosenSafeId && !isTransit && !isDeferred && totalCost > 0) {
+    /* Джерело оплати — сейф або каса. `safe_id` лишається для сумісності зі
+       старими викликами й веде перед `p_source_id`. */
+    const sourceTypeRaw = (formData.get("source_type") as string | null) ?? "safe";
+    const sourceType: "safe" | "cash_register" =
+      sourceTypeRaw === "cash_register" ? "cash_register" : "safe";
+    let sourceId =
+      (formData.get("source_id") as string | null) || (formData.get("safe_id") as string | null);
+    let chosenType = sourceType;
+
+    if (!sourceId && !isTransit && !isDeferred && totalCost > 0) {
       const { data: opexSafe } = await supabase
         .from("safes")
         .select("id")
         .eq("type", "opex")
         .single();
-      chosenSafeId = opexSafe?.id ?? null;
+      sourceId = opexSafe?.id ?? null;
+      chosenType = "safe";
     }
 
     // @ts-expect-error - register_part_purchase is missing from database.ts types
@@ -84,9 +93,12 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
       p_status: parsed.status,
       p_payment_status: parsed.payment_status,
       p_payment_due_date: parsed.payment_due_date,
-      p_safe_id: chosenSafeId,
+      // Веде перед `p_source_id`; для каси мусить бути null.
+      p_safe_id: chosenType === "safe" ? sourceId : null,
       p_user_id: user.id,
       p_payment_method: parsed.payment_method,
+      p_source_type: chosenType,
+      p_source_id: sourceId,
     });
 
     if (rpcError) throw rpcError;

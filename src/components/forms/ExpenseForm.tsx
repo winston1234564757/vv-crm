@@ -4,6 +4,12 @@ import { useActionState, useEffect, useState } from "react";
 import { createExpenseAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
+import {
+  PaymentSourcePicker,
+  spendableRegisters,
+  type ChosenSource,
+  type SourceAccount,
+} from "@/components/ui/PaymentSourcePicker";
 
 interface ExpenseCategory {
   id: string;
@@ -24,16 +30,18 @@ const initialState = { success: false, error: "" };
 export function ExpenseForm({
   expenseCategories,
   safes,
+  registers = [],
   onSuccess,
 }: {
   expenseCategories: ExpenseCategory[];
   safes: Safe[];
+  registers?: SourceAccount[];
   onSuccess: () => void;
 }) {
   const [state, action, pending] = useActionState(createExpenseAction, initialState);
 
   const [categoryId, setCategoryId] = useState("");
-  const [paidFromSafeId, setPaidFromSafeId] = useState("");
+  const [source, setSource] = useState<ChosenSource | null>(null);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
 
@@ -48,17 +56,27 @@ export function ExpenseForm({
     if (categoryId) {
       const cat = expenseCategories.find(c => c.id === categoryId);
       if (cat) {
+        /* Категорія підказує сейф — але лише поки користувач не обрав джерело
+           сам. Інакше вибір «Безготівка» стирався б на кожну зміну категорії. */
         const matchingSafe = safes.find(s => s.type === cat.safe_type);
         if (matchingSafe) {
-          setPaidFromSafeId(matchingSafe.id);
+          setSource((cur) =>
+            cur === null ? { type: "safe", id: matchingSafe.id, method: null, name: matchingSafe.name } : cur,
+          );
         }
       }
     }
   }, [categoryId, expenseCategories, safes]);
 
-  const selectedSafe = safes.find(s => s.id === paidFromSafeId);
+  /* Баланс шукаємо і серед сейфів, і серед кас: підказка про перевищення
+     мусить знати про обидва види джерел, інакше витрата з рахунку показувала б
+     «баланс невідомий» і кнопка ніколи не блокувалась би. */
+  const selectedBalance =
+    source === null
+      ? null
+      : (source.type === "safe" ? safes : registers).find((a) => a.id === source.id)?.balance ?? null;
   const amountNum = parseFloat(amount) || 0;
-  const hasOverdraft = selectedSafe ? amountNum > selectedSafe.balance : false;
+  const hasOverdraft = selectedBalance !== null && amountNum > selectedBalance;
 
   return (
     <form action={action} className="space-y-4 p-5">
@@ -87,26 +105,17 @@ export function ExpenseForm({
         </select>
       </div>
 
-      <div>
-        <label htmlFor="safe_select" className="mb-1.5 block text-xs font-medium text-text-secondary">Списати з сейфу</label>
-        <select
-          id="safe_select"
-          name="paid_from_safe_id"
-          required
-          value={paidFromSafeId}
-          onChange={(e) => setPaidFromSafeId(e.target.value)}
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
-        >
-          <option value="" disabled>Оберіть сейф...</option>
-          {safes
-            .filter((s) => s.type !== "net_profit") // вилучення прибутку — через Переказ, не Витрату
-            .map((safe) => (
-            <option key={safe.id} value={safe.id}>
-              {safe.name} ({safe.balance.toLocaleString()} грн)
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Сейф АБО рахунок. Сейф чистого прибутку виключений як і раніше:
+          вилучення частки — це Переказ, а не Витрата. */}
+      <PaymentSourcePicker
+        label="Списати з"
+        safes={safes}
+        registers={spendableRegisters(registers)}
+        excludeSafeTypes={["net_profit"]}
+        legacyName="paid_from_safe_id"
+        value={source}
+        onChange={setSource}
+      />
 
       <Input
         label="Сума витрати (грн)"
@@ -116,11 +125,14 @@ export function ExpenseForm({
         required
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        error={hasOverdraft ? `Сума перевищує доступний баланс сейфу (${selectedSafe?.balance.toLocaleString()} грн)` : undefined}
+        error={hasOverdraft ? `Сума перевищує доступний баланс (${selectedBalance?.toLocaleString()} грн)` : undefined}
         placeholder="1000"
       />
 
-      <PaymentMethodPicker />
+      {/* Спосіб оплати питаємо лише для сейфа: у нього дві половини, і треба
+          сказати, з якої брати. У каси половин немає — її природа і є спосіб,
+          тому питання зникає замість того, щоб дозволити хибну відповідь. */}
+      {source?.type === "safe" && <PaymentMethodPicker />}
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Коментар / Деталі (опціонально)</label>
@@ -137,7 +149,7 @@ export function ExpenseForm({
 
       <button
         type="submit"
-        disabled={pending || hasOverdraft || !categoryId || !paidFromSafeId || !amount}
+        disabled={pending || hasOverdraft || !categoryId || !source || !amount}
         className="btn-press mt-4 w-full rounded-xl bg-rose py-3.5 text-sm font-medium text-white transition-colors hover:bg-rose-hover disabled:opacity-50 cursor-pointer"
       >
         {pending ? "Збереження витрати..." : "Додати витрату"}

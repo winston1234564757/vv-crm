@@ -43,7 +43,7 @@ export default async function DevicesPage() {
       <PageHeader
         title="Техніка"
         subtitle={`${devices.length} ${pluralUk(devices.length, "пристрій", "пристрої", "пристроїв")} у системі · ${inStock.length} в наявності`}
-        actions={<AddDeviceButton size="half" parts={parts} safes={safes} />}
+        actions={<AddDeviceButton size="half" parts={parts} safes={safes} registers={cashRegisters} />}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -86,6 +86,7 @@ export default async function DevicesPage() {
           services={services}
           parts={parts}
           safes={safes}
+          registers={cashRegisters}
         />
       </StandardCard>
     </div>

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getAccessories, getPurchaseList } from "@/lib/data-accessories";
 import { getSales } from "@/lib/data-sales";
-import { getSafes } from "@/lib/data-finance";
+import { getSafes, getCashRegisters } from "@/lib/data-finance";
 import { AccessoriesTable } from "./table";
 import { AddAccessoryButton } from "./AddAccessoryButton";
 import { ImportAccessoriesButton } from "./ImportAccessoriesButton";
@@ -12,10 +12,11 @@ import { pluralUk } from "@/lib/utils/plural";
 import StandardCard from "@/components/ui/StandardCard";
 
 export default async function AccessoriesPage() {
-  const [accessories, sales, safes, purchaseList] = await Promise.all([
+  const [accessories, sales, safes, registers, purchaseList] = await Promise.all([
     getAccessories(),
     getSales(),
     getSafes(),
+    getCashRegisters(),
     getPurchaseList(),
   ]);
 
@@ -38,7 +39,7 @@ export default async function AccessoriesPage() {
             <PurchaseListPanel items={purchaseList} />
           )}
           <ImportAccessoriesButton />
-          <AddAccessoryButton safes={safes} />
+          <AddAccessoryButton safes={safes} registers={registers} />
         </div>
       </div>
 
@@ -63,7 +64,12 @@ export default async function AccessoriesPage() {
 
       <div className="grid grid-cols-1 gap-4 md:gap-6">
         <StandardCard>
-          <AccessoriesTable accessories={accessories} sales={sales} safes={safes} />
+          <AccessoriesTable
+            accessories={accessories}
+            sales={sales}
+            safes={safes}
+            registers={registers}
+          />
         </StandardCard>
       </div>
     </div>
