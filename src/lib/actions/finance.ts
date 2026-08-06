@@ -66,17 +66,21 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
   }
 }
 
-/**
- * Джерело оплати — пара (тип, id), а не сейф.
+/*
+ * Тут стояла `export const paymentSourceSchema = z.object({...})` — і саме вона
+ * поклала всю сторінку фінансів.
  *
- * Доти витрату можна було зробити тільки з сейфа, і гроші на рахунку
- * «Безготівка» доводилось спершу переказувати. Тепер `paid_from_safe_id`
- * лишається для сумісності зі старими викликами, але веде перед `source_id`.
+ * Файл має директиву `"use server"`, а такий файл може експортувати ЛИШЕ
+ * асинхронні функції. Експортований об'єкт валить модуль при завантаженні:
+ * «A "use server" file can only export async functions, found object». Разом із
+ * модулем падає весь граф сторінки — і кожна серверна дія на ній, включно з
+ * усіма заглибленнями, відхиляється заглушкою про Server Components.
+ *
+ * `next build` цього не ловить: перевірка рантаймова. Ловить її тест
+ * `use-server-exports.test.ts`, доданий разом із цим виправленням.
+ *
+ * Схема була ще й непотрібна — її поля вбудовані в `expenseSchema` нижче.
  */
-export const paymentSourceSchema = z.object({
-  source_type: z.enum(["safe", "cash_register"]).optional().default("safe"),
-  source_id: z.string().uuid().nullable().optional(),
-});
 
 const expenseSchema = z.object({
   category_id: z.string().uuid("Оберіть категорію витрати"),
