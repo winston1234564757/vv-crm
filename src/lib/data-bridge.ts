@@ -46,18 +46,28 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
   /* Реєстр, каси й сейфи — через `request-cache`: ті самі три таблиці на цій
      сторінці читає ще `getCashFlow`, і без спільного кешу вони летіли б у базу
      двічі. Решта запитів тут свої, бо більше нікому не потрібні. */
-  const [loaded, txRows, registers, safes, devRes, accRes, partRes, repairRes] = await Promise.all([
-    loadDataset(supabase, start, end),
-    getAllTransactions(),
-    getAllRegistersRaw(),
-    getAllSafesRaw(),
-    supabase.from("devices").select("cost_price, repair_cost, status"),
-    supabase.from("accessories").select("cost_price, stock"),
-    supabase.from("parts").select("*"),
-    supabase.from("repairs").select("id, price, status, completed_at, inventory_device_id"),
-  ]);
+  const [loaded, txRows, registers, safes, devRes, accRes, partRes, repairRes, moveRes] =
+    await Promise.all([
+      loadDataset(supabase, start, end),
+      getAllTransactions(),
+      getAllRegistersRaw(),
+      getAllSafesRaw(),
+      supabase.from("devices").select("cost_price, repair_cost, status"),
+      supabase.from("accessories").select("cost_price, stock"),
+      supabase.from("parts").select("*"),
+      supabase.from("repairs").select("id, price, status, completed_at, inventory_device_id"),
+      /* `*`, а не перелік колонок: `unit_cost` немає в згенерованих типах
+         (`database.ts` навмисно не перегенеровується), а названа в `.select()`
+         невідома колонка ламає типізацію всього запиту. */
+      supabase
+        .from("inventory_movements")
+        .select("*")
+        .eq("item_type", "accessory")
+        .in("reason", ["write_off", "adjustment"])
+        .gte("created_at", epochIso ?? "1970-01-01T00:00:00Z"),
+    ]);
 
-  for (const r of [devRes, accRes, partRes, repairRes]) {
+  for (const r of [devRes, accRes, partRes, repairRes, moveRes]) {
     if (r.error) throw new Error(r.error.message);
   }
 
@@ -86,7 +96,17 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
     netProfitSafeId,
   );
 
-  const inventoryDelta = ledger.inventorySpend - profit.cost;
+  /* Списаний товар теж вибув зі складу — просто не через продаж.
+     `profit.cost` бачить лише собівартість ПРОДАНОГО, тож без цього доданку
+     списання двох кабелів по 140 ₴ зменшило б «Вартість бізнесу» на 280 ₴, а
+     міст цього не пояснив би: на сторінці фінансів засвітилась би «Нев'язка
+     280 ₴» там, де насправді все чесно.
+
+     `write_off` (товар був і зник) і `adjustment` (товару ніколи не було)
+     рахуються разом. Для розбору різниця важлива й лежить у `note`, але для
+     містка вона одна: вартість пішла зі складу без продажу. */
+  const writtenOff = writtenOffValue(supabaseCast<MovementRow[]>(moveRes.data ?? []));
+  const inventoryDelta = ledger.inventorySpend - profit.cost - writtenOff;
 
   const bridge = buildBridge({
     netProfit,
@@ -145,6 +165,23 @@ interface DeviceRow {
   cost_price: number;
   repair_cost: number;
   status: string;
+}
+
+interface MovementRow {
+  quantity_change: number;
+  unit_cost: number | null;
+}
+
+/**
+ * Вартість товару, що вибув зі складу не через продаж.
+ *
+ * Рахує по `unit_cost` руху, а не по поточному `cost_price` картки: картка
+ * після списання ще не раз зміниться закупівлями, а вибуло стільки, скільки
+ * коштувало ТОДІ. Рухи без `unit_cost` (записані до цієї колонки) дають нуль —
+ * вигадувати їм ціну гірше, ніж визнати, що її не записали.
+ */
+export function writtenOffValue(moves: MovementRow[]): number {
+  return moves.reduce((s, m) => s + Math.abs(m.quantity_change) * (m.unit_cost ?? 0), 0);
 }
 
 /** Борг постачальникам: запчастини, взяті з відтермінуванням і ще не оплачені. */

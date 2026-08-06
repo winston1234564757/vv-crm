@@ -73,7 +73,34 @@ export function AccessoryForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue={accessory?.stock.toString() ?? "1"} />
+        {/* Під час РЕДАГУВАННЯ кількість не поле, а число.
+            Доти вона тут редагувалась прямим UPDATE — без грошей і без сліду:
+            кабель у кількості 0 ставав кабелем у кількості 10, сейф не худнув, у
+            реєстрі не зʼявлялось нічого. Тепер її рухають «Закупити» й
+            «Списати», і обидві лишають слід.
+
+            У формі СТВОРЕННЯ поле лишається живим: `createAccessory` списує
+            гроші з сейфа за початковий залишок, тобто там дірки немає.
+
+            Поле все одно їде у formData — так простіше, ніж вимикати його
+            умовно, — але `updateAccessory` відкидає `stock` на сервері. Дірка,
+            закрита лише версткою, це не закрита дірка. */}
+        {accessory ? (
+          <div className="w-full">
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+              Кількість на складі
+            </label>
+            <input type="hidden" name="stock" value={accessory.stock} />
+            <div className="w-full rounded-xl border border-warm-border/60 bg-iris/[0.03] px-4 py-3">
+              <span className="text-sm font-medium text-text-primary">{accessory.stock} шт</span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">
+              Змінюється закупівлею й списанням — щоб гроші й склад не розходились.
+            </p>
+          </div>
+        ) : (
+          <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue="1" />
+        )}
         <Input label="Гарантія (міс)" name="warranty_months" type="number" required placeholder="6" defaultValue={accessory?.warranty_months?.toString() ?? "6"} />
       </div>
 

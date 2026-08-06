@@ -2,12 +2,18 @@
 
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { Fragment, useState } from "react";
-import { IconSearch, IconEdit, IconDelete, IconWarning } from "@/components/icons";
+import { IconSearch, IconEdit, IconDelete, IconWarning, IconPlus } from "@/components/icons";
 import { deleteAccessory } from "@/lib/actions/accessories";
 import Drawer from "@/components/ui/Drawer";
 import { AccessoryForm } from "@/components/forms/AccessoryForm";
 import { AccessoryDetailView } from "@/components/AccessoryDetailView";
 import { InlineError } from "@/components/ui/InlineError";
+import {
+  PurchaseStockModal,
+  WriteOffStockModal,
+  type SafeOption,
+  type StockMoveTarget,
+} from "@/components/accessories/StockMoveModals";
 import type { SaleWithDetails } from "@/lib/data-sales";
 import { accessoryType, labelOf } from "@/lib/domain-labels";
 
@@ -55,13 +61,28 @@ function intakeLabel(day: string): string {
    жодному фільтрі, крім «Усі». */
 const TYPE_FILTERS = ["all", ...Object.keys(accessoryType)];
 
-export function AccessoriesTable({ accessories, sales = [] }: { accessories: AccessoryRow[]; sales?: SaleWithDetails[] }) {
+export function AccessoriesTable({
+  accessories,
+  sales = [],
+  safes = [],
+}: {
+  accessories: AccessoryRow[];
+  sales?: SaleWithDetails[];
+  safes?: SafeOption[];
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState<SortState>({ col: "name", dir: "asc" });
   const [selectedAccessory, setSelectedAccessory] = useState<AccessoryRow | null>(null);
   const [isEditingAccessory, setIsEditingAccessory] = useState(false);
   const [error, setError] = useState("");
+
+  /* Рух складу — одним станом на обидві модалки: відкрити їх одночасно по
+     різних позиціях неможливо, тож два окремі стани лише дозволили б
+     неможливе. */
+  const [move, setMove] = useState<{ kind: "purchase" | "write_off"; item: StockMoveTarget } | null>(
+    null,
+  );
 
   function toggleSort(col: SortCol) {
     setSort((prev) =>
@@ -253,6 +274,13 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
 
                   <div className="flex justify-end gap-2 border-t border-border pt-2.5" onClick={(e) => e.stopPropagation()}>
                     <button
+                      onClick={() => setMove({ kind: "purchase", item: a })}
+                      className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-cyan/5 hover:bg-cyan/10 text-cyan text-xs font-semibold gap-1 transition-colors cursor-pointer"
+                    >
+                      <IconPlus size={14} />
+                      <span>Закупити</span>
+                    </button>
+                    <button
                       onClick={() => { setSelectedAccessory(a); setIsEditingAccessory(true); }}
                       className="flex h-8 px-2.5 items-center justify-center rounded-xl bg-violet/5 hover:bg-violet/10 text-violet text-xs font-semibold gap-1 transition-colors cursor-pointer"
                     >
@@ -332,7 +360,15 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
                     </td>
                     <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); setSelectedAccessory(a); setIsEditingAccessory(true); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet">
+                        <button
+                          title="Закупити"
+                          aria-label={`Закупити ${a.name}`}
+                          onClick={(e) => { e.stopPropagation(); setMove({ kind: "purchase", item: a }); }}
+                          className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-cyan/5 hover:text-cyan"
+                        >
+                          <IconPlus />
+                        </button>
+                        <button title="Редагувати" aria-label={`Редагувати ${a.name}`} onClick={(e) => { e.stopPropagation(); setSelectedAccessory(a); setIsEditingAccessory(true); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet">
                           <IconEdit />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-rose/5 hover:text-rose">
@@ -373,15 +409,36 @@ export function AccessoriesTable({ accessories, sales = [] }: { accessories: Acc
               accessory={selectedAccessory} 
             />
           ) : (
-            <AccessoryDetailView 
-              accessory={selectedAccessory} 
-              onEdit={() => setIsEditingAccessory(true)} 
-              onClose={() => setSelectedAccessory(null)} 
+            <AccessoryDetailView
+              accessory={selectedAccessory}
+              onEdit={() => setIsEditingAccessory(true)}
+              onClose={() => setSelectedAccessory(null)}
+              onPurchase={() => setMove({ kind: "purchase", item: selectedAccessory })}
+              onWriteOff={() => setMove({ kind: "write_off", item: selectedAccessory })}
               sales={sales.filter(s => s.items.some(item => item.item_type === "accessory" && item.item_id === selectedAccessory.id))}
             />
           )
         )}
       </Drawer>
+
+      {/* Модалка стоїть ПОЗА шухлядою навмисно: її відкривають і з рядка
+          таблиці, і зсередини деталей. Вкладена в шухляду, вона зникала б
+          разом із нею й не працювала б із таблиці зовсім. */}
+      {move?.kind === "purchase" && (
+        <PurchaseStockModal
+          key={`purchase-${move.item.id}`}
+          item={move.item}
+          safes={safes}
+          onClose={() => setMove(null)}
+        />
+      )}
+      {move?.kind === "write_off" && (
+        <WriteOffStockModal
+          key={`write-off-${move.item.id}`}
+          item={move.item}
+          onClose={() => setMove(null)}
+        />
+      )}
     </>
   );
 }

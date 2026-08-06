@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  IconEdit, IconFinance, IconBox, IconWarning, IconCheck
+  IconEdit, IconFinance, IconBox, IconWarning, IconCheck, IconPlus
 } from "./icons";
 import { accessoryType, labelOf } from "@/lib/domain-labels";
 
@@ -31,10 +31,14 @@ type AccessoryDetailViewProps = {
   }>;
   onEdit: () => void;
   onClose: () => void;
+  /* Рух складу живе не тут, а в модалках над таблицею: їх відкривають ще й
+     прямо з рядка, не заходячи в деталі. Шухляда лише просить. */
+  onPurchase?: () => void;
+  onWriteOff?: () => void;
 };
 
 
-export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: AccessoryDetailViewProps) {
+export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose, onPurchase, onWriteOff }: AccessoryDetailViewProps) {
   const margin = accessory.price - accessory.cost_price;
   const isLowStock = accessory.stock <= accessory.min_stock;
 
@@ -56,7 +60,25 @@ export function AccessoryDetailView({ accessory, sales = [], onEdit, onClose }: 
           </div>
           <h2 className="mt-2 text-xl font-bold text-text-primary text-balance tracking-tight">{accessory.name}</h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {onPurchase && (
+            <button
+              onClick={onPurchase}
+              className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"
+            >
+              <IconPlus size={14} /> Закупити
+            </button>
+          )}
+          {/* «Списати» доступне лише коли є що списувати. Кнопка, яка завжди
+              впаде з «На складі лише 0 шт», — це не кнопка, а пастка. */}
+          {onWriteOff && accessory.stock > 0 && (
+            <button
+              onClick={onWriteOff}
+              className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-secondary transition-colors cursor-pointer"
+            >
+              <IconWarning size={14} /> Списати
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="btn-press flex items-center gap-1.5 rounded-xl border border-warm-border bg-surface hover:bg-warm-hover px-4 py-2.5 text-xs font-semibold text-text-primary transition-colors cursor-pointer"

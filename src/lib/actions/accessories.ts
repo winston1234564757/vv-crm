@@ -10,6 +10,7 @@ import type { Database } from "@/types/database";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadMediaFiles } from "@/lib/supabase/storage";
 import { ACCESSORY_TYPES } from "@/lib/domain-labels";
+import { MONEY_ROLES } from "@/lib/roles";
 
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
 type AccessoryInsert = Database["public"]["Tables"]["accessories"]["Insert"];
@@ -191,9 +192,20 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       delete (parsed as any).photo_urls;
     }
 
-    // `payment_method` описує платіж, а не аксесуар — колонки під нього в
-    // `accessories` немає, тож у запис він не їде.
-    const { payment_method: _method, ...accessoryFields } = parsed;
+    /* `payment_method` описує платіж, а не аксесуар — колонки під нього в
+       `accessories` немає, тож у запис він не їде.
+
+       `stock` не їде з іншої причини. Кількість тут змінювалась прямим
+       UPDATE — без грошей і без сліду, — і це був єдиний такий шлях у
+       системі. Тепер її рухають `purchaseAccessoryStock` і
+       `writeOffAccessoryStock`, обидві через RPC із рухом по сейфу й записом
+       у `inventory_movements`.
+
+       Відкидаємо саме ТУТ, а не лише в формі: readonly-поле знімається в
+       devtools за десять секунд, і дірка, закрита тільки версткою, — це не
+       закрита дірка. Форма далі шле поле, і це нормально — схема його
+       перевірить, а запис проігнорує. */
+    const { payment_method: _method, stock: _stock, ...accessoryFields } = parsed;
 
     const { error } = await supabase.from("accessories").update(accessoryFields as AccessoryUpdate).eq("id", id);
     if (error) throw error;
@@ -298,6 +310,121 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
     revalidatePath("/admin/accessories");
     revalidatePath("/admin");
     
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/* ── Рух складу по позиції ───────────────────────────────────────────────────
+ *
+ * Доти кількість аксесуара змінювала форма редагування — прямим UPDATE, без
+ * грошей і без сліду. Кабель у кількості 0 ставав кабелем у кількості 10, сейф
+ * не худнув, у реєстрі не зʼявлялось нічого, а «Вартість бізнесу» росла на
+ * товар, якого ніхто не купував.
+ *
+ * Обидві дії — тонкі обгортки над RPC. Уся робота (сейф, реєстр, картка,
+ * рух складу) робиться однією транзакцією в Postgres: розрив між цими
+ * записами лишив би стан, з якого код не вміє вийти.
+ */
+
+const purchaseStockSchema = z.object({
+  accessoryId: z.string().uuid(),
+  quantity: z.coerce.number().int().positive("Кількість має бути більше 0"),
+  unitCost: z.coerce.number().int().min(0),
+  /* Собівартість картки ПІСЛЯ приходу. Форма підставляє середньозважену
+     (`weightedCost`) і дозволяє її перебити — тому число приходить готовим, а
+     не рахується тут удруге. Два місця з однією формулою рано чи пізно
+     розійшлись би, і власник побачив би в модалці одне, а в картці інше. */
+  newCostPrice: z.coerce.number().int().min(0),
+  safeId: z.string().uuid().nullable().optional(),
+  paymentMethod: z.enum(["cash", "cashless"]).default("cash"),
+});
+
+export async function purchaseAccessoryStock(
+  input: z.input<typeof purchaseStockSchema>,
+): Promise<ActionState> {
+  try {
+    await requireRole(MONEY_ROLES);
+    const parsed = purchaseStockSchema.parse(input);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Неавторизовано: " + (authError?.message || ""));
+
+    /* Сейф питає форма, але типове значення лишається тут, поруч із рештою
+       закупівель: `createAccessory` та `importAccessories` беруть OPEX так
+       само, і три різні дефолти на одну операцію були б трьома різними
+       відповідями на одне питання. */
+    let safeId = parsed.safeId ?? null;
+    if (!safeId) {
+      const { data: opex } = await supabase
+        .from("safes")
+        .select("id")
+        .eq("type", "opex")
+        .single();
+      safeId = opex?.id ?? null;
+    }
+
+    // @ts-expect-error — purchase_accessory_stock немає в згенерованих типах
+    // (`database.ts` навмисно не перегенеровується, див. AGENTS.md).
+    const { error } = await supabase.rpc("purchase_accessory_stock", {
+      p_accessory_id: parsed.accessoryId,
+      p_quantity: parsed.quantity,
+      p_unit_cost: parsed.unitCost,
+      p_new_cost_price: parsed.newCostPrice,
+      p_safe_id: safeId,
+      p_payment_method: parsed.paymentMethod,
+      p_user_id: user.id,
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+const writeOffStockSchema = z.object({
+  accessoryId: z.string().uuid(),
+  quantity: z.coerce.number().int().positive("Кількість має бути більше 0"),
+  /* `write_off` — товар був і зник (брак, втрата, подарунок).
+     `adjustment` — товару ніколи не було, число ввели неправильно.
+     Обидва значення вже дозволені CHECK-обмеженням `inventory_movements`. */
+  reason: z.enum(["write_off", "adjustment"]),
+  note: z.string().max(500).nullable().optional(),
+});
+
+export async function writeOffAccessoryStock(
+  input: z.input<typeof writeOffStockSchema>,
+): Promise<ActionState> {
+  try {
+    await requireRole(MONEY_ROLES);
+    const parsed = writeOffStockSchema.parse(input);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Неавторизовано: " + (authError?.message || ""));
+
+    // @ts-expect-error — write_off_accessory_stock немає в згенерованих типах.
+    const { error } = await supabase.rpc("write_off_accessory_stock", {
+      p_accessory_id: parsed.accessoryId,
+      p_quantity: parsed.quantity,
+      p_reason: parsed.reason,
+      p_note: parsed.note ?? null,
+      p_user_id: user.id,
+    });
+    if (error) throw error;
+
+    /* Фінанси перечитуються теж: списання зменшує вартість складу, і міст
+       «прибуток → гроші» мусить показати це в той самий момент, інакше на
+       сторінці зависне «Нев'язка» до наступного оновлення. */
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

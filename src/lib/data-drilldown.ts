@@ -5,6 +5,8 @@ import { MONEY_ROLES } from "./roles";
 import { createClient } from "./supabase/server";
 import { getSettings } from "./data-settings";
 import { supabaseCast } from "./utils/supabase";
+import { classifyMove } from "./cashflow";
+import { writtenOffValue } from "./data-bridge";
 import {
   allocateSaleRevenue,
   itemCost,
@@ -59,11 +61,8 @@ export interface DrillResult {
 
 const EMPTY = (hint: string): DrillResult => ({ rows: [], total: 0, hint, reconcile: null });
 
-/** Рухи реєстру за типом посилання, з підписаними сторонами. */
-async function ledgerRows(
-  filter: (t: LedgerTx) => boolean,
-  epochIso: string | null,
-): Promise<DrillRow[]> {
+/** Увесь реєстр разом із назвами кас і сейфів для підпису сторін. */
+async function fetchLedger(): Promise<{ txs: LedgerTx[]; names: Map<string, string> }> {
   const supabase = await createClient();
 
   const [txRes, safeRes, regRes] = await Promise.all([
@@ -77,19 +76,36 @@ async function ledgerRows(
   for (const s of safeRes.data ?? []) names.set(s.id, s.name);
   for (const r of regRes.data ?? []) names.set(r.id, r.name);
 
+  return { txs: supabaseCast<LedgerTx[]>(txRes.data ?? []), names };
+}
+
+/** Рядок реєстру у вигляді, який читає модалка. Знак тут ще «сирий». */
+function toRow(t: LedgerTx, names: Map<string, string>): DrillRow {
+  const description = t.description?.trim();
+  return {
+    id: t.id,
+    date: t.created_at,
+    title: description || sideLabel(t, names),
+    subtitle: description ? sideLabel(t, names) : null,
+    amount: t.amount,
+  };
+}
+
+const byDateDesc = (a: DrillRow, b: DrillRow) => (b.date ?? "").localeCompare(a.date ?? "");
+
+/** Рухи реєстру за типом посилання, з підписаними сторонами. */
+async function ledgerRows(
+  filter: (t: LedgerTx) => boolean,
+  epochIso: string | null,
+): Promise<DrillRow[]> {
+  const { txs, names } = await fetchLedger();
   const epochMs = epochIso ? new Date(epochIso).getTime() : null;
 
-  return supabaseCast<LedgerTx[]>(txRes.data ?? [])
+  return txs
     .filter((t) => (epochMs === null ? true : new Date(t.created_at).getTime() >= epochMs))
     .filter(filter)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map((t) => ({
-      id: t.id,
-      date: t.created_at,
-      title: t.description?.trim() || sideLabel(t, names),
-      subtitle: t.description?.trim() ? sideLabel(t, names) : null,
-      amount: t.amount,
-    }));
+    .map((t) => toRow(t, names));
 }
 
 interface LedgerTx {
@@ -138,13 +154,24 @@ export async function getBridgeLineRows(key: string): Promise<DrillResult> {
         finance_epoch,
       );
       const bought = rows.reduce((s, r) => s + r.amount, 0);
-      const written = await cogsSinceEpoch(finance_epoch);
-      const delta = bought - written;
+      const [sold, writtenOff] = await Promise.all([
+        cogsSinceEpoch(finance_epoch),
+        writeOffsSinceEpoch(finance_epoch),
+      ]);
+      const delta = bought - sold - writtenOff;
+
+      /* Списання згадується в тексті лише тоді, коли воно було. Речення «і
+         списано 0 ₴» щоразу — це фон, у якому губиться те, що справді
+         сталося. */
+      const writtenPart =
+        writtenOff > 0
+          ? `, списано зі складу без продажу ${Math.round(writtenOff).toLocaleString("uk-UA")} ₴`
+          : "";
 
       return withTotal(
         rows,
         "Усе, що пішло з рахунків на поповнення складу. У прибутку цих грошей немає, доки товар не проданий.",
-        `Рядок містка — це НЕ ця сума, а різниця двох потоків: закуплено ${bought.toLocaleString("uk-UA")} ₴, списано в собівартість проданого ${Math.round(written).toLocaleString("uk-UA")} ₴, різниця ${Math.abs(Math.round(delta)).toLocaleString("uk-UA")} ₴ ${delta > 0 ? "осіла в товарі" : "вивільнилась із товару"}.`,
+        `Рядок містка — це НЕ ця сума, а різниця потоків: закуплено ${bought.toLocaleString("uk-UA")} ₴, списано в собівартість проданого ${Math.round(sold).toLocaleString("uk-UA")} ₴${writtenPart}, різниця ${Math.abs(Math.round(delta)).toLocaleString("uk-UA")} ₴ ${delta > 0 ? "осіла в товарі" : "вивільнилась із товару"}.`,
       );
     }
 
@@ -447,6 +474,33 @@ async function cogsSinceEpoch(epochIso: string | null): Promise<number> {
   return goods + repairs;
 }
 
+/**
+ * Вартість аксесуарів, списаних зі складу від епохи.
+ *
+ * Те саме число, що віднімає `data-bridge.ts` від «Осіло в товарі», і та сама
+ * формула — `writtenOffValue` імпортується, а не переписується: два місця з
+ * власною копією рано чи пізно розійшлись би, і текст звірки почав би
+ * спростовувати число, під яким стоїть.
+ *
+ * Свій тут лише запит. У містку рухи вже завантажені разом зі сторінкою, а сюди
+ * лізуть на відкриття модалки — тягнути їх наперед означало б платити за
+ * деталі, яких майже ніхто не відкриває.
+ */
+async function writeOffsSinceEpoch(epochIso: string | null): Promise<number> {
+  const supabase = await createClient();
+  // `*`, а не перелік колонок: `unit_cost` немає в згенерованих типах.
+  const { data } = await supabase
+    .from("inventory_movements")
+    .select("*")
+    .eq("item_type", "accessory")
+    .in("reason", ["write_off", "adjustment"])
+    .gte("created_at", epochIso ?? "1970-01-01T00:00:00Z");
+
+  return writtenOffValue(
+    supabaseCast<{ quantity_change: number; unit_cost: number | null }[]>(data ?? []),
+  );
+}
+
 function isAccount(t: string): boolean {
   return t === "cash_register" || t === "safe";
 }
@@ -455,6 +509,133 @@ async function netProfitSafeId(): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("safes").select("id, type").eq("type", "net_profit");
   return data?.[0]?.id ?? null;
+}
+
+/* ── Рух грошей від відкриття ────────────────────────────────────────────── */
+
+/**
+ * Пояснення статей руху грошей.
+ *
+ * У самій панелі їх немає навмисно: там дев'ять рядків із двома числами кожен,
+ * і речення поруч із кожним перетворило б звіт на текст. Пояснення потрібне
+ * тоді, коли стаття незрозуміла, тобто в момент кліку — тут воно й лежить.
+ */
+const FLOW_HINTS: Record<string, string> = {
+  sale: "Гроші, які фізично зайшли в касу за продажі. Це не виторг зі звіту прибутку: там продаж визнається в момент чека, тут — у момент отримання грошей.",
+  repair_payment: "Оплати ремонтів у момент отримання грошей. У прибуток такий ремонт потрапить лише на видачі апарата.",
+  client_order: "Передоплати за замовлений товар. Гроші вже в касі, зобов'язання перед клієнтом ще висить.",
+  top_up: "Особисті гроші власників, докладені в бізнес. Це не заробіток — повертати їх доведеться з прибутку.",
+  inventory: "Гроші, що пішли на поповнення складу. У прибутку їх немає, доки товар не проданий: вони не зникли, а перетворились на товар.",
+  device: "Закупівлі техніки на перепродаж.",
+  part: "Закупівлі запчастин для ремонтів.",
+  accessory: "Закупівлі аксесуарів.",
+  purchase: "Оплати постачальникам за поставки.",
+  expense: "Операційні витрати: оренда, зарплата, реклама й решта роботи магазину.",
+  distribution: "Забрана власниками частка. У прибутку це не витрата — це вже поділ заробленого.",
+  adjustment: "Ручні списання й дозаписи, коли перерахунок купюр не збігся з базою.",
+  refund: "Повернення грошей клієнтам за скасовані продажі.",
+  other: "Рухи, у яких не проставлене призначення. Якщо їх багато — щось пишеться в реєстр в обхід форм.",
+};
+
+const DIRECTION_HINTS: Record<string, string> = {
+  inflow: "Усе, що зайшло на рахунки від початку обліку, одним списком.",
+  outflow: "Усе, що пішло з рахунків від початку обліку, одним списком.",
+};
+
+/**
+ * Операції, з яких склався рядок руху грошей.
+ *
+ * `key` — це `«напрям»:«reference_type»` (`inflow:sale`), сам напрям
+ * (`inflow`), `internal` або `opening`. Напрям у ключі не косметика: один і
+ * той самий `reference_type` буває по обидва боки — `adjustment` і списує, і
+ * дописує, — і без напряму модалка показала б обидві купи під одним заголовком.
+ *
+ * Класифікація тут іде через ту саму `classifyMove`, що й у звіті. Якби тут
+ * стояла своя копія правила «рахунок → назовні», заглиблення рано чи пізно
+ * розійшлось би з числом, під яким воно відкривається.
+ */
+export async function getCashFlowLineRows(key: string): Promise<DrillResult> {
+  await requireRole(MONEY_ROLES);
+  const { finance_epoch } = await getSettings();
+  const { txs, names } = await fetchLedger();
+
+  const epochMs = finance_epoch ? new Date(finance_epoch).getTime() : null;
+  const isBefore = (t: LedgerTx) =>
+    epochMs !== null && new Date(t.created_at).getTime() < epochMs;
+
+  const done = (rows: DrillRow[], hint: string): DrillResult => ({
+    rows,
+    total: rows.reduce((s, r) => s + r.amount, 0),
+    hint,
+    reconcile: null,
+  });
+
+  /* Залишок на момент відкриття — не «стартова сума», яку хтось вписав, а
+     чиста дельта всіх рухів ДО епохи. Магазин торгував «з рук», і той залишок
+     лежить у касах досі; показати його списком — єдиний спосіб перевірити. */
+  if (key === "opening") {
+    const rows = txs
+      .filter(isBefore)
+      .map((t) => signRow(toRow(t, names), t))
+      .filter((r) => r.amount !== 0)
+      .sort(byDateDesc);
+    return done(
+      rows,
+      "Рухи ДО початку обліку — те, з чим магазин увійшов у першу дату звіту. Перекладання між своїми рахунками не показані: вони залишок не змінюють.",
+    );
+  }
+
+  /* Перекладання між своїми рахунками. У потік вони не входять і касу не
+     змінюють, але обсяг знати корисно — саме тому в панелі вони окремим
+     рядком, а не в «Надійшло». */
+  if (key === "internal") {
+    const rows = txs
+      .filter((t) => !isBefore(t) && isAccount(t.from_type) && isAccount(t.to_type))
+      .map((t) => toRow(t, names))
+      .sort(byDateDesc);
+    return done(
+      rows,
+      "Перекладання між своїми касами й сейфами. Це не рух грошей, а розподіл: скільки було в магазині, стільки й лишилось.",
+    );
+  }
+
+  const [direction, reference] = key.split(":");
+  if (direction !== "inflow" && direction !== "outflow") {
+    return EMPTY("Деталей для цієї статті немає.");
+  }
+
+  const rows = txs
+    .filter((t) => !isBefore(t))
+    .filter(
+      (t) =>
+        classifyMove({
+          amount: t.amount,
+          from_type: t.from_type,
+          to_type: t.to_type,
+          reference_type: t.reference_type,
+        }) === direction,
+    )
+    .filter((t) => reference === undefined || (t.reference_type ?? "other") === reference)
+    .map((t) => toRow(t, names))
+    .sort(byDateDesc);
+
+  /* Суми лишаються додатними навіть для витрат — рівно як у панелі, де
+     «Витрачено» показане плюсом під мінусовим підсумком розділу. Мінус тут
+     зробив би модалку красивішою й одразу спростував би число, з якого її
+     відкрили. */
+  return done(
+    rows,
+    (reference === undefined ? undefined : FLOW_HINTS[reference]) ??
+      DIRECTION_HINTS[direction],
+  );
+}
+
+/** Знак за напрямом руху: з рахунку — мінус, на рахунок — плюс, між своїми — нуль. */
+function signRow(row: DrillRow, t: LedgerTx): DrillRow {
+  if (isAccount(t.from_type) && isAccount(t.to_type)) return { ...row, amount: 0 };
+  if (isAccount(t.from_type)) return { ...row, amount: -row.amount };
+  if (isAccount(t.to_type)) return row;
+  return { ...row, amount: 0 };
 }
 
 /* ── Вартість бізнесу ────────────────────────────────────────────────────── */

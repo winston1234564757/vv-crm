@@ -63,7 +63,7 @@ export default async function AccessoriesPage() {
 
       <div className="grid grid-cols-1 gap-4 md:gap-6">
         <StandardCard>
-          <AccessoriesTable accessories={accessories} sales={sales} />
+          <AccessoriesTable accessories={accessories} sales={sales} safes={safes} />
         </StandardCard>
       </div>
     </div>
