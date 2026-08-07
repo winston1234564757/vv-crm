@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import Drawer from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
-import { IconSearch, IconDownload, IconDelete } from "@/components/icons";
+import { IconSearch, IconDownload, IconDelete, IconSale } from "@/components/icons";
 import { orderStatus, orderItemType, optionsOf, labelOf } from "@/lib/domain-labels";
 import { updateOrderStatus, deleteClientOrder } from "@/lib/actions/orders";
 import type { ClientOrderWithCustomer, OrderStatus } from "@/types/orders";
@@ -89,6 +89,10 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
   const remainingOf = (o: ClientOrderWithCustomer) =>
     Math.max(0, (o.agreed_price ?? 0) - (o.deposit ?? 0));
 
+  /* Продаж проводиться рівно один раз: `sale_id` — це і зв'язок із чеком, і
+     замок. Скасоване замовлення видавати нічого. */
+  const canSell = (o: ClientOrderWithCustomer) => !o.sale_id && o.status !== "cancelled";
+
   async function handleDetailStatus(status: string) {
     if (!detailOrder) return;
     await handleStatusChange(detailOrder.id, status);
@@ -150,6 +154,15 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                     options={optionsOf(orderStatus)}
                     className="max-w-none flex-1"
                   />
+                  {canSell(o) && (
+                    <button
+                      onClick={() => router.push(`/admin/sales/pos?order=${o.id}`)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald/5 text-emerald transition-colors hover:bg-emerald/10"
+                      aria-label="Провести продаж"
+                    >
+                      <IconSale size={15} />
+                    </button>
+                  )}
                   <button
                     onClick={() => setPrintOrder(o)}
                     className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet/5 text-violet transition-colors hover:bg-violet/10"
@@ -223,6 +236,16 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
                     </td>
                     <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        {canSell(o) && (
+                          <button
+                            onClick={() => router.push(`/admin/sales/pos?order=${o.id}`)}
+                            className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-emerald/5 hover:text-emerald"
+                            aria-label="Провести продаж"
+                            title="Провести продаж"
+                          >
+                            <IconSale />
+                          </button>
+                        )}
                         <button
                           onClick={() => setPrintOrder(o)}
                           className="btn-press flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-violet/5 hover:text-violet"
@@ -358,6 +381,18 @@ export function OrdersTable({ orders }: { orders: ClientOrderWithCustomer[] }) {
 
             {/* Дії */}
             <div className="flex flex-wrap items-center gap-2 border-t border-warm-border pt-4">
+              {canSell(detailOrder) ? (
+                <Button
+                  leadingIcon={<IconSale />}
+                  onClick={() => router.push(`/admin/sales/pos?order=${detailOrder.id}`)}
+                >
+                  Провести продаж
+                </Button>
+              ) : detailOrder.sale_id ? (
+                <span className="inline-flex h-10 items-center rounded-[var(--radius-md)] bg-success/10 px-4 text-sm font-medium text-success">
+                  Продаж проведено
+                </span>
+              ) : null}
               <Button variant="secondary" leadingIcon={<IconDownload />} onClick={() => setPrintOrder(detailOrder)}>
                 Друк чека
               </Button>

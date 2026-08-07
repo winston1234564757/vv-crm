@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { IconDelete, IconSpinner } from "@/components/icons";
 import { Customer, CartItem } from "./pos-types";
 import { WARRANTY_TERMS, type WarrantyTerm } from "./pos-warranty";
+import type { CheckoutOrder } from "./order-prefill";
 
 interface POSCartSidebarProps {
   activeMobileTab: "catalog" | "cart";
@@ -9,6 +10,15 @@ interface POSCartSidebarProps {
   cartSubtotal: number;
   discount: number;
   finalTotal: number;
+
+  /** Замовлення, яке видають цим чеком. `null` — звичайний продаж. */
+  order?: CheckoutOrder | null;
+  /** Позиції замовлення, яких не знайшлось на складі. */
+  orderUnmatched: string[];
+  /** Аванс, зарахований у чек. */
+  depositApplied: number;
+  /** Скільки взяти з клієнта зараз: підсумок мінус аванс. */
+  amountDue: number;
   updateQty: (id: string, type: string, delta: number) => void;
   updatePrice: (id: string, type: string, priceStr: string) => void;
   
@@ -55,6 +65,10 @@ export function POSCartSidebar({
   cartSubtotal,
   discount,
   finalTotal,
+  order = null,
+  orderUnmatched,
+  depositApplied,
+  amountDue,
   updateQty,
   updatePrice,
   showNewCustomer,
@@ -97,6 +111,39 @@ export function POSCartSidebar({
             {cart.length} поз.
           </span>
         </div>
+
+        {/* Видача клієнтського замовлення */}
+        {order && (
+          <div className="rounded-xl border border-violet/25 bg-violet/5 p-3.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-text-primary">
+                Видача замовлення #{order.order_no}
+              </span>
+              {depositApplied > 0 && (
+                <span className="text-[10px] font-bold text-emerald bg-emerald/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  аванс {depositApplied} ₴
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] leading-relaxed text-text-secondary">
+              {depositApplied > 0
+                ? "Аванс уже в касі — чек проводиться на повну суму, а з клієнта береться лише доплата."
+                : "Аванс за замовленням не вносили — клієнт платить усю суму."}
+            </p>
+            {orderUnmatched.length > 0 && (
+              <div className="rounded-lg border border-amber/30 bg-amber/5 p-2.5">
+                <p className="text-[10px] font-semibold text-amber">
+                  Не знайдено на складі — додайте з вітрини:
+                </p>
+                <ul className="mt-1 space-y-0.5 text-[10px] text-text-secondary">
+                  {orderUnmatched.map((name) => (
+                    <li key={name}>• {name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Client select */}
         <div className="space-y-1.5">
@@ -386,7 +433,7 @@ export function POSCartSidebar({
                     onChange={e => {
                       setCashAmount(e.target.value);
                       const val = parseFloat(e.target.value) || 0;
-                      setCardAmount(Math.max(0, finalTotal - val).toString());
+                      setCardAmount(Math.max(0, amountDue - val).toString());
                     }}
                     className="w-full rounded-lg border border-iris/20 bg-surface px-2 py-1.5 outline-none focus:border-violet text-right"
                   />
@@ -400,7 +447,7 @@ export function POSCartSidebar({
                     onChange={e => {
                       setCardAmount(e.target.value);
                       const val = parseFloat(e.target.value) || 0;
-                      setCashAmount(Math.max(0, finalTotal - val).toString());
+                      setCashAmount(Math.max(0, amountDue - val).toString());
                     }}
                     className="w-full rounded-lg border border-iris/20 bg-surface px-2 py-1.5 outline-none focus:border-violet text-right"
                   />
@@ -422,10 +469,35 @@ export function POSCartSidebar({
               <span className="font-semibold">-{Math.round(cartSubtotal * (discount / 100))} ₴</span>
             </div>
           )}
-          <div className="flex justify-between border-t border-iris/10 pt-2 text-sm">
-            <span className="text-text-primary font-bold">Разом до оплати:</span>
-            <span className="text-violet font-extrabold text-lg">{finalTotal} ₴</span>
-          </div>
+          {depositApplied > 0 ? (
+            <>
+              <div className="flex justify-between border-t border-iris/10 pt-2">
+                <span>Сума чека:</span>
+                <span className="font-semibold text-text-primary">{finalTotal} ₴</span>
+              </div>
+              <div className="flex justify-between text-emerald">
+                <span>Аванс замовлення:</span>
+                <span className="font-semibold">−{depositApplied} ₴</span>
+              </div>
+              <div className="flex justify-between border-t border-iris/10 pt-2 text-sm">
+                <span className="text-text-primary font-bold">Доплата клієнта:</span>
+                <span className={`font-extrabold text-lg ${amountDue < 0 ? "text-rose" : "text-violet"}`}>
+                  {amountDue} ₴
+                </span>
+              </div>
+              {amountDue < 0 && (
+                <p className="text-[10px] font-semibold text-rose">
+                  Аванс більший за чек. Каса здачі з авансу не видає — виправте ціни або поверніть
+                  різницю окремо.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="flex justify-between border-t border-iris/10 pt-2 text-sm">
+              <span className="text-text-primary font-bold">Разом до оплати:</span>
+              <span className="text-violet font-extrabold text-lg">{finalTotal} ₴</span>
+            </div>
+          )}
         </div>
 
         {actionError && (
@@ -436,7 +508,7 @@ export function POSCartSidebar({
 
         <button
           type="submit"
-          disabled={pending || cart.length === 0}
+          disabled={pending || cart.length === 0 || amountDue < 0}
           className="w-full flex items-center justify-center gap-2 rounded-xl bg-violet hover:bg-violet-hover text-white py-3.5 text-xs font-semibold transition-colors disabled:opacity-50"
         >
           {pending ? (
@@ -445,7 +517,7 @@ export function POSCartSidebar({
               <span>Обробка транзакції...</span>
             </>
           ) : (
-            <span>Провести продаж чека</span>
+            <span>{order ? `Видати замовлення #${order.order_no}` : "Провести продаж чека"}</span>
           )}
         </button>
       </form>

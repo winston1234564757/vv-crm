@@ -42,6 +42,12 @@ export interface ClientOrder {
   deposit: number;
   deadline: string | null;
   status: OrderStatus;
+  /**
+   * Чек, яким замовлення видали. `null` — товар ще не проданий, а аванс висить
+   * зобов'язанням перед клієнтом. Заповнює його `process_pos_sale`; він же не
+   * дає пробити за одним замовленням другий чек.
+   */
+  sale_id: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;

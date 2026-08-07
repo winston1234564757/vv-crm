@@ -213,12 +213,26 @@ async function getBridgeLineRowsInner(key: string): Promise<DrillResult> {
         .select("id, status")
         .not("status", "in", "(handed_over,cancelled)");
       const undelivered = new Set((repairs ?? []).map((r) => r.id));
+      // Аванс лишається зобов'язанням, доки замовлення не видали чеком —
+      // те саме правило, що й у містку (`data-bridge.ts`).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: orders } = await (supabase as any)
+        .from("client_orders")
+        .select("id")
+        .is("sale_id", null)
+        .not("status", "in", "(completed,cancelled)");
+      const openOrders = new Set(
+        supabaseCast<{ id: string }[]>(orders ?? []).map((o) => o.id),
+      );
       const rows = await ledgerRows(
         (t) =>
           (t.reference_type === "repair_payment" &&
             !!t.reference_id &&
             undelivered.has(t.reference_id)) ||
-          (t.reference_type === "client_order" && isAccount(t.to_type)),
+          (t.reference_type === "client_order" &&
+            isAccount(t.to_type) &&
+            !!t.reference_id &&
+            openOrders.has(t.reference_id)),
         finance_epoch,
       );
       return withTotal(

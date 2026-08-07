@@ -47,7 +47,7 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
   /* Реєстр, каси й сейфи — через `request-cache`: ті самі три таблиці на цій
      сторінці читає ще `getCashFlow`, і без спільного кешу вони летіли б у базу
      двічі. Решта запитів тут свої, бо більше нікому не потрібні. */
-  const [loaded, txRows, registers, safes, devRes, accRes, partRes, repairRes, moveRes] =
+  const [loaded, txRows, registers, safes, devRes, accRes, partRes, repairRes, moveRes, orderRes] =
     await Promise.all([
       loadDataset(supabase, start, end),
       getAllTransactions(),
@@ -66,11 +66,24 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
         .eq("item_type", "accessory")
         .in("reason", ["write_off", "adjustment"])
         .gte("created_at", epochIso ?? "1970-01-01T00:00:00Z"),
+      /* Замовлення, за якими ще не пробили чек: лише їхні аванси лишаються
+         зобов'язанням. `client_orders` немає в згенерованих типах — локальний
+         каст, як усюди з цією таблицею (див. `types/orders.ts`). */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("client_orders")
+        .select("id")
+        .is("sale_id", null)
+        .not("status", "in", "(completed,cancelled)"),
     ]);
 
-  for (const r of [devRes, accRes, partRes, repairRes, moveRes]) {
+  for (const r of [devRes, accRes, partRes, repairRes, moveRes, orderRes]) {
     if (r.error) throw new Error(r.error.message);
   }
+
+  const openOrderIds = new Set(
+    supabaseCast<{ id: string }[]>(orderRes.data ?? []).map((o) => o.id),
+  );
 
   const netProfitSafeId = safes.find((s) => s.type === "net_profit")?.id ?? null;
 
@@ -82,6 +95,7 @@ export async function getMoneyPicture(): Promise<MoneyPicture> {
   const ledger = summariseLedger(
     txRows,
     supabaseCast<{ id: string; status: string }[]>(repairRes.data ?? []),
+    openOrderIds,
     epochIso,
   );
 
@@ -224,6 +238,7 @@ function splitExcludedExpenses(
 function summariseLedger(
   rows: LedgerRow[],
   repairs: { id: string; status: string }[],
+  openOrderIds: Set<string>,
   epochIso: string | null,
 ): LedgerSums {
   const epochMs = epochIso ? new Date(epochIso).getTime() : null;
@@ -265,7 +280,11 @@ function summariseLedger(
     if (kind === "repair_payment" && t.reference_id && undelivered.has(t.reference_id)) {
       sums.deferredRevenue += t.amount;
     }
-    if (kind === "client_order" && isAccount(t.to_type)) {
+    /* Аванс висить зобов'язанням, доки замовлення не видали чеком. Після
+       видачі ті самі гроші вже враховані у виторгу продажу, і залишити їх ще й
+       тут означало б порахувати їх двічі — рівно на суму авансу поїхала б
+       нев'язка містка. */
+    if (kind === "client_order" && isAccount(t.to_type) && t.reference_id && openOrderIds.has(t.reference_id)) {
       sums.deferredRevenue += t.amount;
     }
   }

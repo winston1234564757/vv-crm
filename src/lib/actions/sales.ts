@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { parseError } from "@/lib/utils/errors";
-import { targetRegisterType } from "@/lib/utils/finance";
+import { isCashless, targetRegisterType } from "@/lib/utils/finance";
 import type { ActionState } from "./types";
 
 const saleSchema = z.object({
@@ -229,8 +229,88 @@ const multiSaleSchema = z.object({
   partner_id: z.string().uuid().nullable().optional(),
   promo_code_used: z.string().nullable().optional(),
   link_device_to_customer: z.coerce.boolean().optional().default(false),
+  /** Видача клієнтського замовлення: аванс зарахується в цей чек. */
+  order_id: z.string().uuid().nullable().optional(),
   items: z.array(multiSaleItemSchema).min(1, "Кошик не може бути порожнім"),
 });
+
+/** Аванс замовлення, яким його зарахує чек. */
+interface OrderDeposit {
+  /** Скільки зарахувати. Нуль — замовлення без авансу. */
+  amount: number;
+  /** Каса, в якій аванс лежить із дня замовлення. */
+  registerId: string | null;
+  /** Чим його приймали: каса безготівки означає картку. */
+  method: "cash" | "card";
+  orderNo: string;
+  customerId: string;
+}
+
+/**
+ * Аванс замовлення — з бази, а не з браузера.
+ *
+ * Сума, каса й метод беруться з реєстру: клієнт може прислати будь-яке число,
+ * а від цього числа залежить, скільки грошей візьмуть із покупця. Каса й метод
+ * відновлюються з транзакції авансу — іншого запису про те, куди ті гроші
+ * лягли, немає.
+ */
+async function loadOrderDeposit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+  saleTotal: number,
+): Promise<OrderDeposit> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: order, error } = await (supabase as any)
+    .from("client_orders")
+    .select("id, order_no, deposit, status, sale_id, customer_id")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!order) throw new Error("Замовлення не знайдено");
+  if (order.sale_id) throw new Error("За цим замовленням продаж уже проведено");
+  if (order.status === "cancelled") throw new Error("Замовлення скасоване");
+
+  const deposit: number = order.deposit ?? 0;
+  if (deposit > saleTotal) {
+    throw new Error(
+      `Аванс (${deposit} грн) більший за суму чека (${saleTotal} грн). Здачу з авансу каса не видає — виправте ціни або поверніть різницю окремо.`,
+    );
+  }
+
+  const base = {
+    amount: deposit,
+    orderNo: order.order_no as string,
+    customerId: order.customer_id as string,
+  };
+  if (deposit === 0) return { ...base, registerId: null, method: "cash" };
+
+  const { data: tx } = await supabase
+    .from("transactions")
+    .select("to_id")
+    .eq("reference_type", "client_order")
+    .eq("reference_id", orderId)
+    .eq("to_type", "cash_register")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!tx?.to_id) {
+    throw new Error("Не знайдено, в яку касу лягав аванс цього замовлення");
+  }
+
+  const { data: register } = await supabase
+    .from("cash_registers")
+    .select("type")
+    .eq("id", tx.to_id)
+    .single();
+
+  return {
+    ...base,
+    registerId: tx.to_id,
+    method: register && isCashless(register.type) ? "card" : "cash",
+  };
+}
 
 export async function createMultiSaleAction(prevState: ActionState | null, formDataJson: unknown): Promise<ActionState<{ saleId: string }>> {
   let createdSaleId: string | null = null;
@@ -257,8 +337,21 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       const lineTotal = item.unit_price * item.quantity;
       return `- ${itemName}: ${item.quantity} x ${item.unit_price} грн = ${lineTotal} грн`;
     });
+
+    /* Аванс замовлення. Гроші за нього вже в касі з дня замовлення, тож чек
+       пробивається на повну суму, а до сплати лишається різниця. Без цього POS
+       збирав з клієнта другий раз усю суму — саме через це замовлення 0006
+       принесло в касу 1100 ₴ при виторгу 1000 ₴. */
+    const orderDeposit = parsed.order_id
+      ? await loadOrderDeposit(supabase, parsed.order_id, finalTotal)
+      : null;
+    const depositAmount = orderDeposit?.amount ?? 0;
+    const amountDue = finalTotal - depositAmount;
+    const customerId = orderDeposit ? orderDeposit.customerId : (parsed.customer_id || null);
+
     const saleNotes = [
       parsed.notes?.trim() || "Мультитоварний продаж POS",
+      ...(orderDeposit ? [`Видача замовлення #${orderDeposit.orderNo}`] : []),
       "Позиції:",
       ...itemLines
     ].join("\n");
@@ -308,18 +401,19 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       if (parsed.cash_amount > 0) payments.push({ amount: parsed.cash_amount, method: "cash" });
       if (parsed.card_amount > 0) payments.push({ amount: parsed.card_amount, method: "card" });
       const totalSplit = parsed.cash_amount + parsed.card_amount;
-      if (Math.abs(totalSplit - finalTotal) > 1) {
-        throw new Error(`Сума частин спліту (${totalSplit} грн) не збігається з сумою до оплати (${finalTotal} грн)`);
+      if (Math.abs(totalSplit - amountDue) > 1) {
+        throw new Error(`Сума частин спліту (${totalSplit} грн) не збігається з сумою до оплати (${amountDue} грн)`);
       }
-    } else {
-      payments.push({ amount: finalTotal, method: parsed.method });
+    } else if (amountDue > 0) {
+      payments.push({ amount: amountDue, method: parsed.method });
     }
 
     const rpcPayments = [];
-    // finalTotal === 0 (повністю знижений/безкоштовний продаж) → жодних оплат,
-    // інакше ділення на нуль дає NaN, який просочується у суми транзакцій.
+    // amountDue === 0 (повністю знижений продаж або чек, повністю покритий
+    // авансом) → жодних нових оплат, інакше ділення на нуль дає NaN, який
+    // просочується у суми транзакцій.
     for (const p of payments) {
-      if (finalTotal <= 0) break;
+      if (amountDue <= 0) break;
       const distribution = [
         { type: "tech", amount: Math.round(p.amount * (techAmountFinal / finalTotal)) },
         { type: "accessories", amount: Math.round(p.amount * (accAmountFinal / finalTotal)) },
@@ -358,7 +452,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     // 6. Execute ATOMIC RPC 
     // @ts-expect-error - process_pos_sale is missing from database.ts types
     const { data: saleId, error: rpcError } = await supabase.rpc("process_pos_sale", {
-      p_customer_id: parsed.customer_id || null,
+      p_customer_id: customerId,
       p_total_amount: finalTotal,
       p_discount: parsed.discount,
       p_notes: saleNotes,
@@ -372,7 +466,11 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
       p_promo_code_used: parsed.promo_code_used || null,
       p_user_id: userId,
       p_items: rpcItems,
-      p_payments: rpcPayments
+      p_payments: rpcPayments,
+      p_order_id: parsed.order_id || null,
+      p_deposit: depositAmount,
+      p_deposit_method: orderDeposit?.method ?? null,
+      p_deposit_register_id: orderDeposit?.registerId ?? null
     });
 
     if (rpcError) throw rpcError;
@@ -384,15 +482,16 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     revalidatePath("/admin/accessories");
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
+    if (parsed.order_id) revalidatePath("/admin/orders");
 
-    if (parsed.customer_id && parsed.link_device_to_customer) {
+    if (customerId && parsed.link_device_to_customer) {
       // Find device name from items for linking if requested
       const devItem = parsed.items.find(i => i.item_type === "device");
       if (devItem) {
         await supabase
           .from("customers")
           .update({ device_name: devItem.item_name || "Пристрій" })
-          .eq("id", parsed.customer_id);
+          .eq("id", customerId);
         revalidatePath("/admin/customers");
       }
     }
@@ -402,7 +501,13 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     console.error("MultiSaleAction Error:", err);
     if (createdSaleId) {
       const supabase = await createClient();
-      await supabase.from("sales").delete().eq("id", createdSaleId);
+      /* `delete_sale`, а не `.delete()` по таблиці: голе видалення рядка лишає
+         склад списаним, гроші в касі й — з появою замовлень — замовлення
+         «виконаним» без чека. RPC відкочує все це разом. */
+      const { error: undoError } = await supabase.rpc("delete_sale", {
+        sale_id_to_delete: createdSaleId,
+      });
+      if (undoError) console.error("MultiSaleAction rollback failed:", undoError);
     }
     return { success: false, error: parseError(err) };
   }

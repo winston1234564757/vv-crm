@@ -10,6 +10,7 @@ import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 
 import { Customer, CashRegister, Device, Accessory, Part, Service, LastSaleData } from "./pos-types";
 import { DEFAULT_WARRANTY_TERM, warrantyWindow, type WarrantyTerm } from "./pos-warranty";
+import { prefillFromOrder, type CheckoutOrder } from "./order-prefill";
 import { usePOSCart } from "./usePOSCart";
 import { usePOSCatalog } from "./usePOSCatalog";
 import { POSCatalog } from "./POSCatalog";
@@ -21,6 +22,7 @@ export function POSClient({
   accessories,
   parts,
   services,
+  order = null,
 }: {
   customers: Customer[];
   cashRegisters: CashRegister[];
@@ -28,18 +30,37 @@ export function POSClient({
   accessories: Accessory[];
   parts: Part[];
   services: Service[];
+  /** Видача замовлення: кошик уже наповнений, аванс уже в касі. */
+  order?: CheckoutOrder | null;
 }) {
   const router = useRouter();
-  
+
+  /* Префіл рахується один раз, при першому рендері: далі кошик живе своїм
+     життям — касир може прибрати позицію чи змінити ціну, і перерахунок із
+     замовлення затер би ці правки. */
+  const [prefill] = useState(() =>
+    order ? prefillFromOrder(order, { devices, accessories, parts, services }) : null,
+  );
+
   const {
     cart, setCart, discount, setDiscount, cartSubtotal, finalTotal,
     addToCart, updateQty, updatePrice, clearCart
-  } = usePOSCart();
+  } = usePOSCart(prefill?.cart ?? []);
 
   const catalog = usePOSCatalog(devices, accessories, parts, services, cart);
 
-  const [activeMobileTab, setActiveMobileTab] = useState<"catalog" | "cart">("catalog");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  /* Аванс замовлення. Зараховує його сервер — він же й перевіряє суму по базі;
+     тут це число живе лише для того, щоб касир бачив, скільки брати з клієнта.
+     Аванс, більший за чек, не «згорає» до нуля: сервер такий чек відхилить, і
+     сховати це від касира означало б показати «до сплати 0» там, де насправді
+     треба повертати різницю. */
+  const depositApplied = order?.deposit ?? 0;
+  const amountDue = finalTotal - depositApplied;
+
+  const [activeMobileTab, setActiveMobileTab] = useState<"catalog" | "cart">(
+    order ? "cart" : "catalog",
+  );
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(order?.customer_id ?? "");
   const [notes, setNotes] = useState<string>("");
   const [warrantyTerm, setWarrantyTerm] = useState<WarrantyTerm>(DEFAULT_WARRANTY_TERM);
   
@@ -64,15 +85,18 @@ export function POSClient({
   // Form Submitting Action state
   const [pending, setPending] = useState(false);
   const [successSaleId, setSuccessSaleId] = useState<string | null>(null);
+  /* Окремо від `order`: після `router.refresh()` замовлення вже продане, тож
+     серверний проп стає null — а вікно успіху ще на екрані. */
+  const [completedOrderNo, setCompletedOrderNo] = useState<string | null>(null);
   const [lastSaleData, setLastSaleData] = useState<LastSaleData | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [actionError, setActionError] = useState<string>("");
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setCashAmount(finalTotal.toString());
+    setCashAmount(Math.max(0, amountDue).toString());
     setCardAmount("0");
-  }, [finalTotal]);
+  }, [amountDue]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleCheckPromo = async () => {
@@ -148,6 +172,7 @@ export function POSClient({
       partner_id: partnerId || null,
       promo_code_used: promoCode.trim() || null,
       link_device_to_customer: linkDeviceToCustomer,
+      order_id: order?.id ?? null,
       items: cart.map(c => ({
         item_type: c.item_type,
         item_id: c.id,
@@ -177,10 +202,13 @@ export function POSClient({
         })),
         total_amount: finalTotal,
         discount: discount,
+        deposit: depositApplied,
+        order_no: order?.order_no,
         register_name: "Основна каса",
         warranty_end: warranty.end
       });
       setSuccessSaleId(res.data.saleId);
+      setCompletedOrderNo(order?.order_no ?? null);
       clearCart();
       setNotes("");
       setPromoCode("");
@@ -233,6 +261,10 @@ export function POSClient({
           cartSubtotal={cartSubtotal}
           discount={discount}
           finalTotal={finalTotal}
+          order={order}
+          orderUnmatched={prefill?.unmatched ?? []}
+          depositApplied={depositApplied}
+          amountDue={amountDue}
           updateQty={updateQty}
           updatePrice={updatePrice}
           showNewCustomer={showNewCustomer}
@@ -332,16 +364,25 @@ export function POSClient({
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-text-primary dark:text-white tracking-tight">Продаж успішно проведено!</h3>
+                <h3 className="text-lg font-bold text-text-primary dark:text-white tracking-tight">
+                  {completedOrderNo ? `Замовлення #${completedOrderNo} видано!` : "Продаж успішно проведено!"}
+                </h3>
                 <p className="text-xs text-text-secondary dark:text-faint mt-1.5 leading-relaxed">
-                  Транзакцію успішно записано. Виберіть подальшу дію або роздрукуйте чек для клієнта.
+                  {completedOrderNo
+                    ? "Чек проведено на повну суму, аванс зараховано, замовлення закрито. Роздрукуйте чек для клієнта."
+                    : "Транзакцію успішно записано. Виберіть подальшу дію або роздрукуйте чек для клієнта."}
                 </p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                 <button
                   type="button"
-                  onClick={() => setSuccessSaleId(null)}
+                  onClick={() => {
+                    setSuccessSaleId(null);
+                    /* `?order=` уже відпрацював. Лишити його в адресі означало б
+                       наступний продаж під заголовком чужого замовлення. */
+                    if (completedOrderNo) router.replace("/admin/sales/pos");
+                  }}
                   className="flex-1 btn-press py-3 px-4 border border-warm-border/80 bg-warm-surface text-text-secondary dark:bg-zinc-800 dark:border-border-strong dark:text-zinc-200 dark:hover:bg-zinc-700 hover:bg-iris/5 text-xs font-semibold rounded-xl cursor-pointer transition-colors active:scale-[0.98]"
                 >
                   Новий продаж

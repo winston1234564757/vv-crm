@@ -315,6 +315,10 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
         })),
         totalAmount: data.total_amount,
         discount: data.discount,
+        /* `deposit` тут той самий, що й у замовленні: продаж, яким видали
+           замовлення, зараховує внесений аванс, і чек має показати доплату. */
+        prepaid: type === "sale" ? data.deposit : undefined,
+        prepaidOrderNo: type === "sale" ? data.order_no : undefined,
         device: type.startsWith("repair")
           ? {
               name: deviceName,
@@ -470,7 +474,19 @@ export default function ReceiptPrintModal({ isOpen, onClose, type, data }: Recei
               {data.discount && data.discount > 0 ? (
                 <p>Знижка: {data.discount}%</p>
               ) : null}
-              <p className="text-[11px] font-bold">РАЗОМ ДО СПЛАТИ: {(data.total_amount || 0).toLocaleString()} ₴</p>
+              {(data.deposit || 0) > 0 && (
+                <>
+                  <p>Разом: {(data.total_amount || 0).toLocaleString()} ₴</p>
+                  <p>
+                    Аванс{data.order_no ? ` (зам. №${data.order_no})` : ""}:{" "}
+                    {(data.deposit || 0).toLocaleString()} ₴
+                  </p>
+                </>
+              )}
+              <p className="text-[11px] font-bold">
+                РАЗОМ ДО СПЛАТИ:{" "}
+                {Math.max(0, (data.total_amount || 0) - (data.deposit || 0)).toLocaleString()} ₴
+              </p>
             </div>
           </>
         )}

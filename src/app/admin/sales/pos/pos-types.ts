@@ -46,6 +46,10 @@ export interface LastSaleData {
   }>;
   total_amount: number;
   discount: number;
+  /** Аванс замовлення, зарахований у чек. Чек друкує доплату, а не всю суму. */
+  deposit?: number;
+  /** Номер замовлення, яке видали цим чеком. */
+  order_no?: string;
   register_name: string;
   /** Дата кінця гарантії `YYYY-MM-DD`, або null якщо без гарантії. */
   warranty_end: string | null;

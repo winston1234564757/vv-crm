@@ -81,6 +81,15 @@ export interface ResolvedReceipt {
   items?: ReceiptLineItem[];
   totalAmount?: number;
   discount?: number;
+  /**
+   * Аванс замовлення, зарахований у цей чек (`type: "sale"`).
+   *
+   * Без нього чек за видане замовлення обіцяв би «ДО СПЛАТИ 350 ₴» там, де
+   * клієнт доплачує 249 ₴: решту він вніс наперед і має бачити це на папері.
+   */
+  prepaid?: number;
+  /** Номер замовлення, з якого прийшов аванс, — «0009». */
+  prepaidOrderNo?: string;
 
   device?: ReceiptDevice;
   issue?: string;
@@ -297,8 +306,22 @@ function composeSaleBody(receipt: ResolvedReceipt, columns: number): Block[] {
     blocks.push(...labelValue("Знижка:", `${receipt.discount}%`, columns).map((l) => text(l)));
   }
 
+  const total = receipt.totalAmount ?? 0;
+  const prepaid = receipt.prepaid ?? 0;
+
+  if (prepaid > 0) {
+    blocks.push(...labelValue("Разом:", `${money(total)} грн`, columns).map((l) => text(l)));
+    blocks.push(
+      ...labelValue(
+        receipt.prepaidOrderNo ? `Аванс (зам. №${receipt.prepaidOrderNo}):` : "Аванс:",
+        `${money(prepaid)} грн`,
+        columns,
+      ).map((l) => text(l)),
+    );
+  }
+
   blocks.push(
-    ...labelValue("ДО СПЛАТИ:", `${money(receipt.totalAmount ?? 0)} грн`, columns).map((l) =>
+    ...labelValue("ДО СПЛАТИ:", `${money(Math.max(0, total - prepaid))} грн`, columns).map((l) =>
       text(l, { bold: true }),
     ),
   );
