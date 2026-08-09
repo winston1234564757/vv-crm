@@ -13,17 +13,20 @@ import { CashCard } from "./CashCard";
 import { ShareCard } from "./ShareCard";
 import { AttentionSection } from "./AttentionSection";
 import { InsightsSection } from "./InsightsSection";
+import { AveragesPanel } from "@/components/AveragesPanel";
 import type { AttentionGroup } from "@/lib/attention";
 import type { DashboardMoney } from "@/lib/data-dashboard";
 import type { OperationsData } from "@/lib/data-operations";
 import type { SalesTargets } from "@/lib/data-settings";
-import type { RangePreset } from "@/lib/profit";
+import type { RangePreset, AveragesTotals } from "@/lib/profit";
 
 interface DashboardClientProps {
   preset: RangePreset;
   attention: AttentionGroup[];
   /** `null` для ролей без доступу до грошей — дані навіть не читались з бази. */
   money: DashboardMoney | null;
+  /** `null` для ролей без грошей АБО коли магазин молодший за добу — рахувати нема з чого. */
+  averages: AveragesTotals | null;
   operations: OperationsData;
   targets: SalesTargets;
 }
@@ -58,6 +61,7 @@ export function DashboardClient({
   preset,
   attention,
   money,
+  averages,
   operations,
   targets,
 }: DashboardClientProps) {
@@ -139,6 +143,12 @@ export function DashboardClient({
         {attention.length > 0 && (
           <BentoCell span={money ? 8 : 12} title="Потребує уваги">
             <AttentionSection groups={attention} />
+          </BentoCell>
+        )}
+
+        {money && averages && (
+          <BentoCell span={12} title="Середні показники · з відкриття">
+            <AveragesPanel averages={averages} />
           </BentoCell>
         )}
       </div>

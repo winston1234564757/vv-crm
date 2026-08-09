@@ -707,6 +707,62 @@ export function sliceExpenses(
     .reduce((s, e) => s + num(e.amount), 0);
 }
 
+export interface AveragesTotals {
+  /**
+   * Дробові дні від початку вікна до кінця — різниця часу, а не кількість
+   * календарних дат. Епоха рідко стоїть опівночі, і рахувати перший день
+   * цілим означало б занижувати темп на частку доби, якої не було.
+   */
+  days: number;
+  revenue: number;
+  cost: number;
+  grossProfit: number;
+  /** Той самий фільтр, що й у `sliceExpenses`: без капіталу й без сейфа ЧП. */
+  opex: number;
+  netProfit: number;
+  /** Кількість чеків (`sales`, `status = completed`) у вікні. */
+  receipts: number;
+  /** Ремонти вже всередині — категорія `repair`, як і в `computeProfit`. */
+  byCategory: CategoryProfit[];
+}
+
+/**
+ * Скільки магазин у середньому робить на день — від довільного вікна (типово
+ * фінансової епохи до зараз), а не за календарний пресет.
+ *
+ * «На тиждень» — не окремий підрахунок, а той самий підсумок × 7 / `days`;
+ * рахувати його тут означало б тримати два незалежні означення одного й
+ * того самого темпу. Викликач ділить сам, коли формує підпис.
+ *
+ * `null`, коли вікно порожнє чи вироджене (`days <= 0`) — ділити нема на що,
+ * і краще явна відсутність числа, ніж підстава нуля замість дня.
+ */
+export function computeAverages(
+  ds: ProfitDataset,
+  windowStart: Date,
+  windowEnd: Date,
+  capitalCategoryId: string | null,
+  netProfitSafeId: string | null,
+): AveragesTotals | null {
+  const days = (windowEnd.getTime() - windowStart.getTime()) / 86_400_000;
+  if (!(days > 0)) return null;
+
+  const profit = sliceProfit(ds, windowStart, windowEnd);
+  const opex = sliceExpenses(ds, windowStart, windowEnd, capitalCategoryId, netProfitSafeId);
+  const receipts = ds.sales.filter((s) => inWindow(s.created_at, windowStart, windowEnd)).length;
+
+  return {
+    days,
+    revenue: profit.revenue,
+    cost: profit.cost,
+    grossProfit: profit.profit,
+    opex,
+    netProfit: profit.profit - opex,
+    receipts,
+    byCategory: profit.byCategory,
+  };
+}
+
 export interface DayPoint {
   /** Локальна дата, `YYYY-MM-DD`. */
   day: string;

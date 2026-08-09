@@ -28,6 +28,8 @@ import { getSkuReport } from "@/lib/data-sku";
 import { SkuPanel } from "./SkuPanel";
 import { isRangePreset, RANGE_LABELS, type RangePreset } from "@/lib/profit";
 import { RangeTabs } from "../RangeTabs";
+import { getAveragesSinceEpoch } from "@/lib/data-averages";
+import { AveragesPanel } from "@/components/AveragesPanel";
 
 export default async function FinancePage({
   searchParams,
@@ -54,6 +56,7 @@ export default async function FinancePage({
     cashFlow,
     picture,
     sku,
+    averages,
   ] = await Promise.all([
     getFinanceData(),
     getFinanceReport(preset),
@@ -64,6 +67,7 @@ export default async function FinancePage({
     getCashFlow(),
     getMoneyPicture(),
     getSkuReport(preset),
+    getAveragesSinceEpoch(),
   ]);
 
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
@@ -162,6 +166,20 @@ export default async function FinancePage({
               categoryBreakdown={report.categoryBreakdown}
             />
           </div>
+
+          {/* A2. Середні показники — не залежать від обраного пресету вгорі:
+              завжди від фінансової епохи до зараз, бо «в середньому на день»
+              за останні 7 днів і за весь час — два різних питання. */}
+          {averages && (
+            <div className="card border border-border bg-surface p-6">
+              <h3 className="border-b border-border pb-3 text-sm font-semibold text-ink">
+                Середні показники · з відкриття
+              </h3>
+              <div className="pt-4">
+                <AveragesPanel averages={averages} />
+              </div>
+            </div>
+          )}
 
           {/* B. Каси й сейфи. Кольорові смуги зверху карток прибрані — тип каси
               несе підпис, а не колір; чотири різні акценти на екрані читались

@@ -3,6 +3,7 @@ import { canSeeMoney } from "@/lib/roles";
 import { getSettings } from "@/lib/data-settings";
 import { getOperationsData } from "@/lib/data-operations";
 import { getDashboardMoney } from "@/lib/data-dashboard";
+import { getAveragesSinceEpoch } from "@/lib/data-averages";
 import { findAttention } from "@/lib/attention";
 import { isRangePreset, type RangePreset } from "@/lib/profit";
 import { DashboardClient } from "./DashboardClient";
@@ -26,10 +27,11 @@ export default async function AdminDashboard({
   // Гроші не просто ховаються в розмітці — вони не читаються з бази взагалі.
   // Інакше прибуток і залишки кас доїхали б у клієнтський payload, де їх
   // видно в DevTools попри відсутність на екрані.
-  const [settings, operations, money] = await Promise.all([
+  const [settings, operations, money, averages] = await Promise.all([
     getSettings(),
     getOperationsData(),
     showMoney ? getDashboardMoney(preset, user.id) : null,
+    showMoney ? getAveragesSinceEpoch() : null,
   ]);
 
   // `findAttention` — чиста функція, тож рахуємо її тут, а не в браузері:
@@ -41,6 +43,7 @@ export default async function AdminDashboard({
       preset={preset}
       attention={attention}
       money={money}
+      averages={averages}
       operations={operations}
       targets={settings.sales_targets}
     />
