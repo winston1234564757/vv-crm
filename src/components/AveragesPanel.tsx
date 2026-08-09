@@ -36,7 +36,11 @@ export function AveragesPanel({ averages }: { averages: AveragesTotals }) {
   const perDay = (total: number) => total / averages.days;
   const perWeek = (total: number) => (total / averages.days) * 7;
 
-  const maxRevenue = Math.max(...averages.byCategory.map((c) => c.revenue), 1);
+  // Запчастини сюди не входять: їх не продають окремою позицією, вони
+  // списуються всередину вартості ремонту — рядок «0,00/день» тільки шумів.
+  const sold = averages.byCategory.filter((c) => c.category !== "part");
+
+  const maxRevenue = Math.max(...sold.map((c) => c.revenue), 1);
   const avgReceipt = averages.receipts > 0 ? averages.revenue / averages.receipts : null;
 
   return (
@@ -67,7 +71,7 @@ export function AveragesPanel({ averages }: { averages: AveragesTotals }) {
 
       {/* Одиниці: скільки штук у середньому проходить через каси. */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-4 sm:grid-cols-4">
-        {averages.byCategory.map((c) => (
+        {sold.map((c) => (
           <div key={c.category}>
             <p className="text-[11px] text-muted">{CATEGORY_LABELS[c.category]}</p>
             <p className="font-display text-lg font-semibold tabular tracking-tight text-ink">
@@ -83,7 +87,7 @@ export function AveragesPanel({ averages }: { averages: AveragesTotals }) {
           за типом, і маржа поруч — той самий рядок, що каже і скільки, і
           наскільки вигідно. */}
       <div className="space-y-3 border-t border-border pt-4">
-        {averages.byCategory
+        {sold
           .filter((c) => c.revenue > 0 || c.units > 0)
           .map((c) => (
             <div key={c.category} className="space-y-1">
@@ -106,7 +110,7 @@ export function AveragesPanel({ averages }: { averages: AveragesTotals }) {
             середній чек <span className="font-medium tabular text-ink">{uah(avgReceipt)}</span>
           </span>
         )}
-        {averages.byCategory
+        {sold
           .filter((c) => c.units > 0)
           .map((c) => (
             <span key={c.category} className="text-muted">

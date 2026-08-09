@@ -103,9 +103,12 @@ export function validateWarehousePart(part: unknown): { id: string; name: string
   if (isNaN(cost) || cost < 0) {
     throw new Error("Вартість частини має бути невід'ємним числом");
   }
-  if (!p.origin_type || typeof p.origin_type !== 'string') {
-    throw new Error("Тип походження частини обов'язковий");
-  }
+  // `origin_type` у складі нульований (`parts.origin_type` — nullable
+  // колонка): не в кожної деталі записане походження. Раніше це вимагалось
+  // і кидало виняток, який форма редагування пристрою тихо ковтала в
+  // catch — вибір деталі зі складу нічого не заповнював, і кнопка «Додати
+  // до списку» лишалась заблокованою назавжди, бо назва не підставлялась.
+  const origin = typeof p.origin_type === 'string' ? p.origin_type : "";
   const stock = Number(p.stock);
   if (!Number.isInteger(stock) || stock < 0) {
     throw new Error("Кількість товару на складі має бути цілим невід'ємним числом");
@@ -114,7 +117,7 @@ export function validateWarehousePart(part: unknown): { id: string; name: string
     id: p.id as string,
     name: p.name as string,
     cost_price: cost,
-    origin_type: p.origin_type as string,
+    origin_type: origin,
     stock
   };
 }

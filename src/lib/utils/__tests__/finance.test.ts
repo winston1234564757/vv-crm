@@ -92,6 +92,21 @@ describe("Finance Utils", () => {
       expect(() => validateWarehousePart({ id: "123", name: "Screen", cost_price: -50, origin_type: "supplier", stock: 10 })).toThrow();
       expect(() => validateWarehousePart({ id: "123", name: "Screen", cost_price: 50, origin_type: "supplier", stock: -10 })).toThrow();
     });
+    it("should default origin_type to an empty string when the warehouse row has none", () => {
+      // `parts.origin_type` — nullable колонка: не в кожної деталі записане
+      // походження, і це не помилка даних. Раніше відсутній origin_type
+      // кидав виняток, який форма редагування пристрою ковтала мовчки —
+      // вибір такої деталі зі складу нічого не підставляв у форму, і кнопка
+      // «Додати до списку» лишалась заблокованою назавжди.
+      const part = { id: "123", name: "Дисплей", cost_price: 600, origin_type: null, stock: 1 };
+      expect(validateWarehousePart(part)).toEqual({
+        id: "123",
+        name: "Дисплей",
+        cost_price: 600,
+        origin_type: "",
+        stock: 1,
+      });
+    });
   });
 
   describe("validateDiscount", () => {
