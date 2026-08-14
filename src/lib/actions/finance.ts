@@ -327,4 +327,56 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
   }
 }
 
+const convertSchema = z.object({
+  safe_id: z.string().uuid("Оберіть сейф для конвертації"),
+  amount: z.coerce.number().min(1, "Сума конвертації має бути більше 0"),
+  // Напрямок: готівка → карта або карта → готівка
+  direction: z.enum(["cash_to_card", "card_to_cash"], {
+    error: "Оберіть напрямок конвертації",
+  }),
+  description: z.string().optional(),
+});
 
+/**
+ * Конвертує гроші між готівковою та безготівковою половинами одного сейфу.
+ *
+ * cash_to_card — «обналічити» в зворотному розумінні: маємо безготівку,
+ *   фізично видали готівкою → картка зменшилась, готівка зросла.
+ *   (Або «поповнити карту» — узяли готівку, поклали на рахунок.)
+ *
+ * Загальний balance сейфу НЕ змінюється — це внутрішнє переміщення.
+ */
+export async function convertSafeHalvesAction(
+  prevState: ActionState | null,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const data = {
+      safe_id: formData.get("safe_id"),
+      amount: formData.get("amount"),
+      direction: formData.get("direction"),
+      description: formData.get("description") || "",
+    };
+
+    const parsed = convertSchema.parse(data);
+    const { user } = await requireRole(MONEY_ROLES);
+    const supabase = await createClient();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: rpcError } = await supabase.rpc("convert_safe_halves" as any, {
+      p_safe_id: parsed.safe_id,
+      p_amount: parsed.amount,
+      p_direction: parsed.direction,
+      p_desc_text: parsed.description || "",
+      p_user_id: user.id,
+    });
+
+    if (rpcError) throw rpcError;
+
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}

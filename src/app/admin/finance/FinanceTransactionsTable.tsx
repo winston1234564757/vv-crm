@@ -454,6 +454,69 @@ export function FinanceTransactionsTable({
                 </div>
               </div>
 
+
+              {/* Balance Snapshots — Стан рахунків */}
+              {(selectedTransaction.from_balance_before != null ||
+                selectedTransaction.to_balance_before != null) && (
+                <div className="card p-5 space-y-3 md:col-span-2">
+                  <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">
+                    Стан рахунків
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* From account snapshot */}
+                    {selectedTransaction.from_balance_before != null &&
+                      selectedTransaction.from_type !== "customer" &&
+                      selectedTransaction.from_type !== "external" && (
+                        <div className="rounded-xl bg-danger/5 border border-danger/15 p-4 space-y-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-danger/70">
+                            Рахунок-джерело
+                          </p>
+                          <p className="font-semibold text-ink text-xs truncate">
+                            {selectedTransaction.from}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs mt-1">
+                            <span className="text-muted tabular">
+                              {(selectedTransaction.from_balance_before).toLocaleString()} ₴
+                            </span>
+                            <span className="text-muted">→</span>
+                            <span className="font-bold tabular text-ink">
+                              {(selectedTransaction.from_balance_after ?? selectedTransaction.from_balance_before - selectedTransaction.amount).toLocaleString()} ₴
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-danger font-medium tabular">
+                            ▼ −{selectedTransaction.amount.toLocaleString()} ₴
+                          </p>
+                        </div>
+                    )}
+                    {/* To account snapshot */}
+                    {selectedTransaction.to_balance_before != null &&
+                      selectedTransaction.to_type !== "external" &&
+                      selectedTransaction.to_type !== "supplier" && (
+                        <div className="rounded-xl bg-success/5 border border-success/15 p-4 space-y-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-success/70">
+                            Рахунок-одержувач
+                          </p>
+                          <p className="font-semibold text-ink text-xs truncate">
+                            {selectedTransaction.to}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs mt-1">
+                            <span className="text-muted tabular">
+                              {(selectedTransaction.to_balance_before).toLocaleString()} ₴
+                            </span>
+                            <span className="text-muted">→</span>
+                            <span className="font-bold tabular text-ink">
+                              {(selectedTransaction.to_balance_after ?? selectedTransaction.to_balance_before + selectedTransaction.amount).toLocaleString()} ₴
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-success font-medium tabular">
+                            ▲ +{selectedTransaction.amount.toLocaleString()} ₴
+                          </p>
+                        </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Description Card */}
               {selectedTransaction.description && (
                 <div className="card p-5 space-y-3 md:col-span-2">

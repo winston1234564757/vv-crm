@@ -128,11 +128,20 @@ export async function getFinanceData() {
       date: t.created_at.split("T")[0],
       from: fromName,
       to: toName,
+      from_type: t.from_type,
+      to_type: t.to_type,
+      from_id: t.from_id ?? null,
+      to_id: t.to_id ?? null,
       amount: t.amount,
       type: t.from_type === "customer" ? "sale" : t.to_type === "supplier" ? "expense" : "distribution",
       description: t.description ?? "",
       reference_type: t.reference_type ?? null,
       reference_id: t.reference_id ?? null,
+      payment_method: t.payment_method ?? null,
+      from_balance_before: ((t as unknown) as Record<string, number | null>).from_balance_before ?? null,
+      from_balance_after: ((t as unknown) as Record<string, number | null>).from_balance_after ?? null,
+      to_balance_before: ((t as unknown) as Record<string, number | null>).to_balance_before ?? null,
+      to_balance_after: ((t as unknown) as Record<string, number | null>).to_balance_after ?? null,
     };
   });
 

@@ -4,6 +4,7 @@ import { requirePageRole } from "@/lib/utils/rbac";
 import { MONEY_ROLES } from "@/lib/roles";
 import { getFinanceData, getFinanceReport, type SafeWithSplit } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
+import { AddConvertButton } from "./AddConvertButton";
 import { AddExpenseButton } from "./AddExpenseButton";
 import { AddDistributionButton } from "./AddDistributionButton";
 import { AddTopUpButton } from "./AddTopUpButton";
@@ -114,6 +115,7 @@ export default async function FinancePage({
             registers={cashRegisters}
           />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
+          <AddConvertButton safes={safeRows} cashRegisters={cashRegisters} />
           <AddTransferButton cashRegisters={cashRegisters} safes={safes} />
         </div>
       </div>

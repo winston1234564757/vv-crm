@@ -59,8 +59,14 @@ export interface WithdrawalEntry {
   at: string;
   amount: number;
   ownerName: string;
+  ownerId: string | null;
+  isMe: boolean;
   /** Взято повз сейф ЧП — аванс. Див. `advances` у `PartnerLedger`. */
   isAdvance: boolean;
+  sourceName: string;
+  sourceType: "safe" | "cash_register" | "unknown";
+  paymentMethod: "cash" | "cashless" | null;
+  description: string | null;
 }
 
 export interface PartnerLedger {
@@ -373,7 +379,7 @@ export async function getDashboardMoney(
   // теж виходять «назовні», але це не чиясь частка. На базу нарахування вони
   // все одно впливають — через баланс сейфа, який вони зменшили.
   const withdrawalCols =
-    "id, created_at, amount, from_id, from_type, reference_type, created_by";
+    "id, created_at, amount, from_id, from_type, reference_type, created_by, description, payment_method";
 
   const [loaded, npInflowsRes, withdrawalsRes, ownersRes] = await Promise.all([
     loadDataset(supabase, window.start, window.end),
@@ -566,6 +572,7 @@ export async function getDashboardMoney(
     npInflows: (npInflowsRes as { data: { amount: number }[] | null }).data ?? [],
     withdrawals: (withdrawalsRes as { data: WithdrawalRow[] | null }).data ?? [],
     owners: ownersRes.data ?? [],
+    safes: safesRes.data ?? [],
     userId,
     netProfitSafeId,
     safeBalance: netProfitSafeBalance,
@@ -613,6 +620,8 @@ interface WithdrawalRow {
   from_type: string | null;
   reference_type: string | null;
   created_by: string | null;
+  description?: string | null;
+  payment_method?: "cash" | "cashless" | null;
 }
 
 /**
@@ -658,6 +667,7 @@ function buildLedger(input: {
   npInflows: { amount: number }[];
   withdrawals: WithdrawalRow[];
   owners: { id: string; full_name: string | null }[];
+  safes?: { id: string; name: string; type: string }[];
   userId?: string;
   netProfitSafeId: string | null;
   safeBalance: number;
@@ -665,6 +675,11 @@ function buildLedger(input: {
 }): PartnerLedger {
   const isAdvance = (t: WithdrawalRow) =>
     !(t.from_type === "safe" && !!input.netProfitSafeId && t.from_id === input.netProfitSafeId);
+
+  const safeMap = new Map<string, string>();
+  for (const s of input.safes ?? []) {
+    safeMap.set(s.id, s.name);
+  }
 
   const withdrawnBy = new Map<string, number>();
   let fromSafeTotal = 0;
@@ -699,17 +714,41 @@ function buildLedger(input: {
     // Свій рядок першим — далі за іменем, щоб порядок не стрибав між рендерами.
     .sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.name.localeCompare(b.name, "uk"));
 
-  // Назву джерела в рядок не пишемо — досить прапорця «аванс»: усе інше за
-  // визначенням прийшло з сейфа ЧП.
   const withdrawals: WithdrawalEntry[] = [...input.withdrawals]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map((t) => ({
-      id: t.id,
-      at: t.created_at,
-      amount: t.amount,
-      ownerName: nameOf(t.created_by),
-      isAdvance: isAdvance(t),
-    }));
+    .map((t) => {
+      const advance = isAdvance(t);
+      let sourceName = "Невідоме джерело";
+      let sourceType: "safe" | "cash_register" | "unknown" = "unknown";
+
+      if (t.from_type === "safe") {
+        sourceType = "safe";
+        if (t.from_id && safeMap.has(t.from_id)) {
+          sourceName = `Сейф «${safeMap.get(t.from_id)}»`;
+        } else if (!advance) {
+          sourceName = "Сейф «Чистий прибуток»";
+        } else {
+          sourceName = "Сейф (аванс)";
+        }
+      } else if (t.from_type === "cash_register") {
+        sourceType = "cash_register";
+        sourceName = "Каса (історичний аванс)";
+      }
+
+      return {
+        id: t.id,
+        at: t.created_at,
+        amount: t.amount,
+        ownerName: nameOf(t.created_by),
+        ownerId: t.created_by,
+        isMe: t.created_by === input.userId,
+        isAdvance: advance,
+        sourceName,
+        sourceType,
+        paymentMethod: t.payment_method ?? null,
+        description: t.description ?? null,
+      };
+    });
 
   return {
     accrualBase,
