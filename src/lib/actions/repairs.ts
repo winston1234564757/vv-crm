@@ -988,6 +988,38 @@ export async function refundRepairPayment(transactionId: string): Promise<Action
 }
 
 /**
+ * Повертає клієнту надлишок (переплату) з каси, коли ціну ремонту було знижено
+ * після внесення оплат/передоплати. Списує кошти з каси та фіксує повернення.
+ */
+export async function refundRepairExcess(
+  repairId: string,
+  cashRegisterId: string,
+  amount: number,
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || ""));
+
+    // @ts-expect-error - RPC is created via migration
+    const { error } = await supabase.rpc("refund_repair_excess", {
+      p_repair_id: repairId,
+      p_cash_register_id: cashRegisterId,
+      p_amount: Math.round(amount),
+      p_user_id: user.id,
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin/repairs");
+    revalidatePath("/admin/finance");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/**
  * Starts a repair on a device the shop owns.
  *
  * This replaces the "Внутрішній (Склад)" toggle on the intake form, which was

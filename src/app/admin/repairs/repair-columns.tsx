@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { IconWarning } from "@/components/icons";
 import { repairStatus, paymentStatus, repairSource } from "@/lib/domain-labels";
-import { isUnpaid, outstanding } from "@/lib/repair-flow";
+import { isUnpaid, outstanding, excessAmount } from "@/lib/repair-flow";
 import type { Column, CardSpec } from "@/components/list/ListPageShell";
 import { type RepairWithPayments, isOverdue } from "./repair-types";
 
@@ -45,10 +45,12 @@ function Deadline({ r }: { r: RepairWithPayments }) {
 function Money({ r }: { r: RepairWithPayments }) {
   if (r.is_warranty) return <Badge tone="accent">Гарантія</Badge>;
   const owed = outstanding(r, r.paid_amount);
+  const excess = excessAmount(r, r.paid_amount);
   return (
     <div className="flex flex-col items-end">
       <span className="tabular whitespace-nowrap font-medium">{money(r.price)}</span>
       {owed > 0 && <span className="tabular whitespace-nowrap text-xs text-danger">борг {money(owed)}</span>}
+      {excess > 0 && <span className="tabular whitespace-nowrap text-xs text-warning font-medium">переплата {money(excess)}</span>}
     </div>
   );
 }

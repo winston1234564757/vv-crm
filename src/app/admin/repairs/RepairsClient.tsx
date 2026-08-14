@@ -20,7 +20,7 @@ import { RepairDetailView } from "@/components/RepairDetailView";
 import { EditRepairForm } from "@/components/forms/EditRepairForm";
 import { AddRepairButton } from "./AddRepairButton";
 
-import { updateRepairStatus, payRepair } from "@/lib/actions/repairs";
+import { updateRepairStatus, payRepair, refundRepairExcess } from "@/lib/actions/repairs";
 import { CASHLESS_REGISTER_TYPE } from "@/lib/utils/finance";
 import { optionsOf, repairStatus, repairSource } from "@/lib/domain-labels";
 import {
@@ -30,6 +30,8 @@ import {
   nextStep,
   isUnpaid,
   outstanding,
+  hasExcess,
+  excessAmount,
   type RepairGroup,
 } from "@/lib/repair-flow";
 
@@ -72,6 +74,9 @@ export function RepairsClient({
   const [payAmount, setPayAmount] = useState("");
   const repairsRegisterId = cashRegisters.find((c) => c.type === "repairs")?.id ?? "";
   const [payRegister, setPayRegister] = useState(repairsRegisterId);
+  const [refunding, setRefunding] = useState<RepairWithPayments | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundRegister, setRefundRegister] = useState(repairsRegisterId);
   const [handover, setHandover] = useState<RepairWithPayments | null>(null);
 
   const rows: RepairWithPayments[] = useMemo(
@@ -109,14 +114,14 @@ export function RepairsClient({
     };
     for (const r of base) {
       c[repairGroup(r.status)] += 1;
-      if (isUnpaid(r)) c.debt += 1;
+      if (isUnpaid(r, r.paid_amount)) c.debt += 1;
     }
     return c;
   }, [base]);
 
   const visible = useMemo(() => {
     if (segment === "all") return base;
-    if (segment === "debt") return base.filter(isUnpaid);
+    if (segment === "debt") return base.filter((r) => isUnpaid(r, r.paid_amount));
     return base.filter((r) => repairGroup(r.status) === segment);
   }, [base, segment]);
 
@@ -152,7 +157,7 @@ export function RepairsClient({
     // Handing a device back while the customer still owes for it is allowed —
     // warranty work is free and people do pay later — but it should be a
     // decision, not an accident. It has already happened once unnoticed.
-    if (step.target === "handed_over" && isUnpaid(r)) {
+    if (step.target === "handed_over" && isUnpaid(r, r.paid_amount)) {
       setHandover(r);
       return;
     }
@@ -162,11 +167,13 @@ export function RepairsClient({
   function openPayment(r: RepairWithPayments) {
     setPaying(r);
     setPayAmount(String(outstanding(r, r.paid_amount)));
-    // Без запасного варіанту навмисно: якщо каси ремонтів немає, підстановка
-    // будь-якої іншої каси (напр. технічної) мовчки провела б оплату туди,
-    // де жодна з кнопок не виглядає вибраною. Порожній payRegister блокує
-    // кнопку — і це видно користувачу, а не ховається під капотом.
     setPayRegister(cashRegisters.find((c) => c.type === "repairs")?.id ?? "");
+  }
+
+  function openRefund(r: RepairWithPayments) {
+    setRefunding(r);
+    setRefundAmount(String(excessAmount(r, r.paid_amount)));
+    setRefundRegister(cashRegisters.find((c) => c.type === "repairs")?.id ?? "");
   }
 
   const actionColumn = {
@@ -176,9 +183,22 @@ export function RepairsClient({
     interactive: true,
     cell: (r: RepairWithPayments) => {
       const step = nextStep(r.status);
+      const isOwed = isUnpaid(r, r.paid_amount);
+      const isOverpaid = hasExcess(r, r.paid_amount);
+
       return (
         <div className="flex items-center justify-end gap-1.5">
-          {isUnpaid(r) && (
+          {isOverpaid && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="text-warning border-warning/30 hover:bg-warning/10"
+              onClick={() => openRefund(r)}
+            >
+              Повернути {excessAmount(r, r.paid_amount).toLocaleString()} ₴
+            </Button>
+          )}
+          {isOwed && (
             <Button
               size="sm"
               variant="secondary"
@@ -386,6 +406,86 @@ export function RepairsClient({
                     disabled={!target}
                     aria-pressed={selected}
                     onClick={() => target && setPayRegister(target.id)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Повернення переплати / решти клієнту — коли ціну знизили */}
+      <Modal
+        isOpen={!!refunding}
+        onClose={() => setRefunding(null)}
+        title="Повернути переплату клієнту"
+        description={
+          refunding
+            ? `${refunding.device_name} · сума переплати ${excessAmount(refunding, refunding.paid_amount).toLocaleString()} ₴`
+            : undefined
+        }
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRefunding(null)}>
+              Скасувати
+            </Button>
+            <Button
+              isLoading={isPending}
+              variant="danger"
+              disabled={
+                !Number.isFinite(Number(refundAmount)) ||
+                Number(refundAmount) <= 0 ||
+                Number(refundAmount) > (refunding ? excessAmount(refunding, refunding.paid_amount) : 0) ||
+                !refundRegister
+              }
+              onClick={() =>
+                refunding &&
+                run(
+                  () => refundRepairExcess(refunding.id, refundRegister, Number(refundAmount)),
+                  () => setRefunding(null)
+                )
+              }
+            >
+              Видати з каси {Number.isFinite(Number(refundAmount)) ? `${Number(refundAmount).toLocaleString()} ₴` : ""}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Сума повернення"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={refunding ? excessAmount(refunding, refunding.paid_amount) : undefined}
+            value={refundAmount}
+            onChange={(e) => setRefundAmount(e.target.value)}
+            hint={
+              refunding
+                ? `Клієнт сплатив ${refunding.paid_amount.toLocaleString()} ₴, а нова ціна — ${refunding.price.toLocaleString()} ₴. Різниця: ${excessAmount(refunding, refunding.paid_amount).toLocaleString()} ₴.`
+                : undefined
+            }
+          />
+          <div>
+            <p className="mb-1.5 block text-xs font-medium text-muted">З якої каси видати</p>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Каса повернення">
+              {([
+                { key: "cash", label: "Готівкою", type: "repairs" },
+                { key: "card", label: "Карткою/Переказом", type: CASHLESS_REGISTER_TYPE },
+              ] as const).map((opt) => {
+                const target = cashRegisters.find((c) => c.type === opt.type);
+                const selected = refundRegister === target?.id;
+                return (
+                  <Button
+                    key={opt.key}
+                    type="button"
+                    variant={selected ? "primary" : "secondary"}
+                    disabled={!target}
+                    aria-pressed={selected}
+                    onClick={() => target && setRefundRegister(target.id)}
                   >
                     {opt.label}
                   </Button>

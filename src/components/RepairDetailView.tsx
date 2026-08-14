@@ -11,12 +11,15 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import ReceiptPrintModal from "@/components/ui/ReceiptPrintModal";
 import { composeRepairBreakdown, type RepairServiceLine } from "@/lib/printer/receipt-content";
-import { addPartToRepairAction, removePartFromRepairAction, addServiceToRepairAction, removeServiceFromRepairAction, deleteRepair } from "@/lib/actions/repairs";
+import { addPartToRepairAction, removePartFromRepairAction, addServiceToRepairAction, removeServiceFromRepairAction, deleteRepair, payRepair, refundRepairExcess } from "@/lib/actions/repairs";
 import { InlineError } from "@/components/ui/InlineError";
 import { parseError } from "@/lib/utils/errors";
 import AICopilotDrawer from "@/components/ai/AICopilotDrawer";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Button } from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { CASHLESS_REGISTER_TYPE } from "@/lib/utils/finance";
 import {
   labelOf,
   repairStatus as domainRepairStatus,
@@ -213,6 +216,55 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [printType, setPrintType] = useState<"repair_acceptance" | "repair_warranty">("repair_acceptance");
 
+  // States for payment tracking and excess refund
+  interface RepairPaymentRow {
+    id: string;
+    amount: number;
+    created_at: string;
+    description: string | null;
+  }
+  const [payments, setPayments] = useState<RepairPaymentRow[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [cashRegisters, setCashRegisters] = useState<{ id: string; name: string; type: string; balance: number }[]>([]);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [payAmountInput, setPayAmountInput] = useState("");
+  const [payRegisterId, setPayRegisterId] = useState("");
+  const [isPayPending, setIsPayPending] = useState(false);
+
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [refundAmountInput, setRefundAmountInput] = useState("");
+  const [refundRegisterId, setRefundRegisterId] = useState("");
+  const [isRefundPending, setIsRefundPending] = useState(false);
+
+  async function loadPayments() {
+    setLoadingPayments(true);
+    try {
+      const supabase = createClient();
+      const [{ data: pData }, { data: rData }] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("id, amount, created_at, description")
+          .eq("reference_type", "repair_payment")
+          .eq("reference_id", repair.id)
+          .order("created_at", { ascending: false }),
+        supabase.from("cash_registers").select("id, name, type, balance"),
+      ]);
+      setPayments(pData || []);
+      if (rData) {
+        setCashRegisters(rData);
+        const repairsReg = rData.find((r) => r.type === "repairs");
+        if (repairsReg) {
+          setPayRegisterId(repairsReg.id);
+          setRefundRegisterId(repairsReg.id);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading payments:", err);
+    } finally {
+      setLoadingPayments(false);
+    }
+  }
+
   async function loadLogs() {
     setLoadingLogs(true);
     try {
@@ -325,6 +377,7 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
     loadLogs();
     loadParts();
     loadServices();
+    loadPayments();
   }, [repair.id]);
 
   function handleSelectServiceChange(serviceId: string) {
@@ -473,6 +526,12 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
     : null;
 
   const profit = repair.price - currentCost;
+
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const isOwed = !repair.is_warranty && totalPaid < repair.price;
+  const owedAmount = Math.max(0, repair.price - totalPaid);
+  const isOverpaid = !repair.is_warranty && totalPaid > repair.price;
+  const overpaidAmount = Math.max(0, totalPaid - repair.price);
 
   const warrantyReceiptItems = composeRepairBreakdown(
     repair.price,
@@ -741,6 +800,60 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
                 </div>
               </div>
             </div>
+
+            {/* Блок стану оплати, залишку та повернення переплати */}
+            {!repair.is_warranty && (
+              <div className="border-t border-warm-border pt-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-muted font-medium">Сплачено клієнтом:</span>
+                  <span className="font-bold tabular text-text-primary">
+                    {totalPaid.toLocaleString()} ₴
+                  </span>
+                </div>
+
+                {isOwed && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-danger-subtle/10 border border-danger/20 text-xs">
+                    <span className="text-danger font-semibold">
+                      Залишок до сплати: {owedAmount.toLocaleString()} ₴
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayAmountInput(String(owedAmount));
+                        setIsPayModalOpen(true);
+                      }}
+                      className="btn-press bg-iris text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-iris/90 cursor-pointer"
+                    >
+                      Прийняти доплату
+                    </button>
+                  </div>
+                )}
+
+                {isOverpaid && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-warning-subtle/15 border border-warning/30 text-xs">
+                    <span className="text-warning font-semibold">
+                      Переплата: {overpaidAmount.toLocaleString()} ₴
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRefundAmountInput(String(overpaidAmount));
+                        setIsRefundModalOpen(true);
+                      }}
+                      className="btn-press bg-warning text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-warning/90 cursor-pointer"
+                    >
+                      Повернути з каси
+                    </button>
+                  </div>
+                )}
+
+                {!isOwed && !isOverpaid && totalPaid > 0 && (
+                  <div className="p-2 rounded-xl bg-success-subtle/15 text-success border border-success/20 text-xs font-medium flex items-center gap-1.5">
+                    <span>✓</span> Повністю розраховано ({totalPaid.toLocaleString()} ₴)
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="border-t border-warm-border pt-3 grid grid-cols-2 gap-4 text-xs">
               <div>
@@ -1190,6 +1303,169 @@ export function RepairDetailView({ repair, onEdit, onClose, onPay }: RepairDetai
         entityId={repair.id}
         entityName={repair.device_name}
       />
+
+      {/* Модальне вікно прийому оплати/доплати */}
+      <Modal
+        isOpen={isPayModalOpen}
+        onClose={() => setIsPayModalOpen(false)}
+        title="Прийняти оплату за ремонт"
+        description={`${repair.device_name} · до сплати ${owedAmount.toLocaleString()} ₴`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setIsPayModalOpen(false)}>
+              Скасувати
+            </Button>
+            <Button
+              isLoading={isPayPending}
+              disabled={
+                !Number.isFinite(Number(payAmountInput)) ||
+                Number(payAmountInput) <= 0 ||
+                Number(payAmountInput) > owedAmount ||
+                !payRegisterId
+              }
+              onClick={async () => {
+                if (!payRegisterId || !Number(payAmountInput)) return;
+                setIsPayPending(true);
+                try {
+                  const res = await payRepair(repair.id, payRegisterId, Number(payAmountInput));
+                  if (res.success) {
+                    setIsPayModalOpen(false);
+                    await loadPayments();
+                  } else {
+                    alert(res.error || "Не вдалося прийняти оплату");
+                  }
+                } catch (err) {
+                  alert(parseError(err));
+                } finally {
+                  setIsPayPending(false);
+                }
+              }}
+            >
+              Прийняти {Number.isFinite(Number(payAmountInput)) ? `${Number(payAmountInput).toLocaleString()} ₴` : ""}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Сума оплати"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={owedAmount}
+            value={payAmountInput}
+            onChange={(e) => setPayAmountInput(e.target.value)}
+            hint={`Залишок за ремонтом — ${owedAmount.toLocaleString()} ₴.`}
+          />
+          <div>
+            <p className="mb-1.5 block text-xs font-medium text-muted">Спосіб оплати</p>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Спосіб оплати">
+              {([
+                { key: "cash", label: "Готівкою", type: "repairs" },
+                { key: "card", label: "Карткою", type: CASHLESS_REGISTER_TYPE },
+              ] as const).map((opt) => {
+                const target = cashRegisters.find((c) => c.type === opt.type);
+                const selected = payRegisterId === target?.id;
+                return (
+                  <Button
+                    key={opt.key}
+                    type="button"
+                    variant={selected ? "primary" : "secondary"}
+                    disabled={!target}
+                    aria-pressed={selected}
+                    onClick={() => target && setPayRegisterId(target.id)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальне вікно повернення переплати з каси */}
+      <Modal
+        isOpen={isRefundModalOpen}
+        onClose={() => setIsRefundModalOpen(false)}
+        title="Повернути переплату клієнту"
+        description={`${repair.device_name} · сума переплати ${overpaidAmount.toLocaleString()} ₴`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setIsRefundModalOpen(false)}>
+              Скасувати
+            </Button>
+            <Button
+              isLoading={isRefundPending}
+              variant="danger"
+              disabled={
+                !Number.isFinite(Number(refundAmountInput)) ||
+                Number(refundAmountInput) <= 0 ||
+                Number(refundAmountInput) > overpaidAmount ||
+                !refundRegisterId
+              }
+              onClick={async () => {
+                if (!refundRegisterId || !Number(refundAmountInput)) return;
+                setIsRefundPending(true);
+                try {
+                  const res = await refundRepairExcess(repair.id, refundRegisterId, Number(refundAmountInput));
+                  if (res.success) {
+                    setIsRefundModalOpen(false);
+                    await loadPayments();
+                  } else {
+                    alert(res.error || "Не вдалося повернути кошти з каси");
+                  }
+                } catch (err) {
+                  alert(parseError(err));
+                } finally {
+                  setIsRefundPending(false);
+                }
+              }}
+            >
+              Видати з каси {Number.isFinite(Number(refundAmountInput)) ? `${Number(refundAmountInput).toLocaleString()} ₴` : ""}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Сума повернення"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={overpaidAmount}
+            value={refundAmountInput}
+            onChange={(e) => setRefundAmountInput(e.target.value)}
+            hint={`Сплачено ${totalPaid.toLocaleString()} ₴, нова вартість — ${repair.price.toLocaleString()} ₴. До повернення: ${overpaidAmount.toLocaleString()} ₴.`}
+          />
+          <div>
+            <p className="mb-1.5 block text-xs font-medium text-muted">З якої каси видати</p>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Каса повернення">
+              {([
+                { key: "cash", label: "Готівкою", type: "repairs" },
+                { key: "card", label: "Карткою/Переказом", type: CASHLESS_REGISTER_TYPE },
+              ] as const).map((opt) => {
+                const target = cashRegisters.find((c) => c.type === opt.type);
+                const selected = refundRegisterId === target?.id;
+                return (
+                  <Button
+                    key={opt.key}
+                    type="button"
+                    variant={selected ? "primary" : "secondary"}
+                    disabled={!target}
+                    aria-pressed={selected}
+                    onClick={() => target && setRefundRegisterId(target.id)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

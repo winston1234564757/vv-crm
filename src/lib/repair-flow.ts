@@ -164,10 +164,29 @@ export interface DebtInput {
  * аномалія, а не норма. Для грошей аномалію краще порахувати як борг:
  * завищений борг помітять і виправлять, занижений — ні.
  */
-export function isUnpaid(r: DebtInput): boolean {
+export function isUnpaid(r: DebtInput, paidAmount?: number): boolean {
   if (r.is_warranty) return false;
   if (!r.price || r.price <= 0) return false;
+  if (paidAmount !== undefined) {
+    return paidAmount < r.price;
+  }
   return r.payment_status !== "paid";
+}
+
+/**
+ * Чи є переплата за ремонтом (ціну знизили після внесення більшої оплати).
+ */
+export function hasExcess(r: DebtInput, paidAmount = 0): boolean {
+  if (r.is_warranty) return false;
+  return paidAmount > r.price;
+}
+
+/**
+ * Сума переплати/решти, яку потрібно видати клієнту з каси.
+ */
+export function excessAmount(r: DebtInput, paidAmount = 0): number {
+  if (r.is_warranty) return 0;
+  return Math.max(0, paidAmount - r.price);
 }
 
 /**
@@ -176,6 +195,6 @@ export function isUnpaid(r: DebtInput): boolean {
  * used where only the repair row is in hand.
  */
 export function outstanding(r: DebtInput, paidAmount = 0): number {
-  if (!isUnpaid(r)) return 0;
+  if (!isUnpaid(r, paidAmount)) return 0;
   return Math.max(0, r.price - paidAmount);
 }
