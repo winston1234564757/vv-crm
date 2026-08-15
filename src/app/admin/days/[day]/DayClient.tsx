@@ -301,27 +301,36 @@ export function DayClient({ report }: { report: DayReport }) {
             <p className="text-xs leading-relaxed text-muted">Того дня гроші не рухались.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {report.moves.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected({ kind: "move", row: m })}
-                    className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] text-ink">{m.kind}</span>
-                      <span className="block truncate text-[11px] text-muted">
-                        <span className="tabular">{timeHM(m.at)}</span>
-                        <span className="mx-1.5 text-faint">·</span>
-                        {m.from} → {m.to}
+              {report.moves.map((m) => {
+                const moveTitle =
+                  m.items && m.items.length > 0
+                    ? m.items.length === 1
+                      ? `${m.items[0].name} (${m.items[0].quantity} шт)`
+                      : `${m.items[0].name} + ще ${m.items.length - 1}`
+                    : m.kind;
+
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected({ kind: "move", row: m })}
+                      className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] text-ink">{moveTitle}</span>
+                        <span className="block truncate text-[11px] text-muted">
+                          <span className="tabular">{timeHM(m.at)}</span>
+                          <span className="mx-1.5 text-faint">·</span>
+                          {m.from} → {m.to}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-[13px] font-semibold tabular text-ink">
-                      {uah(m.amount)}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <span className="shrink-0 text-[13px] font-semibold tabular text-ink">
+                        {uah(m.amount)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
               {report.distributions.count > 0 && (
                 <li className="py-2.5 text-[11px] text-faint">
                   Розподілено по сейфах — <span className="tabular">{uah(report.distributions.total)}</span>,{" "}
@@ -348,7 +357,7 @@ export function DayClient({ report }: { report: DayReport }) {
         size="half"
       >
         {selected?.kind === "operation" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <p className="tabular text-xs text-muted">#{selected.row.id.substring(0, 8)}</p>
               <h3 className="mt-1 text-lg font-semibold text-ink">{selected.row.title}</h3>
@@ -359,6 +368,27 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Клієнт" value={selected.row.customer} />
               <Field label="Оплата" value={selected.row.payment} />
             </div>
+
+            {selected.row.items && selected.row.items.length > 0 && (
+              <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Товари та послуги
+                </p>
+                <ul className="divide-y divide-border/60">
+                  {selected.row.items.map((it, idx) => (
+                    <li key={idx} className="flex items-center justify-between py-2 text-xs">
+                      <span className="font-medium text-ink">
+                        {it.name} <span className="text-muted">× {it.quantity}</span>
+                      </span>
+                      <span className="tabular font-semibold text-ink">
+                        {uah(it.price * it.quantity)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Обидва види операцій — на Продажі: search_transactions матчить
                 ремонти по r.id::text так само, як чеки, а /admin/repairs
                 узагалі не читає ?q=. */}
@@ -387,7 +417,7 @@ export function DayClient({ report }: { report: DayReport }) {
         )}
 
         {selected?.kind === "move" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <p className="tabular text-xs text-muted">#{selected.row.id.substring(0, 8)}</p>
               <h3 className="mt-1 text-lg font-semibold text-ink">{selected.row.kind}</h3>
@@ -399,6 +429,79 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Куди" value={selected.row.to} />
               {selected.row.by && <Field label="Хто провів" value={selected.row.by} />}
             </div>
+
+            {/* Стан рахунків До ➔ Після */}
+            {(selected.row.fromBalanceBefore != null || selected.row.toBalanceBefore != null) && (
+              <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5 space-y-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Стан рахунків (ДО ➔ ПІСЛЯ)
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selected.row.fromBalanceBefore != null && selected.row.fromType !== "customer" && selected.row.fromType !== "external" && (
+                    <div className="rounded-lg bg-danger/5 border border-danger/15 p-3 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-danger/70">
+                        Рахунок-джерело
+                      </p>
+                      <p className="text-xs font-semibold text-ink truncate">
+                        {selected.row.from}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted tabular">{uah(selected.row.fromBalanceBefore)}</span>
+                        <span className="text-muted">→</span>
+                        <span className="font-bold tabular text-ink">
+                          {uah(selected.row.fromBalanceAfter ?? (selected.row.fromBalanceBefore - selected.row.amount))}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-semibold text-danger tabular">
+                        ▼ −{uah(selected.row.amount)}
+                      </p>
+                    </div>
+                  )}
+
+                  {selected.row.toBalanceBefore != null && selected.row.toType !== "external" && selected.row.toType !== "supplier" && (
+                    <div className="rounded-lg bg-success/5 border border-success/15 p-3 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-success/70">
+                        Рахунок-одержувач
+                      </p>
+                      <p className="text-xs font-semibold text-ink truncate">
+                        {selected.row.to}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted tabular">{uah(selected.row.toBalanceBefore)}</span>
+                        <span className="text-muted">→</span>
+                        <span className="font-bold tabular text-ink">
+                          {uah(selected.row.toBalanceAfter ?? (selected.row.toBalanceBefore + selected.row.amount))}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-semibold text-success tabular">
+                        ▲ +{uah(selected.row.amount)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selected.row.items && selected.row.items.length > 0 && (
+              <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Товари та послуги
+                </p>
+                <ul className="divide-y divide-border/60">
+                  {selected.row.items.map((it, idx) => (
+                    <li key={idx} className="flex items-center justify-between py-2 text-xs">
+                      <span className="font-medium text-ink">
+                        {it.name} <span className="text-muted">× {it.quantity}</span>
+                      </span>
+                      <span className="tabular font-semibold text-ink">
+                        {uah(it.price * it.quantity)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {selected.row.description && (
               <Field label="Опис" value={selected.row.description} />
             )}

@@ -1552,6 +1552,11 @@ export type Database = {
           reference_type: string | null
           to_id: string | null
           to_type: string
+          payment_method: string | null
+          from_balance_before: number | null
+          from_balance_after: number | null
+          to_balance_before: number | null
+          to_balance_after: number | null
         }
         Insert: {
           amount: number
@@ -1565,6 +1570,11 @@ export type Database = {
           reference_type?: string | null
           to_id?: string | null
           to_type: string
+          payment_method?: string | null
+          from_balance_before?: number | null
+          from_balance_after?: number | null
+          to_balance_before?: number | null
+          to_balance_after?: number | null
         }
         Update: {
           amount?: number
@@ -1578,6 +1588,11 @@ export type Database = {
           reference_type?: string | null
           to_id?: string | null
           to_type?: string
+          payment_method?: string | null
+          from_balance_before?: number | null
+          from_balance_after?: number | null
+          to_balance_before?: number | null
+          to_balance_after?: number | null
         }
         Relationships: [
           {

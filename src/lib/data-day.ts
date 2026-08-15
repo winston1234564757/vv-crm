@@ -37,6 +37,12 @@ export interface DayRow extends DayPoint {
   operations: number;
 }
 
+export interface DayItemRow {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
 export interface DayOperationRow {
   id: string;
   at: string;
@@ -50,6 +56,7 @@ export interface DayOperationRow {
   title: string;
   customer: string;
   payment: string;
+  items?: DayItemRow[];
 }
 
 export interface DayExpenseRow {
@@ -67,6 +74,8 @@ export interface DayMoveRow {
   amount: number;
   from: string;
   to: string;
+  fromType: string;
+  toType: string;
   kind: string;
   description: string;
   /** Хто провів. Порожньо, якщо автор невідомий. */
@@ -78,6 +87,11 @@ export interface DayMoveRow {
    * `null` — прив'язки немає, вести нікуди.
    */
   href: string | null;
+  items?: DayItemRow[];
+  fromBalanceBefore?: number | null;
+  fromBalanceAfter?: number | null;
+  toBalanceBefore?: number | null;
+  toBalanceAfter?: number | null;
 }
 
 export interface DayReport {
@@ -279,7 +293,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     daySales.length > 0
       ? supabase
           .from("sales")
-          .select("id, notes, customers(name), payment_splits(method)")
+          .select("id, notes, customers(name), payment_splits(method), sale_items(id, item_type, item_id, quantity, unit_price, total_price)")
           .in("id", daySales.map((s) => s.id))
       : Promise.resolve({ data: [], error: null }),
     dayRepairs.length > 0
@@ -297,7 +311,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     supabase
       .from("transactions")
       .select(
-        "id, amount, from_type, from_id, to_type, to_id, reference_type, reference_id, description, created_at, created_by",
+        "id, amount, from_type, from_id, to_type, to_id, reference_type, reference_id, description, created_at, created_by, from_balance_before, from_balance_after, to_balance_before, to_balance_after",
       )
       .gte("created_at", startStr)
       .lt("created_at", endStr)
@@ -305,8 +319,6 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     supabase.from("safes").select("id, name"),
   ]);
 
-  // Зламаний запит і порожній день раніше виглядали однаково — жоден з цих
-  // шести результатів не перевірявся на помилку.
   if (saleDetailRes.error) throw saleDetailRes.error;
   if (repairDetailRes.error) throw repairDetailRes.error;
   if (expensesRes.error) throw expensesRes.error;
@@ -314,35 +326,107 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   if (txRes.error) throw txRes.error;
   if (safesRes.error) throw safesRes.error;
 
-  const saleMeta = new Map(
-    supabaseCast<
-      { id: string; notes: string | null; customers: { name: string } | null; payment_splits: { method: string }[] | null }[]
-    >(saleDetailRes.data ?? []).map((s) => [s.id, s]),
-  );
+  // Resolve item names for all sale items
+  const rawSales = (saleDetailRes.data ?? []) as Array<{
+    id: string;
+    notes: string | null;
+    customers: { name: string } | null;
+    payment_splits: { method: string }[] | null;
+    sale_items: Array<{
+      id: string;
+      item_type: "device" | "accessory" | "part" | "service";
+      item_id: string;
+      quantity: number;
+      unit_price: number;
+      total_price: number;
+    }> | null;
+  }>;
+
+  const devIds: string[] = [];
+  const accIds: string[] = [];
+  const partIds: string[] = [];
+  const srvIds: string[] = [];
+
+  for (const s of rawSales) {
+    for (const it of s.sale_items ?? []) {
+      if (it.item_type === "device") devIds.push(it.item_id);
+      else if (it.item_type === "accessory") accIds.push(it.item_id);
+      else if (it.item_type === "part") partIds.push(it.item_id);
+      else if (it.item_type === "service") srvIds.push(it.item_id);
+    }
+  }
+
+  const [devRes, accRes, prtRes, srvRes] = await Promise.all([
+    devIds.length > 0 ? supabase.from("devices").select("id, brand, model").in("id", devIds) : Promise.resolve({ data: [] }),
+    accIds.length > 0 ? supabase.from("accessories").select("id, name").in("id", accIds) : Promise.resolve({ data: [] }),
+    partIds.length > 0 ? supabase.from("parts").select("id, name").in("id", partIds) : Promise.resolve({ data: [] }),
+    srvIds.length > 0 ? supabase.from("services").select("id, name").in("id", srvIds) : Promise.resolve({ data: [] }),
+  ]);
+
+  const devMap = new Map<string, string>(((devRes.data as Array<{ id: string; brand: string | null; model: string | null }>) || []).map((d) => [d.id, `${d.brand || ""} ${d.model || ""}`.trim() || "Пристрій"]));
+  const accMap = new Map<string, string>(((accRes.data as Array<{ id: string; name: string | null }>) || []).map((a) => [a.id, a.name || "Аксесуар"]));
+  const prtMap = new Map<string, string>(((prtRes.data as Array<{ id: string; name: string | null }>) || []).map((p) => [p.id, p.name || "Запчастина"]));
+  const srvMap = new Map<string, string>(((srvRes.data as Array<{ id: string; name: string | null }>) || []).map((s) => [s.id, s.name || "Послуга"]));
+
+  const getItemName = (type: string, id: string) => {
+    if (type === "device") return devMap.get(id) || "Пристрій";
+    if (type === "accessory") return accMap.get(id) || "Аксесуар";
+    if (type === "part") return prtMap.get(id) || "Запчастина";
+    if (type === "service") return srvMap.get(id) || "Послуга";
+    return "Товар";
+  };
+
+  const saleItemsMap = new Map<string, DayItemRow[]>();
+  for (const s of rawSales) {
+    const items: DayItemRow[] = (s.sale_items ?? []).map((it) => ({
+      name: getItemName(it.item_type, it.item_id),
+      quantity: it.quantity,
+      price: it.unit_price,
+    }));
+    saleItemsMap.set(s.id, items);
+  }
+
+  const saleMeta = new Map(rawSales.map((s) => [s.id, s]));
   const repairMeta = new Map(
     supabaseCast<
       { id: string; device_name: string; issue: string | null; payment_status: string | null; customers: { name: string } | null }[]
     >(repairDetailRes.data ?? []).map((r) => [r.id, r]),
   );
 
+  const formatSaleTitle = (notes: string | null, items: DayItemRow[] | undefined): string => {
+    if (items && items.length > 0) {
+      if (items.length === 1) {
+        return `${items[0].name} (${items[0].quantity} шт)`;
+      }
+      if (items.length === 2) {
+        return `${items[0].name}, ${items[1].name}`;
+      }
+      return `${items[0].name} + ще ${items.length - 1} тов.`;
+    }
+    return notes?.split("\n")[0] || "Продаж";
+  };
+
   const operations: DayOperationRow[] = [
     ...daySales.map((s) => {
       const m = saleMeta.get(s.id);
       const methods = [...new Set((m?.payment_splits ?? []).map((p) => p.method))];
+      const items = saleItemsMap.get(s.id) || [];
       return {
         id: s.id,
         at: s.created_at,
         amount: s.total_amount,
         kind: "sale" as const,
-        title: m?.notes?.split("\n")[0] || "Продаж",
+        title: formatSaleTitle(m?.notes ?? null, items),
         customer: m?.customers?.name ?? "Роздрібний клієнт",
         payment: methods.length > 0 ? methods.join(" + ") : "—",
+        items,
       };
     }),
     ...dayRepairs
       .filter((r) => r.price > 0)
       .map((r) => {
         const m = repairMeta.get(r.id);
+        const repairItemName = m?.device_name ? `${m.device_name}${m.issue ? ` (${m.issue})` : ""}` : "Ремонт";
         return {
           id: r.id,
           at: r.settled_at,
@@ -351,6 +435,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
           title: m?.device_name ?? "Ремонт",
           customer: m?.customers?.name ?? "Роздрібний клієнт",
           payment: m?.payment_status === "paid" ? "оплачено" : "борг",
+          items: [{ name: repairItemName, quantity: 1, price: r.price }],
         };
       }),
   ].sort((a, b) => b.at.localeCompare(a.at));
@@ -407,6 +492,31 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     for (const p of profiles ?? []) authorNames.set(p.id, p.full_name ?? "");
   }
 
+  const getMoveItems = (t: typeof allMoves[number]): DayItemRow[] | undefined => {
+    if (t.reference_type === "sale" && t.reference_id) {
+      return saleItemsMap.get(t.reference_id);
+    }
+    if (t.reference_type === "repair_payment" && t.reference_id) {
+      const rep = repairMeta.get(t.reference_id);
+      if (rep) {
+        return [{
+          name: `${rep.device_name}${rep.issue ? ` (${rep.issue})` : ""}`,
+          quantity: 1,
+          price: t.amount,
+        }];
+      }
+    }
+    if (t.description && (t.reference_type === "inventory" || t.reference_type === "accessory")) {
+      const cleanedDesc = t.description.replace(/^Закупівля\s+(техніки|аксесуарів|деталей):\s*/i, "");
+      return [{
+        name: cleanedDesc || "Товар",
+        quantity: 1,
+        price: t.amount,
+      }];
+    }
+    return undefined;
+  };
+
   const distributionRows = allMoves.filter((t) => t.reference_type === "distribution");
   const moves: DayMoveRow[] = allMoves
     .filter((t) => t.reference_type !== "distribution")
@@ -416,6 +526,8 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       amount: t.amount,
       from: sideName(t.from_type, t.from_id),
       to: sideName(t.to_type, t.to_id),
+      fromType: t.from_type,
+      toType: t.to_type,
       kind: MOVE_LABELS[t.reference_type ?? ""] ?? t.reference_type ?? "Рух",
       description: t.description ?? "",
       by: (t.created_by && authorNames.get(t.created_by)) || "",
@@ -423,6 +535,11 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
         t.reference_id && ["sale", "repair_payment", "inventory"].includes(t.reference_type ?? "")
           ? `/admin/sales?q=${t.reference_id}`
           : null,
+      items: getMoveItems(t),
+      fromBalanceBefore: t.from_balance_before,
+      fromBalanceAfter: t.from_balance_after,
+      toBalanceBefore: t.to_balance_before,
+      toBalanceAfter: t.to_balance_after,
     }));
 
   return {
