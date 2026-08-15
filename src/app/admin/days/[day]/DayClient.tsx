@@ -224,8 +224,6 @@ export function DayClient({ report }: { report: DayReport }) {
                       : "",
                 }))}
               />
-              {/* Засічки, а не підпис на кожен стовпчик: доба це 24 стовпчики,
-                  а орієнтирів окові треба чотири-п'ять. */}
               <BarAxisTicks ticks={["00", "06", "12", "18", "23"]} />
             </>
           )}
@@ -238,30 +236,45 @@ export function DayClient({ report }: { report: DayReport }) {
             </p>
           ) : (
             <ul className="divide-y divide-border">
-              {report.operations.map((r) => (
-                <li key={`${r.kind}-${r.id}`}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected({ kind: "operation", row: r })}
-                    className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] text-ink">{r.title}</span>
-                      <span className="block truncate text-[11px] text-muted">
-                        <span className="tabular">{timeHM(r.at)}</span>
-                        <span className="mx-1.5 text-faint">·</span>
-                        {r.customer}
-                        {r.kind === "repair" && (
-                          <span className="ml-2 text-accent-ink">ремонт</span>
-                        )}
+              {report.operations.map((r) => {
+                const isCashChange = r.cashAfter !== r.cashBefore;
+                const isCashlessChange = r.cashlessAfter !== r.cashlessBefore;
+
+                return (
+                  <li key={`${r.kind}-${r.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected({ kind: "operation", row: r })}
+                      className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-ink">{r.title}</span>
+                        <span className="block truncate text-[11px] text-muted mt-0.5">
+                          <span className="tabular">{timeHM(r.at)}</span>
+                          <span className="mx-1.5 text-faint">·</span>
+                          {r.customer}
+                          {r.kind === "repair" && (
+                            <span className="ml-2 text-accent-ink font-medium">ремонт</span>
+                          )}
+                          {isCashChange && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                              💵 Готівка: {uah(r.cashBefore)} → {uah(r.cashAfter)}
+                            </span>
+                          )}
+                          {isCashlessChange && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                              💳 Безготівка: {uah(r.cashlessBefore)} → {uah(r.cashlessAfter)}
+                            </span>
+                          )}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-[13px] font-semibold tabular text-ink">
-                      {uah(r.amount)}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <span className="shrink-0 text-[13px] font-semibold tabular text-ink">
+                        {uah(r.amount)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </BentoCell>
@@ -279,11 +292,21 @@ export function DayClient({ report }: { report: DayReport }) {
                     className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] text-ink">{e.title}</span>
-                      <span className="block truncate text-[11px] text-muted">
+                      <span className="block truncate text-[13px] font-medium text-ink">{e.title}</span>
+                      <span className="block truncate text-[11px] text-muted mt-0.5">
                         {e.category}
                         <span className="mx-1.5 text-faint">·</span>
                         {e.safe}
+                        {e.cashAfter !== e.cashBefore && (
+                          <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                            💵 {uah(e.cashBefore)} → {uah(e.cashAfter)}
+                          </span>
+                        )}
+                        {e.cashlessAfter !== e.cashlessBefore && (
+                          <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                            💳 {uah(e.cashlessBefore)} → {uah(e.cashlessAfter)}
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="shrink-0 text-[13px] font-semibold tabular text-danger">
@@ -322,14 +345,14 @@ export function DayClient({ report }: { report: DayReport }) {
                           <span className="tabular">{timeHM(m.at)}</span>
                           <span className="mx-1.5 text-faint">·</span>
                           {m.from} → {m.to}
-                          {m.fromBalanceBefore != null && (
+                          {m.cashAfter !== m.cashBefore && (
                             <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
-                              {uah(m.fromBalanceBefore)} → {uah(m.fromBalanceAfter ?? (m.fromBalanceBefore - m.amount))}
+                              💵 {uah(m.cashBefore)} → {uah(m.cashAfter)}
                             </span>
                           )}
-                          {m.fromBalanceBefore == null && m.toBalanceBefore != null && (
+                          {m.cashlessAfter !== m.cashlessBefore && (
                             <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
-                              {uah(m.toBalanceBefore)} → {uah(m.toBalanceAfter ?? (m.toBalanceBefore + m.amount))}
+                              💳 {uah(m.cashlessBefore)} → {uah(m.cashlessAfter)}
                             </span>
                           )}
                         </span>
@@ -379,6 +402,46 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Оплата" value={selected.row.payment} />
             </div>
 
+            {/* Стан коштів ДО ➔ ПІСЛЯ */}
+            <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5 space-y-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Загальний стан коштів (ДО ➔ ПІСЛЯ)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💵 Вся Готівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashAfter)}</span>
+                  </div>
+                  {selected.row.cashAfter !== selected.row.cashBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashAfter > selected.row.cashBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashAfter > selected.row.cashBefore ? '▲ +' : '▼ '}{uah(selected.row.cashAfter - selected.row.cashBefore)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💳 Вся Безготівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashlessBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashlessAfter)}</span>
+                  </div>
+                  {selected.row.cashlessAfter !== selected.row.cashlessBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashlessAfter > selected.row.cashlessBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashlessAfter > selected.row.cashlessBefore ? '▲ +' : '▼ '}{uah(selected.row.cashlessAfter - selected.row.cashlessBefore)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {selected.row.items && selected.row.items.length > 0 && (
               <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
@@ -399,9 +462,6 @@ export function DayClient({ report }: { report: DayReport }) {
               </div>
             )}
 
-            {/* Обидва види операцій — на Продажі: search_transactions матчить
-                ремонти по r.id::text так само, як чеки, а /admin/repairs
-                узагалі не читає ?q=. */}
             <Link
               href={`/admin/sales?q=${selected.row.id}`}
               className="inline-block text-sm font-medium text-accent-ink transition-colors hover:text-accent"
@@ -412,7 +472,7 @@ export function DayClient({ report }: { report: DayReport }) {
         )}
 
         {selected?.kind === "expense" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <p className="tabular text-xs text-muted">#{selected.row.id.substring(0, 8)}</p>
               <h3 className="mt-1 text-lg font-semibold text-ink">{selected.row.title}</h3>
@@ -422,6 +482,46 @@ export function DayClient({ report }: { report: DayReport }) {
               <Field label="Час" value={<span className="tabular">{timeHM(selected.row.at)}</span>} />
               <Field label="Категорія" value={selected.row.category} />
               <Field label="З якого сейфа" value={selected.row.safe} />
+            </div>
+
+            {/* Стан коштів ДО ➔ ПІСЛЯ */}
+            <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5 space-y-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Загальний стан коштів (ДО ➔ ПІСЛЯ)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💵 Вся Готівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashAfter)}</span>
+                  </div>
+                  {selected.row.cashAfter !== selected.row.cashBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashAfter > selected.row.cashBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashAfter > selected.row.cashBefore ? '▲ +' : '▼ '}{uah(selected.row.cashAfter - selected.row.cashBefore)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💳 Вся Безготівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashlessBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashlessAfter)}</span>
+                  </div>
+                  {selected.row.cashlessAfter !== selected.row.cashlessBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashlessAfter > selected.row.cashlessBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashlessAfter > selected.row.cashlessBefore ? '▲ +' : '▼ '}{uah(selected.row.cashlessAfter - selected.row.cashlessBefore)}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -440,57 +540,45 @@ export function DayClient({ report }: { report: DayReport }) {
               {selected.row.by && <Field label="Хто провів" value={selected.row.by} />}
             </div>
 
-            {/* Стан рахунків До ➔ Після */}
-            {(selected.row.fromBalanceBefore != null || selected.row.toBalanceBefore != null) && (
-              <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5 space-y-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  Стан рахунків (ДО ➔ ПІСЛЯ)
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selected.row.fromBalanceBefore != null && selected.row.fromType !== "customer" && selected.row.fromType !== "external" && (
-                    <div className="rounded-lg bg-danger/5 border border-danger/15 p-3 space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-danger/70">
-                        Рахунок-джерело
-                      </p>
-                      <p className="text-xs font-semibold text-ink truncate">
-                        {selected.row.from}
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <span className="text-muted tabular">{uah(selected.row.fromBalanceBefore)}</span>
-                        <span className="text-muted">→</span>
-                        <span className="font-bold tabular text-ink">
-                          {uah(selected.row.fromBalanceAfter ?? (selected.row.fromBalanceBefore - selected.row.amount))}
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-semibold text-danger tabular">
-                        ▼ −{uah(selected.row.amount)}
-                      </p>
-                    </div>
+            {/* Загальний стан коштів ДО ➔ ПІСЛЯ */}
+            <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5 space-y-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Загальний стан коштів (ДО ➔ ПІСЛЯ)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💵 Вся Готівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashAfter)}</span>
+                  </div>
+                  {selected.row.cashAfter !== selected.row.cashBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashAfter > selected.row.cashBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashAfter > selected.row.cashBefore ? '▲ +' : '▼ '}{uah(selected.row.cashAfter - selected.row.cashBefore)}
+                    </p>
                   )}
+                </div>
 
-                  {selected.row.toBalanceBefore != null && selected.row.toType !== "external" && selected.row.toType !== "supplier" && (
-                    <div className="rounded-lg bg-success/5 border border-success/15 p-3 space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-success/70">
-                        Рахунок-одержувач
-                      </p>
-                      <p className="text-xs font-semibold text-ink truncate">
-                        {selected.row.to}
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <span className="text-muted tabular">{uah(selected.row.toBalanceBefore)}</span>
-                        <span className="text-muted">→</span>
-                        <span className="font-bold tabular text-ink">
-                          {uah(selected.row.toBalanceAfter ?? (selected.row.toBalanceBefore + selected.row.amount))}
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-semibold text-success tabular">
-                        ▲ +{uah(selected.row.amount)}
-                      </p>
-                    </div>
+                <div className="rounded-lg bg-surface border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    💳 Вся Безготівка
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted tabular">{uah(selected.row.cashlessBefore)}</span>
+                    <span className="text-muted">→</span>
+                    <span className="font-bold tabular text-ink">{uah(selected.row.cashlessAfter)}</span>
+                  </div>
+                  {selected.row.cashlessAfter !== selected.row.cashlessBefore && (
+                    <p className={`text-[10px] font-semibold tabular ${selected.row.cashlessAfter > selected.row.cashlessBefore ? 'text-success' : 'text-danger'}`}>
+                      {selected.row.cashlessAfter > selected.row.cashlessBefore ? '▲ +' : '▼ '}{uah(selected.row.cashlessAfter - selected.row.cashlessBefore)}
+                    </p>
                   )}
                 </div>
               </div>
-            )}
+            </div>
 
             {selected.row.items && selected.row.items.length > 0 && (
               <div className="rounded-[var(--radius-md)] border border-border bg-surface-subtle p-3.5">

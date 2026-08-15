@@ -46,17 +46,16 @@ export interface DayItemRow {
 export interface DayOperationRow {
   id: string;
   at: string;
-  /**
-   * Сума операції так, як вона збережена: підсумок чека або ціна ремонту.
-   * Може не скластися у виторг угорі на розмір знижки — рядок відповідає на
-   * «що пробили», а верхня цифра на «скільки заробили».
-   */
   amount: number;
   kind: "sale" | "repair";
   title: string;
   customer: string;
   payment: string;
   items?: DayItemRow[];
+  cashBefore: number;
+  cashAfter: number;
+  cashlessBefore: number;
+  cashlessAfter: number;
 }
 
 export interface DayExpenseRow {
@@ -66,6 +65,10 @@ export interface DayExpenseRow {
   title: string;
   category: string;
   safe: string;
+  cashBefore: number;
+  cashAfter: number;
+  cashlessBefore: number;
+  cashlessAfter: number;
 }
 
 export interface DayMoveRow {
@@ -80,18 +83,12 @@ export interface DayMoveRow {
   description: string;
   /** Хто провів. Порожньо, якщо автор невідомий. */
   by: string;
-  /**
-   * Куди веде рух. Для чека, ремонту й закупівлі це пошук по id на сторінці
-   * Продажів: `search_transactions` матчить обидва види по `id::text`, а
-   * сторінка Ремонтів `searchParams` не читає взагалі.
-   * `null` — прив'язки немає, вести нікуди.
-   */
   href: string | null;
   items?: DayItemRow[];
-  fromBalanceBefore?: number | null;
-  fromBalanceAfter?: number | null;
-  toBalanceBefore?: number | null;
-  toBalanceAfter?: number | null;
+  cashBefore: number;
+  cashAfter: number;
+  cashlessBefore: number;
+  cashlessAfter: number;
 }
 
 export interface DayReport {
@@ -289,7 +286,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   const startStr = target.start.toISOString();
   const endStr = target.end.toISOString();
 
-  const [saleDetailRes, repairDetailRes, expensesRes, catRes, txRes, safesRes] = await Promise.all([
+  const [saleDetailRes, repairDetailRes, expensesRes, catRes, txRes, safesRes, allSafesRes] = await Promise.all([
     daySales.length > 0
       ? supabase
           .from("sales")
@@ -317,6 +314,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       .lt("created_at", endStr)
       .order("created_at", { ascending: false }),
     supabase.from("safes").select("id, name"),
+    supabase.from("safes").select("id, name, balance_cash, balance_cashless, balance"),
   ]);
 
   if (saleDetailRes.error) throw saleDetailRes.error;
@@ -406,11 +404,60 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     return notes?.split("\n")[0] || "Продаж";
   };
 
+  const allMoves = txRes.data ?? [];
+
+  // Model timeline of global cash and cashless balances
+  const allSafes = (allSafesRes.data ?? []) as Array<{ id: string; balance_cash?: number | null; balance_cashless?: number | null; balance?: number | null }>;
+  let currentCash = allSafes.reduce((sum, s) => sum + (s.balance_cash ?? s.balance ?? 0), 0) +
+                    loaded.cashRegisters.filter((r) => r.type !== "cashless").reduce((sum, r) => sum + (r.balance ?? 0), 0);
+  let currentCashless = allSafes.reduce((sum, s) => sum + (s.balance_cashless ?? 0), 0) +
+                        loaded.cashRegisters.filter((r) => r.type === "cashless").reduce((sum, r) => sum + (r.balance ?? 0), 0);
+
+  const txGlobalSnapshots = new Map<string, { cashBefore: number; cashAfter: number; cashlessBefore: number; cashlessAfter: number }>();
+  const refGlobalSnapshots = new Map<string, { cashBefore: number; cashAfter: number; cashlessBefore: number; cashlessAfter: number }>();
+
+  // Process transactions in reverse (from newest to oldest) to back-calculate balance evolution
+  for (const t of allMoves) {
+    const isInternal = (t.from_type === "cash_register" || t.from_type === "safe") && 
+                       (t.to_type === "cash_register" || t.to_type === "safe");
+    
+    const isCashSource = t.from_type === "safe" || (t.from_type === "cash_register" && t.from_id !== "2a5e864f-6f91-4475-8025-a83d6cb48866");
+    const isCashDest = t.to_type === "safe" || (t.to_type === "cash_register" && t.to_id !== "2a5e864f-6f91-4475-8025-a83d6cb48866");
+
+    let dCash = 0;
+    let dCashless = 0;
+
+    if (!isInternal) {
+      if (t.from_type === "customer") {
+        if (isCashDest) dCash += t.amount;
+        else dCashless += t.amount;
+      } else if (t.to_type === "external" || t.to_type === "supplier") {
+        if (isCashSource) dCash -= t.amount;
+        else dCashless -= t.amount;
+      }
+    }
+
+    const cashAfter = currentCash;
+    const cashBefore = currentCash - dCash;
+    const cashlessAfter = currentCashless;
+    const cashlessBefore = currentCashless - dCashless;
+
+    const snap = { cashBefore, cashAfter, cashlessBefore, cashlessAfter };
+    txGlobalSnapshots.set(t.id, snap);
+    if (t.reference_id) {
+      refGlobalSnapshots.set(t.reference_id, snap);
+    }
+
+    currentCash = cashBefore;
+    currentCashless = cashlessBefore;
+  }
+
   const operations: DayOperationRow[] = [
     ...daySales.map((s) => {
       const m = saleMeta.get(s.id);
       const methods = [...new Set((m?.payment_splits ?? []).map((p) => p.method))];
       const items = saleItemsMap.get(s.id) || [];
+      const snap = refGlobalSnapshots.get(s.id) || { cashBefore: currentCash, cashAfter: currentCash, cashlessBefore: currentCashless, cashlessAfter: currentCashless };
       return {
         id: s.id,
         at: s.created_at,
@@ -420,6 +467,10 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
         customer: m?.customers?.name ?? "Роздрібний клієнт",
         payment: methods.length > 0 ? methods.join(" + ") : "—",
         items,
+        cashBefore: snap.cashBefore,
+        cashAfter: snap.cashAfter,
+        cashlessBefore: snap.cashlessBefore,
+        cashlessAfter: snap.cashlessAfter,
       };
     }),
     ...dayRepairs
@@ -427,6 +478,7 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       .map((r) => {
         const m = repairMeta.get(r.id);
         const repairItemName = m?.device_name ? `${m.device_name}${m.issue ? ` (${m.issue})` : ""}` : "Ремонт";
+        const snap = refGlobalSnapshots.get(r.id) || { cashBefore: currentCash, cashAfter: currentCash, cashlessBefore: currentCashless, cashlessAfter: currentCashless };
         return {
           id: r.id,
           at: r.settled_at,
@@ -436,6 +488,10 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
           customer: m?.customers?.name ?? "Роздрібний клієнт",
           payment: m?.payment_status === "paid" ? "оплачено" : "борг",
           items: [{ name: repairItemName, quantity: 1, price: r.price }],
+          cashBefore: snap.cashBefore,
+          cashAfter: snap.cashAfter,
+          cashlessBefore: snap.cashlessBefore,
+          cashlessAfter: snap.cashlessAfter,
         };
       }),
   ].sort((a, b) => b.at.localeCompare(a.at));
@@ -444,16 +500,10 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   const safeNames = new Map((safesRes.data ?? []).map((s) => [s.id, s.name]));
   const registerNames = new Map(loaded.cashRegisters.map((c) => [c.id, c.name]));
 
-  /* Ті самі два винятки, що й у sliceExpenses/dailySeries (lib/profit.ts), і
-     рахуємо тими самими двома id — capitalCategoryId/netProfitSafeId вище:
-     капітальна категорія — разові вкладення, не операційна витрата; сейф
-     чистого прибутку — вилучення частки власником, уже пораховане як
-     розподілений прибуток. Порахувати їх у «Витрати» вдруге — подвійний
-     рахунок, і саме через це список днів і сторінка дня раніше показували
-     різні цифри для того самого дня. */
   const expenses: DayExpenseRow[] = [];
   const otherExpenses: DayExpenseRow[] = [];
   for (const e of expensesRes.data ?? []) {
+    const snap = refGlobalSnapshots.get(e.id) || { cashBefore: currentCash, cashAfter: currentCash, cashlessBefore: currentCashless, cashlessAfter: currentCashless };
     const row: DayExpenseRow = {
       id: e.id,
       at: e.created_at,
@@ -461,6 +511,10 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
       title: e.description || "Витрата",
       category: (e.category_id && catNames.get(e.category_id)) || "Без категорії",
       safe: (e.paid_from_safe_id && safeNames.get(e.paid_from_safe_id)) || "—",
+      cashBefore: snap.cashBefore,
+      cashAfter: snap.cashAfter,
+      cashlessBefore: snap.cashlessBefore,
+      cashlessAfter: snap.cashlessAfter,
     };
     const isCapital = !!(settings.capital_category_id && e.category_id === settings.capital_category_id);
     const isNetProfitWithdrawal = !!(netProfitSafeId && e.paid_from_safe_id === netProfitSafeId);
@@ -475,10 +529,6 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
     return "Зовні";
   };
 
-  const allMoves = txRes.data ?? [];
-
-  /* Імена авторів — окремим запитом після транзакцій: до їх завантаження
-     невідомо, кого питати. Порожній список id не запитуємо взагалі. */
   const authorIds = [
     ...new Set(allMoves.map((t) => t.created_by).filter((v): v is string => !!v)),
   ];
@@ -520,27 +570,30 @@ export async function getDayReport(day: string): Promise<DayReport | null> {
   const distributionRows = allMoves.filter((t) => t.reference_type === "distribution");
   const moves: DayMoveRow[] = allMoves
     .filter((t) => t.reference_type !== "distribution")
-    .map((t) => ({
-      id: t.id,
-      at: t.created_at,
-      amount: t.amount,
-      from: sideName(t.from_type, t.from_id),
-      to: sideName(t.to_type, t.to_id),
-      fromType: t.from_type,
-      toType: t.to_type,
-      kind: MOVE_LABELS[t.reference_type ?? ""] ?? t.reference_type ?? "Рух",
-      description: t.description ?? "",
-      by: (t.created_by && authorNames.get(t.created_by)) || "",
-      href:
-        t.reference_id && ["sale", "repair_payment", "inventory"].includes(t.reference_type ?? "")
-          ? `/admin/sales?q=${t.reference_id}`
-          : null,
-      items: getMoveItems(t),
-      fromBalanceBefore: t.from_balance_before,
-      fromBalanceAfter: t.from_balance_after,
-      toBalanceBefore: t.to_balance_before,
-      toBalanceAfter: t.to_balance_after,
-    }));
+    .map((t) => {
+      const snap = txGlobalSnapshots.get(t.id) || { cashBefore: currentCash, cashAfter: currentCash, cashlessBefore: currentCashless, cashlessAfter: currentCashless };
+      return {
+        id: t.id,
+        at: t.created_at,
+        amount: t.amount,
+        from: sideName(t.from_type, t.from_id),
+        to: sideName(t.to_type, t.to_id),
+        fromType: t.from_type,
+        toType: t.to_type,
+        kind: MOVE_LABELS[t.reference_type ?? ""] ?? t.reference_type ?? "Рух",
+        description: t.description ?? "",
+        by: (t.created_by && authorNames.get(t.created_by)) || "",
+        href:
+          t.reference_id && ["sale", "repair_payment", "inventory"].includes(t.reference_type ?? "")
+            ? `/admin/sales?q=${t.reference_id}`
+            : null,
+        items: getMoveItems(t),
+        cashBefore: snap.cashBefore,
+        cashAfter: snap.cashAfter,
+        cashlessBefore: snap.cashlessBefore,
+        cashlessAfter: snap.cashlessAfter,
+      };
+    });
 
   return {
     day,

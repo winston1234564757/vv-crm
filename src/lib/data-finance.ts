@@ -27,6 +27,8 @@ export interface SafeWithSplit {
   name: string;
   type: string;
   balance: number;
+  balance_cash: number | null;
+  balance_cashless: number | null;
   created_at: string;
   updated_at: string;
   /** Скільки в сейфі реальної готівки (зайшло з готівкових кас − вийшло назовні * пропорція) */
@@ -62,6 +64,8 @@ export async function getSafes(): Promise<SafeWithSplit[]> {
     name: s.name,
     type: s.type,
     balance: s.balance,
+    balance_cash: s.balance_cash ?? null,
+    balance_cashless: s.balance_cashless ?? null,
     created_at: s.created_at ?? "",
     updated_at: s.updated_at ?? "",
     cashBalance: s.balance_cash ?? s.balance,

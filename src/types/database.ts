@@ -1142,6 +1142,8 @@ export type Database = {
       safes: {
         Row: {
           balance: number
+          balance_cash: number | null
+          balance_cashless: number | null
           created_at: string
           id: string
           name: string
@@ -1150,6 +1152,8 @@ export type Database = {
         }
         Insert: {
           balance?: number
+          balance_cash?: number | null
+          balance_cashless?: number | null
           created_at?: string
           id?: string
           name: string
@@ -1158,6 +1162,8 @@ export type Database = {
         }
         Update: {
           balance?: number
+          balance_cash?: number | null
+          balance_cashless?: number | null
           created_at?: string
           id?: string
           name?: string
