@@ -317,11 +317,21 @@ export function DayClient({ report }: { report: DayReport }) {
                       className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] text-ink">{moveTitle}</span>
-                        <span className="block truncate text-[11px] text-muted">
+                        <span className="block truncate text-[13px] text-ink font-medium">{moveTitle}</span>
+                        <span className="block truncate text-[11px] text-muted mt-0.5">
                           <span className="tabular">{timeHM(m.at)}</span>
                           <span className="mx-1.5 text-faint">·</span>
                           {m.from} → {m.to}
+                          {m.fromBalanceBefore != null && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                              {uah(m.fromBalanceBefore)} → {uah(m.fromBalanceAfter ?? (m.fromBalanceBefore - m.amount))}
+                            </span>
+                          )}
+                          {m.fromBalanceBefore == null && m.toBalanceBefore != null && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-ink">
+                              {uah(m.toBalanceBefore)} → {uah(m.toBalanceAfter ?? (m.toBalanceBefore + m.amount))}
+                            </span>
+                          )}
                         </span>
                       </span>
                       <span className="shrink-0 text-[13px] font-semibold tabular text-ink">
