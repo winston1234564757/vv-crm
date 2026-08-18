@@ -13,11 +13,13 @@ import {
   sliceExpenses,
   sliceProfit,
   chartWindow,
+  hourlyProfitSeries,
   LEDGER_MAX_DAYS,
   type Comparison,
   type DatedRepair,
   type DatedSale,
   type DayPoint,
+  type HourlyPoint,
   type ProfitResult,
   type RangePreset,
   PARTNER_SHARE,
@@ -151,6 +153,8 @@ export interface DashboardMoney {
    * епоха ближча за початок вікна.
    */
   series: DayPoint[];
+  /** Погодинний ряд прибутку та виторгу за сьогодні (24 години). */
+  hourlySeries: HourlyPoint[];
   /** Весь вибраний період по днях. Дні без даних присутні з нулями. */
   daily: DayPoint[];
   /**
@@ -579,6 +583,14 @@ export async function getDashboardMoney(
     approximate: ledgerApproximate,
   });
 
+  const hourlySeries = hourlyProfitSeries(
+    ds.sales,
+    ds.repairs,
+    ds.devices,
+    todayRange.start,
+    todayRange.end,
+  );
+
   return {
     profit: main.profit,
     expenses: main.expenses,
@@ -595,6 +607,7 @@ export async function getDashboardMoney(
     monthExpenses: month.expenses,
     comparison: comparisonFor(ds, preset, now, epoch),
     series,
+    hourlySeries,
     daily,
     todaySales: {
       count: todayReceipts.length,

@@ -7,6 +7,8 @@ import {
   previousRange,
   datasetWindowStart,
   chartWindow,
+  hourlyProfitSeries,
+  aggregateSeries,
   RANGE_PRESETS,
   sliceProfit,
   sliceExpenses,
@@ -598,7 +600,7 @@ describe("chartWindow", () => {
   it("follows the selected period for every other preset", () => {
     // Регресія: графік показував незмінні останні 30 днів, тож перемикання
     // «Цей місяць» / «Минулий місяць» на нього не впливало взагалі.
-    for (const preset of ["7d", "30d", "month", "prev"] as const) {
+    for (const preset of ["7d", "30d", "month", "prev", "all"] as const) {
       expect(chartWindow(preset, now)).toEqual(resolveRange(preset, now));
     }
   });
@@ -866,3 +868,91 @@ describe("topSellers", () => {
     expect(topSellers([], DEV)).toEqual([]);
   });
 });
+
+describe("hourlyProfitSeries", () => {
+  const dayStart = new Date("2026-08-18T00:00:00");
+  const dayEnd = new Date("2026-08-19T00:00:00");
+
+  it("розподіляє виторг і прибуток по 24 годинах доби", () => {
+    const sales: DatedSale[] = [
+      {
+        id: "s1",
+        created_at: "2026-08-18T10:15:00",
+        total_amount: 500,
+        items: [{ item_type: "accessory", item_id: "a", quantity: 1, total_price: 500, unit_cost: 200 }],
+      },
+      {
+        id: "s2",
+        created_at: "2026-08-18T10:45:00",
+        total_amount: 300,
+        items: [{ item_type: "accessory", item_id: "b", quantity: 1, total_price: 300, unit_cost: 100 }],
+      },
+      {
+        id: "s3",
+        created_at: "2026-08-18T16:00:00",
+        total_amount: 1000,
+        items: [{ item_type: "accessory", item_id: "c", quantity: 1, total_price: 1000, unit_cost: 400 }],
+      },
+    ];
+    const repairs: DatedRepair[] = [
+      {
+        id: "r1",
+        settled_at: "2026-08-18T16:30:00",
+        price: 800,
+        cost: 300,
+        external_sc_cost: null,
+      },
+    ];
+
+    const res = hourlyProfitSeries(sales, repairs, DEV, dayStart, dayEnd);
+    expect(res).toHaveLength(24);
+    expect(res[10]).toMatchObject({
+      hour: 10,
+      label: "10:00",
+      revenue: 800,
+      cost: 300,
+      profit: 500,
+      count: 2,
+    });
+    expect(res[16]).toMatchObject({
+      hour: 16,
+      label: "16:00",
+      revenue: 1800,
+      cost: 700,
+      profit: 1100,
+      count: 2,
+    });
+    expect(res[0]).toMatchObject({ hour: 0, revenue: 0, profit: 0, count: 0 });
+  });
+});
+
+describe("aggregateSeries", () => {
+  const daily = [
+    { day: "2026-08-10", revenue: 1000, cost: 400, profit: 600, margin: 60, expenses: 100, net: 500 },
+    { day: "2026-08-11", revenue: 2000, cost: 800, profit: 1200, margin: 60, expenses: 200, net: 1000 },
+    { day: "2026-08-17", revenue: 1500, cost: 500, profit: 1000, margin: 67, expenses: 150, net: 850 },
+  ];
+
+  it("групує по днях без втрат", () => {
+    const res = aggregateSeries(daily, "day");
+    expect(res).toHaveLength(3);
+    expect(res[0].key).toBe("2026-08-10");
+  });
+
+  it("групує по тижнях", () => {
+    const res = aggregateSeries(daily, "week");
+    expect(res).toHaveLength(2);
+    expect(res[0].revenue).toBe(3000);
+    expect(res[0].profit).toBe(1800);
+    expect(res[1].revenue).toBe(1500);
+  });
+
+  it("групує по місяцях", () => {
+    const res = aggregateSeries(daily, "month");
+    expect(res).toHaveLength(1);
+    expect(res[0].key).toBe("2026-08");
+    expect(res[0].revenue).toBe(4500);
+    expect(res[0].profit).toBe(2800);
+  });
+});
+

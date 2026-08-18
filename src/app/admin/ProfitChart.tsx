@@ -14,50 +14,54 @@ import {
 } from "recharts";
 import { uah } from "@/lib/utils/money";
 import { dayLabel } from "@/lib/utils/day";
-import type { DayPoint } from "@/lib/profit";
 
-/**
- * Графік прибутку в hero.
- *
- * Кольорів рівно один: прибуток — тілова заливка з градієнтом у прозоре
- * (єдиний дозволений градієнт, DESIGN.md §4.1), виторг — тонка нейтральна
- * лінія. Дві серії розрізняються і кольором, і типом позначки, тож
- * категоріальна палітра не потрібна — а отже й не потрібно валідувати її на
- * дальтонізм. Вісь одна: обидві серії в гривнях.
- *
- * Тултіп власний: дефолтний у recharts приходить із власним світлим фоном і
- * на інвертованій плиті виглядає як чужий елемент.
- *
- * Клік по точці відкриває сторінку того дня (`/admin/days/<день>`) — повний
- * зріз із операціями, витратами й рухом грошей. Раніше клік вмикав режим
- * `?day=` на самому дашборді, але той застосовувався лише до hero й таблиці
- * категорій, а операційні картки лишались на сьогодні.
- */
+export interface ChartPoint {
+  key: string;
+  label?: string;
+  revenue: number;
+  profit: number;
+  margin?: number;
+  count?: number;
+}
 
-const MIN_POINTS = 3;
+export type ChartMode = "hourly" | "day" | "week" | "month";
+
+const MIN_POINTS = 2;
 
 function TooltipCard({
   active,
   payload,
   label,
+  mode,
 }: {
   active?: boolean;
-  payload?: { dataKey?: string | number; value?: number | string }[];
+  payload?: { dataKey?: string | number; value?: number | string; payload?: ChartPoint }[];
   label?: string | number;
+  mode?: ChartMode;
 }) {
   if (!active || !payload?.length || typeof label !== "string") return null;
 
+  const item = payload[0]?.payload;
   const at = (key: string) => {
     const v = payload.find((p) => p.dataKey === key)?.value;
     return typeof v === "number" ? v : 0;
   };
   const revenue = at("revenue");
   const profit = at("profit");
-  const margin = revenue === 0 ? null : Math.round((profit / revenue) * 100);
+  const margin = revenue === 0 ? null : (item?.margin ?? Math.round((profit / revenue) * 100));
+
+  let headerLabel = label;
+  if (mode === "hourly") {
+    headerLabel = `О ${label}`;
+  } else if (mode === "day") {
+    headerLabel = dayLabel(label);
+  } else if (item?.label) {
+    headerLabel = item.label;
+  }
 
   return (
     <div className="rounded-[var(--radius-md)] border border-inverse-border bg-inverse-elevated px-3 py-2 text-xs shadow-lg">
-      <p className="font-medium capitalize text-inverse-ink">{dayLabel(label)}</p>
+      <p className="font-medium capitalize text-inverse-ink">{headerLabel}</p>
       <p className="mt-1 text-inverse-muted">
         виторг <span className="tabular text-inverse-ink">{uah(revenue)}</span>
       </p>
@@ -66,19 +70,32 @@ function TooltipCard({
         <span className="tabular text-accent-on-inverse">{uah(profit)}</span>
         {margin !== null && <span className="ml-1.5 tabular">· {margin}%</span>}
       </p>
+      {typeof item?.count === "number" && item.count > 0 && (
+        <p className="mt-0.5 text-[11px] text-inverse-muted">
+          операцій: <span className="tabular text-inverse-ink">{item.count}</span>
+        </p>
+      )}
     </div>
   );
 }
 
-export function ProfitChart({ series }: { series: DayPoint[] }) {
+export function ProfitChart({
+  series,
+  mode = "day",
+}: {
+  series: ChartPoint[];
+  mode?: ChartMode;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   if (series.length < MIN_POINTS) return null;
 
-  function openDay(day: string | undefined) {
-    if (!day) return;
-    startTransition(() => router.push(`/admin/days/${day}`));
+  function handlePointClick(pointKey: string | undefined) {
+    if (!pointKey) return;
+    if (mode === "day") {
+      startTransition(() => router.push(`/admin/days/${pointKey}`));
+    }
   }
 
   return (
@@ -86,8 +103,8 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
       <AreaChart
         data={series}
         margin={{ top: 8, right: 4, bottom: 0, left: 4 }}
-        onClick={(state) => openDay(state?.activeLabel as string | undefined)}
-        style={{ cursor: "pointer" }}
+        onClick={(state) => handlePointClick(state?.activeLabel as string | undefined)}
+        style={{ cursor: mode === "day" ? "pointer" : "default" }}
       >
         <defs>
           <linearGradient id="profit-fill" x1="0" y1="0" x2="0" y2="1">
@@ -98,13 +115,7 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
           {/*
             Неон — просте розмиття, без `feFlood`: воно накладається на копію
             лінії, яка вже намальована потрібним кольором, тож підбирати колір
-            усередині фільтра не треба. Це навмисно, а не спрощення — CSS-змінні
-            у presentation-атрибутах фільтрів (`flood-color`) резолвляться не в
-            усіх браузерах, і сяйво тихо ставало б чорним.
-
-            Не `drop-shadow` на всій області: тоді світилася б і градієнтна
-            заливка, і замість чистого сяйва по лінії плита набувала б
-            каламутного ореолу.
+            усередині фільтра не треба.
           */}
           <filter id="profit-neon" x="-10%" y="-25%" width="120%" height="150%">
             <feGaussianBlur stdDeviation="4" />
@@ -116,11 +127,11 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
           stroke="var(--color-inverse-border)"
           strokeDasharray="2 4"
         />
-        <XAxis dataKey="day" hide />
+        <XAxis dataKey="key" hide />
         <YAxis hide />
 
         <Tooltip
-          content={<TooltipCard />}
+          content={<TooltipCard mode={mode} />}
           cursor={{ stroke: "var(--color-inverse-muted)", strokeWidth: 1 }}
           animationDuration={120}
         />
@@ -136,9 +147,7 @@ export function ProfitChart({ series }: { series: DayPoint[] }) {
           isAnimationActive={false}
         />
         {/*
-          Сяйво окремим шаром під різкою лінією: та сама серія без заливки,
-          товщою і крізь фільтр. Порядок у recharts = порядок малювання, тож
-          різка лінія лягає зверху й лишається чіткою.
+          Сяйво окремим шаром під різкою лінією
         */}
         <Line
           type="monotone"

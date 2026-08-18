@@ -372,9 +372,9 @@ export function topSellers(
 
 // ─── Діапазони ──────────────────────────────────────────────────────────────
 
-export type RangePreset = "today" | "7d" | "30d" | "month" | "prev";
+export type RangePreset = "today" | "7d" | "30d" | "month" | "prev" | "all";
 
-export const RANGE_PRESETS: RangePreset[] = ["today", "7d", "30d", "month", "prev"];
+export const RANGE_PRESETS: RangePreset[] = ["today", "7d", "30d", "month", "prev", "all"];
 
 export const RANGE_LABELS: Record<RangePreset, string> = {
   today: "Сьогодні",
@@ -382,6 +382,7 @@ export const RANGE_LABELS: Record<RangePreset, string> = {
   "30d": "30 днів",
   month: "Цей місяць",
   prev: "Минулий місяць",
+  all: "За весь час",
 };
 
 export function isRangePreset(v: string | null | undefined): v is RangePreset {
@@ -465,6 +466,11 @@ export function resolveRange(
         start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
         end: new Date(now.getFullYear(), now.getMonth(), 1),
       };
+    case "all":
+      return {
+        start: new Date(2020, 0, 1),
+        end: tomorrow,
+      };
   }
 }
 
@@ -531,6 +537,8 @@ export function previousRange(
         start: new Date(now.getFullYear(), now.getMonth() - 2, 1),
         end: new Date(now.getFullYear(), now.getMonth() - 1, 1),
       };
+    case "all":
+      return { start: cur.start, end: cur.start };
   }
 }
 
@@ -859,7 +867,7 @@ export interface Comparison {
   margin: number;
 }
 
-const COMPARISON_LABELS: Record<Exclude<RangePreset, "today">, string> = {
+const COMPARISON_LABELS: Record<Exclude<RangePreset, "today" | "all">, string> = {
   "7d": "до минулих 7 днів",
   "30d": "до минулих 30 днів",
   month: "до того ж періоду минулого місяця",
@@ -889,6 +897,8 @@ export function comparisonFor(
   now: Date,
   epochIso: string | null,
 ): Comparison | null {
+  if (preset === "all") return null;
+
   const prev = previousRange(preset, now);
   const { start, end, empty } = floorAtEpoch(prev.start, prev.end, epochIso);
   if (empty) return null;
@@ -922,4 +932,170 @@ export function comparisonFor(
 export function deltaPct(value: number, base: number): number | null {
   if (!base) return null;
   return Math.round(((value - base) / Math.abs(base)) * 100);
+}
+
+// ─── Погодинні ряди для одного дня ──────────────────────────────────────────
+
+export interface HourlyPoint {
+  hour: number;
+  label: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  count: number;
+}
+
+export function hourlyProfitSeries(
+  sales: DatedSale[],
+  repairs: DatedRepair[],
+  devices: Map<string, ProfitDeviceCost>,
+  dayStart: Date,
+  dayEnd: Date,
+): HourlyPoint[] {
+  const salesByHour = new Map<number, DatedSale[]>();
+  for (const s of sales) {
+    if (!inWindow(s.created_at, dayStart, dayEnd)) continue;
+    const h = new Date(s.created_at).getHours();
+    if (h < 0 || h > 23 || Number.isNaN(h)) continue;
+    const arr = salesByHour.get(h);
+    if (arr) arr.push(s);
+    else salesByHour.set(h, [s]);
+  }
+
+  const repairsByHour = new Map<number, DatedRepair[]>();
+  for (const r of repairs) {
+    if (!inWindow(r.settled_at, dayStart, dayEnd)) continue;
+    const h = new Date(r.settled_at).getHours();
+    if (h < 0 || h > 23 || Number.isNaN(h)) continue;
+    const arr = repairsByHour.get(h);
+    if (arr) arr.push(r);
+    else repairsByHour.set(h, [r]);
+  }
+
+  return Array.from({ length: 24 }, (_, hour) => {
+    const hSales = salesByHour.get(hour) ?? [];
+    const hRepairs = repairsByHour.get(hour) ?? [];
+    const p = computeProfit(hSales, devices, hRepairs);
+    const count = hSales.length + hRepairs.filter((r) => r.price > 0).length;
+    return {
+      hour,
+      label: `${String(hour).padStart(2, "0")}:00`,
+      revenue: p.revenue,
+      cost: p.cost,
+      profit: p.profit,
+      margin: p.margin,
+      count,
+    };
+  });
+}
+
+// ─── Агрегація рядів (день / тиждень / місяць) ───────────────────────────────
+
+export type GroupBy = "day" | "week" | "month";
+
+export interface AggregatedPoint {
+  key: string;
+  label: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  expenses: number;
+  net: number;
+}
+
+export function aggregateSeries(
+  daily: DayPoint[],
+  groupBy: GroupBy,
+): AggregatedPoint[] {
+  if (daily.length === 0) return [];
+  if (groupBy === "day") {
+    return daily.map((d) => ({
+      key: d.day,
+      label: d.day,
+      revenue: d.revenue,
+      cost: d.cost,
+      profit: d.profit,
+      margin: d.margin,
+      expenses: d.expenses,
+      net: d.net,
+    }));
+  }
+
+  if (groupBy === "week") {
+    const groups = new Map<string, { label: string; days: DayPoint[] }>();
+    for (const d of daily) {
+      const [y, m, dayNum] = d.day.split("-").map(Number);
+      const date = new Date(y, m - 1, dayNum);
+      const dayOfWeek = (date.getDay() + 6) % 7; // 0=Mon, 6=Sun
+      const mon = new Date(date);
+      mon.setDate(date.getDate() - dayOfWeek);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+
+      const monKey = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
+      const weekKey = `w-${monKey}`;
+
+      const monFmt = `${mon.getDate()} ${mon.toLocaleDateString("uk-UA", { month: "short" })}`;
+      const sunFmt = `${sun.getDate()} ${sun.toLocaleDateString("uk-UA", { month: "short" })}`;
+      const label = `${monFmt} – ${sunFmt}`;
+
+      const grp = groups.get(weekKey);
+      if (grp) grp.days.push(d);
+      else groups.set(weekKey, { label, days: [d] });
+    }
+
+    const out: AggregatedPoint[] = [];
+    for (const [key, { label, days }] of groups.entries()) {
+      const revenue = days.reduce((s, d) => s + d.revenue, 0);
+      const cost = days.reduce((s, d) => s + d.cost, 0);
+      const profit = days.reduce((s, d) => s + d.profit, 0);
+      const expenses = days.reduce((s, d) => s + d.expenses, 0);
+      const net = profit - expenses;
+      out.push({
+        key,
+        label,
+        revenue,
+        cost,
+        profit,
+        margin: margin(revenue, profit),
+        expenses,
+        net,
+      });
+    }
+    return out;
+  }
+
+  // groupBy === "month"
+  const groups = new Map<string, { label: string; days: DayPoint[] }>();
+  for (const d of daily) {
+    const monthKey = d.day.slice(0, 7); // YYYY-MM
+    const [y, m] = monthKey.split("-").map(Number);
+    const date = new Date(y, m - 1, 1);
+    const label = date.toLocaleDateString("uk-UA", { month: "long", year: "numeric" });
+    const grp = groups.get(monthKey);
+    if (grp) grp.days.push(d);
+    else groups.set(monthKey, { label, days: [d] });
+  }
+
+  const out: AggregatedPoint[] = [];
+  for (const [key, { label, days }] of groups.entries()) {
+    const revenue = days.reduce((s, d) => s + d.revenue, 0);
+    const cost = days.reduce((s, d) => s + d.cost, 0);
+    const profit = days.reduce((s, d) => s + d.profit, 0);
+    const expenses = days.reduce((s, d) => s + d.expenses, 0);
+    const net = profit - expenses;
+    out.push({
+      key,
+      label,
+      revenue,
+      cost,
+      profit,
+      margin: margin(revenue, profit),
+      expenses,
+      net,
+    });
+  }
+  return out;
 }

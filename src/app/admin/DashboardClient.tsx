@@ -93,6 +93,7 @@ export function DashboardClient({
             profit={money.profit}
             comparison={money.comparison}
             series={money.series}
+            hourlySeries={money.hourlySeries}
             dayLabel="Сьогодні"
           />
         )}
