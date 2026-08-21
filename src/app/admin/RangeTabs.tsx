@@ -28,14 +28,12 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
 
   function select(next: RangePreset) {
-    if (next === preset) return;
-    /* Решта параметрів зберігається. Раніше тут стояло `?range=${next}`, і на
-       дашборді це працювало, бо інших параметрів не було. На сторінці фінансів
-       поруч живе `?view=` (таблиця/графіки), і зміна періоду мовчки скидала б
-       вигляд на дефолтний — Іван, перемкнувши період, щоразу отримував би
-       графіки замість своєї таблиці. */
+    if (next === preset && !params.get("date")) return;
     const q = new URLSearchParams(params.toString());
     q.set("range", next);
+    if (next !== "today") {
+      q.delete("date");
+    }
     startTransition(() => router.replace(`${pathname}?${q.toString()}`));
   }
 

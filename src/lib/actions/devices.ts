@@ -527,9 +527,88 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
     const { error } = await supabase.from("devices").update(updatePayload).eq("id", id);
     if (error) throw error;
 
+    // Синхронізуємо unit_cost у sale_items, якщо пристрій було продано
+    if (parsed.cost_price !== undefined) {
+      await supabase
+        .from("sale_items")
+        .update({ unit_cost: parsed.cost_price })
+        .eq("item_id", id);
+    }
+
+    // Обробка фінансового коригування собівартості, якщо користувач обрав дію у модалці
+    const adjustmentAction = formData.get("adjustment_action") as string | null;
+    const adjustmentSourceType = (formData.get("adjustment_source_type") as string | null) || "safe";
+    const adjustmentSourceId = formData.get("adjustment_source_id") as string | null;
+    const adjustmentPaymentMethod = (formData.get("adjustment_payment_method") as string | null) || "cash";
+    const costDelta = Number(formData.get("cost_delta")) || 0;
+
+    if (adjustmentAction === "apply" && costDelta !== 0 && adjustmentSourceId) {
+      if (costDelta > 0) {
+        // Збільшення закупівлі -> списуємо costDelta з рахунку
+        const { data: accData, error: accError } = await supabase.rpc("account_apply", {
+          p_type: adjustmentSourceType,
+          p_id: adjustmentSourceId,
+          p_amount: -costDelta,
+          p_method: adjustmentPaymentMethod,
+        });
+        if (accError) throw accError;
+
+        const resObj = Array.isArray(accData) ? accData[0] : accData;
+        const bb = resObj?.o_balance_before ?? null;
+        const ba = resObj?.o_balance_after ?? null;
+        const method = resObj?.o_method ?? adjustmentPaymentMethod;
+
+        await supabase.from("transactions").insert({
+          amount: costDelta,
+          from_type: adjustmentSourceType as any,
+          from_id: adjustmentSourceId,
+          to_type: "external",
+          to_id: null,
+          reference_type: "device",
+          reference_id: id,
+          description: `Доплата за закупівлю техніки (+${costDelta} грн): ${parsed.brand} ${parsed.model}`,
+          created_by: user.id,
+          payment_method: method,
+          from_balance_before: bb,
+          from_balance_after: ba,
+        });
+      } else {
+        // Зменшення закупівлі -> повертаємо abs(costDelta) у сейф/касу
+        const refundAmount = Math.abs(costDelta);
+        const { data: accData, error: accError } = await supabase.rpc("account_apply", {
+          p_type: adjustmentSourceType,
+          p_id: adjustmentSourceId,
+          p_amount: refundAmount,
+          p_method: adjustmentPaymentMethod,
+        });
+        if (accError) throw accError;
+
+        const resObj = Array.isArray(accData) ? accData[0] : accData;
+        const bb = resObj?.o_balance_before ?? null;
+        const ba = resObj?.o_balance_after ?? null;
+        const method = resObj?.o_method ?? adjustmentPaymentMethod;
+
+        await supabase.from("transactions").insert({
+          amount: refundAmount,
+          from_type: "external",
+          from_id: null,
+          to_type: adjustmentSourceType as any,
+          to_id: adjustmentSourceId,
+          reference_type: "device",
+          reference_id: id,
+          description: `Повернення коштів за коригування закупівлі техніки (-${refundAmount} грн): ${parsed.brand} ${parsed.model}`,
+          created_by: user.id,
+          payment_method: method,
+          to_balance_before: bb,
+          to_balance_after: ba,
+        });
+      }
+    }
+
     revalidatePath("/admin/devices");
     revalidatePath("/admin");
     revalidatePath("/admin/repairs");
+    revalidatePath("/admin/finance");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

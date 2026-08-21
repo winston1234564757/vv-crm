@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import {
   PaymentSourcePicker,
@@ -11,12 +11,11 @@ import {
 import { createAccessory, updateAccessory } from "@/lib/actions/accessories";
 import { Input } from "@/components/ui/Input";
 import { accessoryType, optionsOf } from "@/lib/domain-labels";
+import { CostAdjustmentModal, type CostAdjustmentData } from "@/components/modals/CostAdjustmentModal";
 
 const initialState = { success: false, error: "" };
 
 import type { Database } from "@/types/database";
-
-type Safe = Database["public"]["Tables"]["safes"]["Row"];
 
 export function AccessoryForm({
   onSuccess,
@@ -26,7 +25,7 @@ export function AccessoryForm({
 }: {
   onSuccess: () => void;
   accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; min_stock?: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null; supplier_sku?: string | null };
-  safes?: Safe[];
+  safes?: SourceAccount[];
   /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
   registers?: SourceAccount[];
 }) {
@@ -34,169 +33,224 @@ export function AccessoryForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [source, setSource] = useState<ChosenSource | null>(null);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const isEdit = !!accessory;
+  const [costAdjustmentModalOpen, setCostAdjustmentModalOpen] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState<{ oldCost: number; newCost: number } | null>(null);
+  const [adjustmentData, setAdjustmentData] = useState<CostAdjustmentData | null>(null);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (isEdit && adjustmentData === null) {
+      const formData = new FormData(e.currentTarget);
+      const newCost = Number(formData.get("cost_price")) || 0;
+      const oldCost = Number(accessory?.cost_price) || 0;
+
+      if (newCost !== oldCost) {
+        e.preventDefault();
+        setPendingAdjustment({ oldCost, newCost });
+        setCostAdjustmentModalOpen(true);
+        return;
+      }
+    }
+  };
+
+  const handleConfirmAdjustment = (data: CostAdjustmentData) => {
+    setAdjustmentData(data);
+    setCostAdjustmentModalOpen(false);
+    setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 50);
+  };
+
   useEffect(() => {
     if (state.success) onSuccess();
   }, [state.success, onSuccess]);
 
   return (
-    <form action={formAction} className="space-y-4">
-      {state.error && (
-        <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <div className="flex items-start gap-3">
-            <span className="text-rose text-base mt-0.5">⚠️</span>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-text-primary">{state.error}</p>
-              {state.error.toLowerCase().includes("недостатньо коштів") && (
-                <div className="pt-1">
-                  <a
-                    href="/admin/finance"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
-                  >
-                    Перейти до фінансів ↗
-                  </a>
-                </div>
-              )}
+    <>
+      <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-4">
+        {adjustmentData && pendingAdjustment && (
+          <>
+            <input type="hidden" name="adjustment_action" value={adjustmentData.action} />
+            <input type="hidden" name="adjustment_source_type" value={adjustmentData.sourceType} />
+            <input type="hidden" name="adjustment_source_id" value={adjustmentData.sourceId} />
+            <input type="hidden" name="adjustment_payment_method" value={adjustmentData.paymentMethod} />
+            <input type="hidden" name="cost_delta" value={pendingAdjustment.newCost - pendingAdjustment.oldCost} />
+          </>
+        )}
+
+        {state.error && (
+          <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-start gap-3">
+              <span className="text-rose text-base mt-0.5">⚠️</span>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-text-primary">{state.error}</p>
+                {state.error.toLowerCase().includes("недостатньо коштів") && (
+                  <div className="pt-1">
+                    <a
+                      href="/admin/finance"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
+                    >
+                      Перейти до фінансів ↗
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+        )}
+
+        <div className="w-full">
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Категорія</label>
+          <select
+            name="type"
+            required
+            defaultValue={accessory?.type ?? "case"}
+            className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
+          >
+            {optionsOf(accessoryType).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
-      )}
 
-      <div className="w-full">
-        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Категорія</label>
-        <select
-          name="type"
-          required
-          defaultValue={accessory?.type ?? "case"}
-          className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
-        >
-          {optionsOf(accessoryType).map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      </div>
+        <Input label="Назва аксесуару" name="name" required placeholder="Чохол Silicone Case iPhone 15" defaultValue={accessory?.name ?? ""} />
 
-      <Input label="Назва аксесуару" name="name" required placeholder="Чохол Silicone Case iPhone 15" defaultValue={accessory?.name ?? ""} />
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Собівартість (грн)" name="cost_price" type="number" required placeholder="300" defaultValue={accessory?.cost_price.toString() ?? ""} />
+          <Input label="Ціна продажу (грн)" name="price" type="number" required placeholder="600" defaultValue={accessory?.price.toString() ?? ""} />
+        </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Input label="Собівартість (грн)" name="cost_price" type="number" required placeholder="300" defaultValue={accessory?.cost_price.toString() ?? ""} />
-        <Input label="Ціна продажу (грн)" name="price" type="number" required placeholder="600" defaultValue={accessory?.price.toString() ?? ""} />
-      </div>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Під час РЕДАГУВАННЯ кількість не поле, а число.
+              Доти вона тут редагувалась прямим UPDATE — без грошей і без сліду:
+              кабель у кількості 0 ставав кабелем у кількості 10, сейф не худнув, у
+              реєстрі не зʼявлялось нічого. Тепер її рухають «Закупити» й
+              «Списати», і обидві лишають слід.
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* Під час РЕДАГУВАННЯ кількість не поле, а число.
-            Доти вона тут редагувалась прямим UPDATE — без грошей і без сліду:
-            кабель у кількості 0 ставав кабелем у кількості 10, сейф не худнув, у
-            реєстрі не зʼявлялось нічого. Тепер її рухають «Закупити» й
-            «Списати», і обидві лишають слід.
+              У формі СТВОРЕННЯ поле лишається живим: `createAccessory` списує
+              гроші з сейфа за початковий залишок, тобто там дірки немає.
 
-            У формі СТВОРЕННЯ поле лишається живим: `createAccessory` списує
-            гроші з сейфа за початковий залишок, тобто там дірки немає.
-
-            Поле все одно їде у formData — так простіше, ніж вимикати його
-            умовно, — але `updateAccessory` відкидає `stock` на сервері. Дірка,
-            закрита лише версткою, це не закрита дірка. */}
-        {accessory ? (
-          <div className="w-full">
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">
-              Кількість на складі
-            </label>
-            <input type="hidden" name="stock" value={accessory.stock} />
-            <div className="w-full rounded-xl border border-warm-border/60 bg-iris/[0.03] px-4 py-3">
-              <span className="text-sm font-medium text-text-primary">{accessory.stock} шт</span>
+              Поле все одно їде у formData — так простіше, ніж вимикати його
+              умовно, — але `updateAccessory` відкидає `stock` на сервері. Дірка,
+              закрита лише версткою, це не закрита дірка. */}
+          {accessory ? (
+            <div className="w-full">
+              <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+                Кількість на складі
+              </label>
+              <input type="hidden" name="stock" value={accessory.stock} />
+              <div className="w-full rounded-xl border border-warm-border/60 bg-iris/[0.03] px-4 py-3">
+                <span className="text-sm font-medium text-text-primary">{accessory.stock} шт</span>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">
+                Змінюється закупівлею й списанням — щоб гроші й склад не розходились.
+              </p>
             </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">
-              Змінюється закупівлею й списанням — щоб гроші й склад не розходились.
+          ) : (
+            <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue="1" />
+          )}
+          <Input label="Гарантія (міс)" name="warranty_months" type="number" required placeholder="6" defaultValue={accessory?.warranty_months?.toString() ?? "6"} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Мінімальний залишок (шт)"
+            name="min_stock"
+            type="number"
+            placeholder="3"
+            defaultValue={accessory?.min_stock?.toString() ?? "3"}
+          />
+          <div className="flex items-end pb-0.5">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Аксесуар потрапить в список закупівлі коли залишок ≤ цього значення
             </p>
           </div>
-        ) : (
-          <Input label="Кількість на складі" name="stock" type="number" required placeholder="10" defaultValue="1" />
-        )}
-        <Input label="Гарантія (міс)" name="warranty_months" type="number" required placeholder="6" defaultValue={accessory?.warranty_months?.toString() ?? "6"} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Мінімальний залишок (шт)"
-          name="min_stock"
-          type="number"
-          placeholder="3"
-          defaultValue={accessory?.min_stock?.toString() ?? "3"}
-        />
-        <div className="flex items-end pb-0.5">
-          <p className="text-xs text-text-secondary leading-relaxed">
-            Аксесуар потрапить в список закупівлі коли залишок ≤ цього значення
-          </p>
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Опис (опціонально)</label>
-        <textarea
-          name="description"
-          rows={2}
-          defaultValue={accessory?.description ?? ""}
-          placeholder="Короткий опис для вітрини..."
-          className="w-full resize-none rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
-        />
-      </div>
-
-      <label className="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" name="is_visible" value="true" defaultChecked={accessory?.is_visible ?? false} className="h-4.5 w-4.5 rounded border-iris/20 text-violet focus:ring-violet" />
-        <span className="text-sm font-medium text-text-primary">Показувати на вітрині</span>
-      </label>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фотографії</label>
-        <input type="file" name="photos" multiple accept="image/*" className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white cursor-pointer hover:file:bg-violet-hover" />
-        {accessory?.photo_urls && accessory.photo_urls.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {accessory.photo_urls.map((url, i) => (
-              <img key={i} src={url} alt="Photo" className="h-16 w-16 object-cover rounded-lg border border-warm-border/50" />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-warm-border/50 pt-4 space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Джерело</label>
-            <select name="source" defaultValue={accessory?.source ?? "supplier"} className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40">
-              <option value="supplier">Постачальник</option>
-              <option value="trade_in">Trade-In</option>
-              <option value="buyout">Викуп</option>
-              <option value="olx">OLX</option>
-              <option value="other">Інше</option>
-            </select>
-          </div>
-          <Input label="Штрих-код (EAN)" name="barcode" placeholder="4820000000000" defaultValue={accessory?.barcode ?? ""} />
-          <Input label="SKU постачальника" name="supplier_sku" placeholder="00000070503_1" defaultValue={accessory?.supplier_sku ?? ""} />
-          <Input label="Розташування на складі" name="warehouse_location" placeholder="Стелаж Б, полиця 1" defaultValue={accessory?.warehouse_location ?? ""} />
         </div>
 
-        {!accessory && safes.length > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Опис (опціонально)</label>
+          <textarea
+            name="description"
+            rows={2}
+            defaultValue={accessory?.description ?? ""}
+            placeholder="Короткий опис для вітрини..."
+            className="w-full resize-none rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
+          />
+        </div>
+
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="is_visible" value="true" defaultChecked={accessory?.is_visible ?? false} className="h-4.5 w-4.5 rounded border-iris/20 text-violet focus:ring-violet" />
+          <span className="text-sm font-medium text-text-primary">Показувати на вітрині</span>
+        </label>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Фотографії</label>
+          <input type="file" name="photos" multiple accept="image/*" className="w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-violet file:px-3 file:py-2 file:text-xs file:font-medium file:text-white cursor-pointer hover:file:bg-violet-hover" />
+          {accessory?.photo_urls && accessory.photo_urls.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {accessory.photo_urls.map((url, i) => (
+                <img key={i} src={url} alt="Photo" className="h-16 w-16 object-cover rounded-lg border border-warm-border/50" />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-warm-border/50 pt-4 space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <PaymentSourcePicker
-              label="Списати з"
-              safes={safes}
-              registers={spendableRegisters(registers)}
-              legacyName="safe_id"
-              value={source}
-              onChange={setSource}
-            />
-            {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
-            {source?.type === "safe" && <PaymentMethodPicker />}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-text-secondary">Джерело</label>
+              <select name="source" defaultValue={accessory?.source ?? "supplier"} className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40">
+                <option value="supplier">Постачальник</option>
+                <option value="trade_in">Trade-In</option>
+                <option value="buyout">Викуп</option>
+                <option value="olx">OLX</option>
+                <option value="other">Інше</option>
+              </select>
+            </div>
+            <Input label="Штрих-код (EAN)" name="barcode" placeholder="4820000000000" defaultValue={accessory?.barcode ?? ""} />
+            <Input label="SKU постачальника" name="supplier_sku" placeholder="00000070503_1" defaultValue={accessory?.supplier_sku ?? ""} />
+            <Input label="Розташування на складі" name="warehouse_location" placeholder="Стелаж Б, полиця 1" defaultValue={accessory?.warehouse_location ?? ""} />
           </div>
-        )}
-      </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="btn-press mt-4 w-full rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
-      >
-        {pending ? "Збереження..." : accessory ? "Зберегти зміни" : "Додати аксесуар"}
-      </button>
-    </form>
+          {!accessory && safes.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <PaymentSourcePicker
+                label="Списати з"
+                safes={safes}
+                registers={spendableRegisters(registers)}
+                legacyName="safe_id"
+                value={source}
+                onChange={setSource}
+              />
+              {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
+              {source?.type === "safe" && <PaymentMethodPicker />}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="btn-press mt-4 w-full rounded-xl bg-violet px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
+        >
+          {pending ? "Збереження..." : accessory ? "Зберегти зміни" : "Додати аксесуар"}
+        </button>
+      </form>
+
+      {costAdjustmentModalOpen && pendingAdjustment && (
+        <CostAdjustmentModal
+          isOpen={costAdjustmentModalOpen}
+          onClose={() => setCostAdjustmentModalOpen(false)}
+          onConfirm={handleConfirmAdjustment}
+          itemName={accessory?.name || "Аксесуар"}
+          oldCost={pendingAdjustment.oldCost}
+          newCost={pendingAdjustment.newCost}
+          safes={safes}
+          registers={registers}
+          isPending={pending}
+        />
+      )}
+    </>
   );
 }

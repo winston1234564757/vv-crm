@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import DeviceFormMain from "./DeviceFormMain";
 import DeviceFormPhotos from "./DeviceFormPhotos";
 import DeviceFormSource from "./DeviceFormSource";
@@ -8,6 +9,7 @@ import DeviceFormRepair from "./DeviceFormRepair";
 import DeviceFormSubmit from "./DeviceFormSubmit";
 import { DeviceFormData, WarehousePart } from "@/lib/types/device.types";
 import { useDeviceForm } from "./useDeviceForm";
+import { CostAdjustmentModal, type CostAdjustmentData } from "@/components/modals/CostAdjustmentModal";
 
 import type { Database } from "@/types/database";
 
@@ -22,72 +24,128 @@ interface DeviceFormProps {
 
 export function DeviceForm({ onSuccess, device, parts = [], safes = [], registers = [] }: DeviceFormProps) {
   const form = useDeviceForm({ onSuccess, device, parts });
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const isEdit = !!device.id;
+  const [costAdjustmentModalOpen, setCostAdjustmentModalOpen] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState<{ oldCost: number; newCost: number } | null>(null);
+  const [adjustmentData, setAdjustmentData] = useState<CostAdjustmentData | null>(null);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (isEdit && adjustmentData === null) {
+      const formData = new FormData(e.currentTarget);
+      const newCost = Number(formData.get("cost_price")) || 0;
+      const oldCost = Number(device.cost_price) || 0;
+
+      if (newCost !== oldCost) {
+        e.preventDefault();
+        setPendingAdjustment({ oldCost, newCost });
+        setCostAdjustmentModalOpen(true);
+        return;
+      }
+    }
+  };
+
+  const handleConfirmAdjustment = (data: CostAdjustmentData) => {
+    setAdjustmentData(data);
+    setCostAdjustmentModalOpen(false);
+    // Викликаємо сабміт форми з новими даними
+    setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 50);
+  };
 
   return (
-    <form action={form.formAction} className="space-y-5 p-2">
-      {form.state.error && (
-        <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <div className="flex items-start gap-3">
-            <span className="text-rose text-base mt-0.5">⚠️</span>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-text-primary">{form.state.error}</p>
-              {form.state.error.toLowerCase().includes("недостатньо коштів") && (
-                <div className="pt-1">
-                  <a
-                    href="/admin/finance"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
-                  >
-                    Перейти до фінансів ↗
-                  </a>
-                </div>
-              )}
+    <>
+      <form ref={formRef} action={form.formAction} onSubmit={handleSubmit} className="space-y-5 p-2">
+        {adjustmentData && pendingAdjustment && (
+          <>
+            <input type="hidden" name="adjustment_action" value={adjustmentData.action} />
+            <input type="hidden" name="adjustment_source_type" value={adjustmentData.sourceType} />
+            <input type="hidden" name="adjustment_source_id" value={adjustmentData.sourceId} />
+            <input type="hidden" name="adjustment_payment_method" value={adjustmentData.paymentMethod} />
+            <input type="hidden" name="cost_delta" value={pendingAdjustment.newCost - pendingAdjustment.oldCost} />
+          </>
+        )}
+
+        {form.state.error && (
+          <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-start gap-3">
+              <span className="text-rose text-base mt-0.5">⚠️</span>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-text-primary">{form.state.error}</p>
+                {form.state.error.toLowerCase().includes("недостатньо коштів") && (
+                  <div className="pt-1">
+                    <a
+                      href="/admin/finance"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-hover cursor-pointer"
+                    >
+                      Перейти до фінансів ↗
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        <DeviceFormMain
+          device={device}
+          storageType={form.storageTypeState}
+          setStorageType={form.setStorageTypeState}
+          storageCustomValue={form.storageCustomValue}
+          setStorageCustomValue={form.setStorageCustomValue}
+          type={form.type}
+          setType={form.setType}
+          state={form.state}
+        />
+
+        <DeviceFormPhotos device={device} />
+
+        <DeviceFormSource device={device} safes={safes} registers={registers} />
+
+        <DeviceFormCondition device={device} />
+
+        <DeviceFormRepair
+          device={device}
+          needsRepair={form.needsRepair}
+          setNeedsRepair={form.setNeedsRepair}
+          repairStatus={form.repairStatus}
+          setRepairStatus={form.setRepairStatus}
+          repairCost={form.repairCost}
+          setRepairCost={form.setRepairCost}
+          partsReplaced={form.partsReplaced}
+          setPartsReplaced={form.setPartsReplaced}
+          selectedPartId={form.selectedPartId}
+          setSelectedPartId={form.setSelectedPartId}
+          newPartName={form.newPartName}
+          setNewPartName={form.setNewPartName}
+          newPartCost={form.newPartCost}
+          setNewPartCost={form.setNewPartCost}
+          newPartOrigin={form.newPartOrigin}
+          setNewPartOrigin={form.setNewPartOrigin}
+          handleAddPart={form.handleAddPart}
+          handleRemovePart={form.handleRemovePart}
+          handleSelectWarehousePart={form.handleSelectWarehousePart}
+          parts={parts}
+        />
+
+        <DeviceFormSubmit pending={form.pending} device={device} />
+      </form>
+
+      {costAdjustmentModalOpen && pendingAdjustment && (
+        <CostAdjustmentModal
+          isOpen={costAdjustmentModalOpen}
+          onClose={() => setCostAdjustmentModalOpen(false)}
+          onConfirm={handleConfirmAdjustment}
+          itemName={`${device?.brand ?? ""} ${device?.model ?? ""}`.trim() || "Пристрій"}
+          oldCost={pendingAdjustment.oldCost}
+          newCost={pendingAdjustment.newCost}
+          safes={safes}
+          registers={registers}
+          isPending={form.pending}
+        />
       )}
-
-      <DeviceFormMain
-        device={device}
-        storageType={form.storageTypeState}
-        setStorageType={form.setStorageTypeState}
-        storageCustomValue={form.storageCustomValue}
-        setStorageCustomValue={form.setStorageCustomValue}
-        type={form.type}
-        setType={form.setType}
-        state={form.state}
-      />
-
-      <DeviceFormPhotos device={device} />
-
-      <DeviceFormSource device={device} safes={safes} registers={registers} />
-
-      <DeviceFormCondition device={device} />
-
-      <DeviceFormRepair
-        device={device}
-        needsRepair={form.needsRepair}
-        setNeedsRepair={form.setNeedsRepair}
-        repairStatus={form.repairStatus}
-        setRepairStatus={form.setRepairStatus}
-        repairCost={form.repairCost}
-        setRepairCost={form.setRepairCost}
-        partsReplaced={form.partsReplaced}
-        setPartsReplaced={form.setPartsReplaced}
-        selectedPartId={form.selectedPartId}
-        setSelectedPartId={form.setSelectedPartId}
-        newPartName={form.newPartName}
-        setNewPartName={form.setNewPartName}
-        newPartCost={form.newPartCost}
-        setNewPartCost={form.setNewPartCost}
-        newPartOrigin={form.newPartOrigin}
-        setNewPartOrigin={form.setNewPartOrigin}
-        handleAddPart={form.handleAddPart}
-        handleRemovePart={form.handleRemovePart}
-        handleSelectWarehousePart={form.handleSelectWarehousePart}
-        parts={parts}
-      />
-
-      <DeviceFormSubmit pending={form.pending} device={device} />
-    </form>
+    </>
   );
 }

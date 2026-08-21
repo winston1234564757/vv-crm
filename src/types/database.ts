@@ -1615,6 +1615,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      account_apply: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_method: string
+          p_type: string
+        }
+        Returns: {
+          o_balance_after: number
+          o_balance_before: number
+          o_method: string
+          o_name: string
+        }[]
+      }
       adjust_accessory_stock: {
         Args: { accessory_id: string; qty: number }
         Returns: number

@@ -157,6 +157,8 @@ export interface DashboardMoney {
   hourlySeries: HourlyPoint[];
   /** Весь вибраний період по днях. Дні без даних присутні з нулями. */
   daily: DayPoint[];
+  /** Обрана дата для перегляду дня (YYYY-MM-DD). */
+  selectedDate?: string;
   /**
    * Чеки за сьогодні. Виводяться з того самого датасету, тож окремого запиту
    * не коштують, а виторг тут той самий, що в hero — це один розрахунок.
@@ -304,12 +306,28 @@ export async function revenueSplit(
 export async function getDashboardMoney(
   preset: RangePreset,
   userId?: string,
+  targetDate?: string,
 ): Promise<DashboardMoney> {
   const supabase = await createClient();
   const now = new Date();
   const settings = await getSettings();
   const epoch = settings.finance_epoch;
   const capitalCategoryId = settings.capital_category_id;
+
+  let targetDayStart: Date;
+  let targetDayEnd: Date;
+  let selectedDateKey = dayKey(now);
+
+  if (targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    const [y, m, d] = targetDate.split("-").map(Number);
+    targetDayStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+    targetDayEnd = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+    selectedDateKey = targetDate;
+  } else {
+    const todayRange = resolveRange("today", now);
+    targetDayStart = todayRange.start;
+    targetDayEnd = todayRange.end;
+  }
 
   // Стадія 1: сейфи. Маленький запит (≤5 рядків), але `netProfitSafeId` з
   // нього потрібен трьом наступним розрахункам — фільтру витрат, OPEX
@@ -415,7 +433,7 @@ export async function getDashboardMoney(
 
   const mainRange = resolveRange(preset, now);
   const main = sliceMoney(mainRange.start, mainRange.end);
-  const today = sliceMoney(todayRange.start, todayRange.end);
+  const today = sliceMoney(targetDayStart, targetDayEnd);
   const week = sliceMoney(resolveRange("7d", now).start, resolveRange("7d", now).end);
   const monthRange = resolveRange("month", now);
   const month = sliceMoney(monthRange.start, monthRange.end);
@@ -477,9 +495,9 @@ export async function getDashboardMoney(
      Витрат немає взагалі — `dailyOpex = 0` і запас нерахований (`null`).
      Ділити на нуль, підставляючи вигадане число, — це те саме, від чого щойно
      позбулись. */
-  const opexFrom = new Date(todayRange.start);
+  const opexFrom = new Date(targetDayStart);
   opexFrom.setDate(opexFrom.getDate() - (OPEX_WINDOW_DAYS - 1));
-  const opexWindow = floorAtEpoch(opexFrom, todayRange.end, epoch);
+  const opexWindow = floorAtEpoch(opexFrom, targetDayEnd, epoch);
   const regularOpexTotal = ds.expenses
     .filter((e) => {
       const t = new Date(e.created_at).getTime();
@@ -523,7 +541,7 @@ export async function getDashboardMoney(
 
   const inToday = (iso: string) => {
     const t = new Date(iso).getTime();
-    return t >= todayRange.start.getTime() && t < todayRange.end.getTime();
+    return t >= targetDayStart.getTime() && t < targetDayEnd.getTime();
   };
 
   const todaySaleRows = ds.sales.filter((s) => inToday(s.created_at));
@@ -587,13 +605,13 @@ export async function getDashboardMoney(
     ds.sales,
     ds.repairs,
     ds.devices,
-    todayRange.start,
-    todayRange.end,
+    targetDayStart,
+    targetDayEnd,
   );
 
   return {
-    profit: main.profit,
-    expenses: main.expenses,
+    profit: preset === "today" && targetDate ? today.profit : main.profit,
+    expenses: preset === "today" && targetDate ? today.expenses : main.expenses,
     cashTotal,
     cashOnHand,
     cashless,
@@ -609,6 +627,7 @@ export async function getDashboardMoney(
     series,
     hourlySeries,
     daily,
+    selectedDate: selectedDateKey,
     todaySales: {
       count: todayReceipts.length,
       revenue: todayRevenue,

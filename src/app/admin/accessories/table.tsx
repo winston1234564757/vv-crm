@@ -409,6 +409,8 @@ export function AccessoriesTable({
             <AccessoryForm 
               onSuccess={() => { setSelectedAccessory(null); setIsEditingAccessory(false); }} 
               accessory={selectedAccessory} 
+              safes={safes}
+              registers={registers}
             />
           ) : (
             <AccessoryDetailView

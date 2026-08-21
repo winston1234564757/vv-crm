@@ -11,6 +11,7 @@ const withSerwist = withSerwistInit({
 // (reading 'length')" during "Creating an optimized production build".
 // https://github.com/webpack/webpack/issues/14532
 const nextConfig: NextConfig = {
+  turbopack: {},
   experimental: {
     serverActions: {
       /*

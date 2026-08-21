@@ -95,6 +95,7 @@ export function DashboardClient({
             series={money.series}
             hourlySeries={money.hourlySeries}
             dayLabel="Сьогодні"
+            selectedDate={money.selectedDate}
           />
         )}
 

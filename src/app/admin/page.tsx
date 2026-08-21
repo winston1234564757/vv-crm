@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; date?: string }>;
 }) {
   const session = await getCurrentUserRole();
   if (!session) return null;
@@ -21,7 +21,7 @@ export default async function AdminDashboard({
   const { user, role } = session;
   const showMoney = canSeeMoney(role);
 
-  const { range } = await searchParams;
+  const { range, date } = await searchParams;
   const preset: RangePreset = isRangePreset(range) ? range : "today";
 
   // Гроші не просто ховаються в розмітці — вони не читаються з бази взагалі.
@@ -30,7 +30,7 @@ export default async function AdminDashboard({
   const [settings, operations, money, averages] = await Promise.all([
     getSettings(),
     getOperationsData(),
-    showMoney ? getDashboardMoney(preset, user.id) : null,
+    showMoney ? getDashboardMoney(preset, user.id, date) : null,
     showMoney ? getAveragesSinceEpoch() : null,
   ]);
 
