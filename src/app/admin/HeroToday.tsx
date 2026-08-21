@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { BentoCell } from "@/components/ui/BentoCell";
 import { ProfitChart, type ChartMode, type ChartPoint } from "./ProfitChart";
 import { cn } from "@/lib/utils/cn";
@@ -22,14 +22,6 @@ import {
 
 const MIN_POINTS = 2;
 
-/**
- * Головний графік та показники на інвертованій плиті.
- *
- * Підтримує:
- * - Перегляд будь-якого окремого дня з навігацією ◀ ▶ та погодинним графіком (00:00–23:00).
- * - Перегляд "За весь час" з перемиканням на тижні (week) та місяці (month).
- * - Перемикання масштабу прямо на картці графіка.
- */
 export function HeroToday({
   preset,
   profit,
@@ -44,14 +36,11 @@ export function HeroToday({
   comparison: Comparison | null;
   series: DayPoint[];
   hourlySeries?: HourlyPoint[];
-  /** Підпис періоду: «Сьогодні» або конкретний обраний день. */
   dayLabel: string;
-  /** Поточна вибрана дата (YYYY-MM-DD). */
   selectedDate?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const empty = profit.revenue === 0;
@@ -65,43 +54,28 @@ export function HeroToday({
   const currentDateKey = selectedDate || todayKeyStr;
   const isToday = currentDateKey === todayKeyStr;
 
+  // Навігація без useSearchParams — формуємо URL вручну, щоб не ламати Suspense
   const navigateToDay = (dateStr: string) => {
-    const q = new URLSearchParams(searchParams.toString());
-    q.set("range", "today");
-    if (dateStr === todayKeyStr) {
-      q.delete("date");
-    } else {
-      q.set("date", dateStr);
+    const params = new URLSearchParams();
+    params.set("range", "today");
+    if (dateStr !== todayKeyStr) {
+      params.set("date", dateStr);
     }
     startTransition(() => {
-      router.replace(`${pathname}?${q.toString()}`);
+      router.replace(`${pathname}?${params.toString()}`);
     });
   };
 
-  const handlePrevDay = () => {
-    const prev = addDays(currentDateKey, -1);
-    navigateToDay(prev);
-  };
-
-  const handleNextDay = () => {
-    if (isToday) return;
-    const next = addDays(currentDateKey, 1);
-    navigateToDay(next);
-  };
-
-  const handleToday = () => {
-    navigateToDay(todayKeyStr);
-  };
+  const handlePrevDay = () => navigateToDay(addDays(currentDateKey, -1));
+  const handleNextDay = () => { if (!isToday) navigateToDay(addDays(currentDateKey, 1)); };
+  const handleToday = () => navigateToDay(todayKeyStr);
 
   let dynamicDayLabel = initialDayLabel;
   if (preset === "today") {
-    if (isToday) {
-      dynamicDayLabel = "Сьогодні";
-    } else {
-      dynamicDayLabel = formatDayLabel(currentDateKey);
-    }
+    dynamicDayLabel = isToday ? "Сьогодні" : formatDayLabel(currentDateKey);
   }
 
+  // ── Побудова даних для графіка ───────────────────────────────────────────
   let chartData: ChartPoint[] = [];
   let chartMode: ChartMode = "day";
   let chartHint = "";
@@ -117,7 +91,7 @@ export function HeroToday({
         margin: h.margin,
         count: h.count,
       }));
-      chartHint = `погодинна динаміка 00:00–23:00 (${currentDateKey})`;
+      chartHint = `погодинна динаміка 00:00–23:00 · ${currentDateKey}`;
     } else {
       chartMode = "day";
       chartData = series.map((d) => ({
@@ -146,7 +120,6 @@ export function HeroToday({
           ? `за ${aggregated.length} ${pluralUk(aggregated.length, "тиждень", "тижні", "тижнів")}`
           : `за ${aggregated.length} ${pluralUk(aggregated.length, "місяць", "місяці", "місяців")}`;
   } else {
-    // 7d, 30d, month, prev
     if (periodGroupBy === "week" && series.length >= 7) {
       chartMode = "week";
       const aggregated = aggregateSeries(series, "week");
@@ -171,162 +144,132 @@ export function HeroToday({
     }
   }
 
+  // ── Рендер ───────────────────────────────────────────────────────────────
   return (
-    <BentoCell span={8} tone="inverse" className={cn("min-h-[19.5rem] gap-3 transition-opacity", isPending && "opacity-60")}>
+    <BentoCell
+      span={8}
+      tone="inverse"
+      className={cn("min-h-[19.5rem] gap-3 transition-opacity", isPending && "opacity-60")}
+    >
+      {/* ── Шапка картки ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+
+        {/* ЛІВО: навігатор дня або лейбл пресету */}
+        {preset === "today" ? (
+          <div className="flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-xs">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              aria-label="Попередній день"
+              className="rounded px-1.5 py-0.5 text-white/60 transition hover:bg-white/10 hover:text-white cursor-pointer"
+            >
+              ◀
+            </button>
+
+            {/* Кнопка-дата = клік відкриває <input type=date> */}
+            <label className="relative cursor-pointer px-1">
+              <span className="font-semibold text-white text-[11px] capitalize hover:underline">
+                📅 {dynamicDayLabel}
+              </span>
+              <input
+                type="date"
+                value={currentDateKey}
+                max={todayKeyStr}
+                onChange={(e) => e.target.value && navigateToDay(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={handleNextDay}
+              disabled={isToday}
+              aria-label="Наступний день"
+              className="rounded px-1.5 py-0.5 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+            >
+              ▶
+            </button>
+
+            {!isToday && (
+              <button
+                type="button"
+                onClick={handleToday}
+                className="ml-1 rounded bg-[var(--color-accent-on-inverse)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-inverse-surface)] hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                Сьогодні
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-white/50">
+            {RANGE_LABELS[preset]}
+          </p>
+        )}
+
+        {/* ПРАВО: перемикачі масштабу графіка */}
+        {preset === "today" ? (
+          hourlySeries && hourlySeries.length > 0 ? (
+            <div className="flex items-center gap-0.5 rounded-lg bg-white/10 p-0.5 text-[11px]">
+              {(["hourly", "trend"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setTodayView(v)}
+                  className={cn(
+                    "rounded px-2.5 py-1 transition-all cursor-pointer",
+                    todayView === v
+                      ? "bg-[var(--color-accent-on-inverse)] font-bold text-[var(--color-inverse-surface)]"
+                      : "text-white/60 hover:text-white",
+                  )}
+                >
+                  {v === "hourly" ? "Погодинно" : "14 днів"}
+                </button>
+              ))}
+            </div>
+          ) : null
+        ) : preset === "all" ? (
+          <div className="flex items-center gap-0.5 rounded-lg bg-white/10 p-0.5 text-[11px]">
+            {(["day", "week", "month"] as GroupBy[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setPeriodGroupBy(v)}
+                className={cn(
+                  "rounded px-2.5 py-1 transition-all cursor-pointer",
+                  periodGroupBy === v
+                    ? "bg-[var(--color-accent-on-inverse)] font-bold text-[var(--color-inverse-surface)]"
+                    : "text-white/60 hover:text-white",
+                )}
+              >
+                {v === "day" ? "Дні" : v === "week" ? "Тижні" : "Місяці"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-0.5 rounded-lg bg-white/10 p-0.5 text-[11px]">
+            {(["day", "week"] as GroupBy[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setPeriodGroupBy(v)}
+                className={cn(
+                  "rounded px-2.5 py-1 transition-all cursor-pointer",
+                  periodGroupBy === v
+                    ? "bg-[var(--color-accent-on-inverse)] font-bold text-[var(--color-inverse-surface)]"
+                    : "text-white/60 hover:text-white",
+                )}
+              >
+                {v === "day" ? "Дні" : "Тижні"}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Числові показники ── */}
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-inverse-border/30 pb-2.5">
-          {/* Ліва частина: вибір дня або назва періоду */}
-          {preset === "today" ? (
-            <div className="flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-inverse-elevated/80 px-2.5 py-1 text-xs shadow-inner">
-              <button
-                type="button"
-                onClick={handlePrevDay}
-                aria-label="Попередній день"
-                className="rounded-[var(--radius-xs)] px-1.5 py-0.5 text-inverse-muted transition-colors hover:bg-inverse-surface hover:text-inverse-ink cursor-pointer"
-              >
-                ◀
-              </button>
-              <label className="relative flex items-center cursor-pointer px-1">
-                <span className="font-semibold text-inverse-ink text-xs capitalize hover:underline flex items-center gap-1">
-                  📅 {dynamicDayLabel}
-                </span>
-                <input
-                  type="date"
-                  value={currentDateKey}
-                  max={todayKeyStr}
-                  onChange={(e) => e.target.value && navigateToDay(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleNextDay}
-                disabled={isToday}
-                aria-label="Наступний день"
-                className="rounded-[var(--radius-xs)] px-1.5 py-0.5 text-inverse-muted transition-colors hover:bg-inverse-surface hover:text-inverse-ink disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-              >
-                ▶
-              </button>
-              {!isToday && (
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="ml-1.5 rounded-[var(--radius-xs)] bg-accent-on-inverse px-2 py-0.5 text-[11px] font-bold text-inverse-surface hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  Сьогодні
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-inverse-muted">
-                {RANGE_LABELS[preset]}
-              </p>
-            </div>
-          )}
-
-          {/* Права частина: перемикачі масштабу графіка */}
-          {preset === "today" ? (
-            hourlySeries && hourlySeries.length > 0 && (
-              <div className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-inverse-elevated/80 p-0.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setTodayView("hourly")}
-                  className={cn(
-                    "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                    todayView === "hourly"
-                      ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                      : "text-inverse-muted hover:text-inverse-ink",
-                  )}
-                >
-                  Погодинно (24г)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTodayView("trend")}
-                  className={cn(
-                    "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                    todayView === "trend"
-                      ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                      : "text-inverse-muted hover:text-inverse-ink",
-                  )}
-                >
-                  14 днів
-                </button>
-              </div>
-            )
-          ) : preset === "all" ? (
-            <div className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-inverse-elevated/80 p-0.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setPeriodGroupBy("day")}
-                className={cn(
-                  "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                  periodGroupBy === "day"
-                    ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                    : "text-inverse-muted hover:text-inverse-ink",
-                )}
-              >
-                По днях
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriodGroupBy("week")}
-                className={cn(
-                  "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                  periodGroupBy === "week"
-                    ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                    : "text-inverse-muted hover:text-inverse-ink",
-                )}
-              >
-                По тижнях
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriodGroupBy("month")}
-                className={cn(
-                  "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                  periodGroupBy === "month"
-                    ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                    : "text-inverse-muted hover:text-inverse-ink",
-                )}
-              >
-                По місяцях
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-inverse-elevated/80 p-0.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setPeriodGroupBy("day")}
-                className={cn(
-                  "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                  periodGroupBy === "day"
-                    ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                    : "text-inverse-muted hover:text-inverse-ink",
-                )}
-              >
-                По днях
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriodGroupBy("week")}
-                className={cn(
-                  "rounded-[var(--radius-xs)] px-2.5 py-1 transition-all cursor-pointer",
-                  periodGroupBy === "week"
-                    ? "bg-accent-on-inverse font-bold text-inverse-surface shadow-xs"
-                    : "text-inverse-muted hover:text-inverse-ink",
-                )}
-              >
-                По тижнях
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Числові показники */}
-        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <p className="font-display text-[2.75rem] font-semibold leading-none tabular tracking-tight text-inverse-ink">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className="font-display text-[2.75rem] font-semibold leading-none tabular tracking-tight text-white">
             {uah(profit.revenue)}
           </p>
 
@@ -336,46 +279,36 @@ export function HeroToday({
                 className={cn(
                   "tabular",
                   revenueDelta > 0
-                    ? "text-success-on-inverse"
+                    ? "text-green-400"
                     : revenueDelta < 0
-                      ? "text-danger-on-inverse"
-                      : "text-inverse-muted",
+                      ? "text-red-400"
+                      : "text-white/50",
                 )}
               >
                 {revenueDelta > 0 ? "▲" : revenueDelta < 0 ? "▼" : "="} {signedPct(revenueDelta)}
               </span>{" "}
-              <span className="text-inverse-muted">{comparison.label}</span>
+              <span className="text-white/50">{comparison.label}</span>
             </p>
           )}
 
           {empty && comparison && (
-            <p className="text-sm text-inverse-muted">
+            <p className="text-sm text-white/50">
               звичайно{" "}
-              <span className="tabular text-inverse-ink">{uah(comparison.revenue)}</span>
+              <span className="tabular text-white">{uah(comparison.revenue)}</span>
             </p>
           )}
         </div>
 
         {!empty && (
-          <p className="mt-1.5 text-sm text-inverse-muted">
+          <p className="mt-1.5 text-sm text-white/60">
             прибуток{" "}
-            <span
-              className={cn(
-                "font-semibold tabular",
-                profit.profit >= 0 ? "text-inverse-ink" : "text-danger-on-inverse",
-              )}
-            >
+            <span className={cn("font-semibold tabular", profit.profit >= 0 ? "text-white" : "text-red-400")}>
               {uah(profit.profit)}
             </span>
-            <span className="mx-2 text-inverse-border">·</span>
-            маржа <span className="font-semibold tabular text-inverse-ink">{profit.margin}%</span>
+            <span className="mx-2 text-white/20">·</span>
+            маржа <span className="font-semibold tabular text-white">{profit.margin}%</span>
             {marginDelta !== null && marginDelta !== 0 && (
-              <span
-                className={cn(
-                  "ml-1.5 tabular",
-                  marginDelta > 0 ? "text-success-on-inverse" : "text-danger-on-inverse",
-                )}
-              >
+              <span className={cn("ml-1.5 tabular", marginDelta > 0 ? "text-green-400" : "text-red-400")}>
                 {signedPp(marginDelta)}
               </span>
             )}
@@ -383,39 +316,37 @@ export function HeroToday({
         )}
       </div>
 
-      {/* Графік */}
+      {/* ── Графік ── */}
       {chartData.length >= MIN_POINTS ? (
         <div className="-mx-2 min-h-[9.5rem] flex-1">
           <ProfitChart
             series={chartData}
             mode={chartMode}
             onPointClick={(key) => {
-              if (chartMode === "day") {
-                navigateToDay(key);
-              }
+              if (chartMode === "day") navigateToDay(key);
             }}
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-[6rem] flex items-center justify-center text-xs text-inverse-muted">
-          Даних за цей відрізок недостатньо для побудови графіка
+        <div className="flex-1 min-h-[6rem] flex items-center justify-center text-xs text-white/40">
+          Недостатньо даних для графіка
         </div>
       )}
 
-      {/* Підказка внизу картки */}
-      <p className="text-[11px] text-inverse-muted">
+      {/* ── Підказка ── */}
+      <p className="text-[11px] text-white/40">
         {chartData.length >= MIN_POINTS ? (
           <>
-            <span className="font-medium text-inverse-ink/80">{chartHint}</span>
-            <span className="mx-1.5 text-inverse-border">·</span>
-            {chartMode === "day" ? (
-              <span>клікни по даті або точці для перегляду погодинного графіка</span>
-            ) : (
-              <span>наведи курсор на графік для перегляду деталей</span>
+            <span className="text-white/60">{chartHint}</span>
+            {chartMode === "day" && (
+              <>
+                <span className="mx-1.5 text-white/20">·</span>
+                <span>наведи, клікни — відкрий день</span>
+              </>
             )}
           </>
         ) : (
-          "графік з’явиться, коли назбирається достатньо даних"
+          "графік з'явиться, коли назбирається достатньо даних"
         )}
       </p>
     </BentoCell>
