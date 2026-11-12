@@ -85,12 +85,8 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
 const expenseSchema = z.object({
   category_id: z.string().uuid("Оберіть категорію витрати"),
   amount: z.coerce.number().min(1, "Сума витрати має бути більше 0"),
-  paid_from_safe_id: z.string().uuid().nullable().optional(),
-  source_type: z.enum(["safe", "cash_register"]).optional().default("safe"),
-  source_id: z.string().uuid("Оберіть, звідки платити"),
+  source_id: z.string().uuid("Оберіть, звідки платити (Готівка або Безготівка)"),
   description: z.string().optional(),
-  // Сейф тримає дві половини, і витрата мусить сказати, з якої брати.
-  // Замовчування — готівка: це найчастіший випадок за прилавком.
   payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
 });
 
@@ -99,38 +95,59 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
     const data = {
       category_id: formData.get("category_id"),
       amount: formData.get("amount"),
-      paid_from_safe_id: formData.get("paid_from_safe_id") || null,
-      source_type: formData.get("source_type") || "safe",
       source_id: formData.get("source_id") || formData.get("paid_from_safe_id"),
       description: formData.get("description") || "",
       payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = expenseSchema.parse(data);
-    // Витрата списує з сейфа — та сама межа, що й для переказу.
     const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
 
-    const { error: rpcError } = await supabase.rpc("create_expense", {
+    // 1. Перевіряємо баланс каси
+    const { data: reg, error: regErr } = await supabase
+      .from("cash_registers")
+      .select("id, name, balance")
+      .eq("id", parsed.source_id)
+      .single();
+
+    if (regErr || !reg) throw new Error("Касу для списання не знайдено");
+    if (reg.balance < parsed.amount) {
+      throw new Error(`У касі "${reg.name}" недостатньо коштів (баланс: ${reg.balance} ₴, потрібно: ${parsed.amount} ₴)`);
+    }
+
+    // 2. Списуємо кошти з каси
+    const newBal = reg.balance - parsed.amount;
+    const { error: updErr } = await supabase
+      .from("cash_registers")
+      .update({ balance: newBal, updated_at: new Date().toISOString() })
+      .eq("id", reg.id);
+    if (updErr) throw updErr;
+
+    // 3. Записуємо витрату в expenses
+    await supabase.from("expenses").insert({
       category_id: parsed.category_id,
       amount: parsed.amount,
-      /* Поле лишається в сигнатурі RPC, але веде перед `p_source_id`. Для каси
-         сюди мусить їхати NULL: колонка `expenses.paid_from_safe_id` тримає FK
-         на `safes`, і id каси в ній був би посиланням у нікуди.
-
-         У згенерованих типах поле не nullable — воно стало таким міграцією
-         `20260806080657`, а `database.ts` навмисно не перегенеровується
-         (див. AGENTS.md). */
-      // @ts-expect-error — див. коментар вище
-      paid_from_safe_id: parsed.source_type === "safe" ? parsed.source_id : null,
-      description: parsed.description || "",
-      user_id: user.id,
-      payment_method: parsed.payment_method,
-      p_source_type: parsed.source_type,
-      p_source_id: parsed.source_id,
+      description: parsed.description || null,
+      created_by: user.id,
+      // @ts-expect-error — column is nullable in DB via migration 20260806080657
+      paid_from_safe_id: null,
     });
 
-    if (rpcError) throw rpcError;
+    // 4. Фіксуємо транзакцію
+    await supabase.from("transactions").insert({
+      amount: parsed.amount,
+      from_type: "cash_register",
+      from_id: reg.id,
+      to_type: "external",
+      to_id: null,
+      reference_type: "expense",
+      payment_method: parsed.payment_method,
+      description: parsed.description || "Операційна витрата",
+      created_by: user.id,
+      from_balance_before: reg.balance,
+      from_balance_after: newBal,
+    });
 
     revalidatePath("/admin/finance");
     revalidatePath("/admin");
@@ -143,9 +160,8 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
 const distributionSchema = z.object({
   cash_register_id: z.string().uuid("Оберіть касу для розподілу"),
   amount: z.coerce.number().min(1, "Сума розподілу має бути більше 0"),
-  opex_amount: z.coerce.number().min(0),
-  growth_amount: z.coerce.number().min(0),
-  net_profit_amount: z.coerce.number().min(0),
+  reinvest_amount: z.coerce.number().min(0, "Сума реінвесту має бути >= 0"),
+  profit_amount: z.coerce.number().min(0, "Сума прибутку має бути >= 0"),
   description: z.string().optional(),
 });
 
@@ -154,43 +170,80 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
     const data = {
       cash_register_id: formData.get("cash_register_id"),
       amount: formData.get("amount"),
-      opex_amount: formData.get("opex_amount"),
-      growth_amount: formData.get("growth_amount"),
-      net_profit_amount: formData.get("net_profit_amount"),
+      reinvest_amount: formData.get("reinvest_amount") ?? formData.get("growth_amount") ?? 0,
+      profit_amount: formData.get("profit_amount") ?? formData.get("net_profit_amount") ?? 0,
       description: formData.get("description") || "",
     };
 
     const parsed = distributionSchema.parse(data);
-
-    // Суми частин тепер вводяться вручну (для сейфа «Безготівка»), а не
-    // рахуються з відсоткових налаштувань. Клієнт блокує сабміт, якщо суми
-    // не збігаються, але це лише зручність інтерфейсу, а не контроль:
-    // підроблений або застарілий POST-запит все одно дійде до сервера.
-    // Тому суму частин звіряємо із сумою зняття тут — точним порівнянням,
-    // без похибки, бо це цілі гривні.
-    const partsSum = parsed.opex_amount + parsed.growth_amount + parsed.net_profit_amount;
+    const partsSum = parsed.reinvest_amount + parsed.profit_amount;
     if (partsSum !== parsed.amount) {
       return {
         success: false,
-        error: `Сума частин розподілу (${partsSum} грн) не дорівнює сумі зняття з каси (${parsed.amount} грн)`,
+        error: `Сума Реінвесту (${parsed.reinvest_amount} ₴) + Прибутку (${parsed.profit_amount} ₴) = ${partsSum} ₴, що не дорівнює сумі розподілу (${parsed.amount} ₴)`,
       };
     }
 
-    // Розподіл спорожняє касу в сейфи — owner/manager.
     const { user } = await requireRole(MONEY_ROLES);
     const supabase = await createClient();
 
-    const { error: rpcError } = await supabase.rpc("distribute_register_funds", {
-      cash_register_id: parsed.cash_register_id,
-      amount: parsed.amount,
-      opex_amount: parsed.opex_amount,
-      growth_amount: parsed.growth_amount,
-      net_profit_amount: parsed.net_profit_amount,
-      desc_text: parsed.description || "",
-      user_id: user.id,
-    });
+    // Перевіряємо касу
+    const { data: reg, error: regErr } = await supabase
+      .from("cash_registers")
+      .select("id, name, balance, type")
+      .eq("id", parsed.cash_register_id)
+      .single();
 
-    if (rpcError) throw rpcError;
+    if (regErr || !reg) throw new Error("Касу не знайдено");
+
+    // Перевіряємо, що в касі достатньо коштів
+    if (reg.balance < parsed.amount) {
+      throw new Error(
+        `У касі "${reg.name}" недостатньо коштів (баланс: ${reg.balance} ₴, потрібно: ${parsed.amount} ₴)`,
+      );
+    }
+
+    // Списуємо кошти з каси
+    const newRegBal = reg.balance - parsed.amount;
+    const { error: regUpdErr } = await supabase
+      .from("cash_registers")
+      .update({ balance: newRegBal, updated_at: new Date().toISOString() })
+      .eq("id", reg.id);
+    if (regUpdErr) throw regUpdErr;
+
+    // Оновлюємо віртуальні фонди в settings
+    const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
+    const [{ data: sReinvest }, { data: sProfit }] = await Promise.all([
+      adminSupabase.from("settings").select("value").eq("key", "finance_reinvest_fund").maybeSingle(),
+      adminSupabase.from("settings").select("value").eq("key", "finance_profit_fund").maybeSingle(),
+    ]);
+
+    const curReinvest = typeof sReinvest?.value === "object" && sReinvest.value !== null && "amount" in sReinvest.value
+      ? Number(sReinvest.value.amount) || 0 : 0;
+    const curProfit = typeof sProfit?.value === "object" && sProfit.value !== null && "amount" in sProfit.value
+      ? Number(sProfit.value.amount) || 0 : 0;
+
+    const newReinvest = curReinvest + parsed.reinvest_amount;
+    const newProfit = curProfit + parsed.profit_amount;
+
+    await Promise.all([
+      adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: newReinvest } }, { onConflict: "key" }),
+      adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: newProfit } }, { onConflict: "key" }),
+    ]);
+
+    // Фіксуємо транзакцію розподілу для аудиту
+    await supabase.from("transactions").insert({
+      amount: parsed.amount,
+      from_type: "cash_register",
+      from_id: reg.id,
+      to_type: "external",
+      reference_type: "distribution",
+      payment_method: reg.type === "cashless" ? "cashless" : "cash",
+      description: parsed.description || `Розподіл виручки: Реінвест +${parsed.reinvest_amount} ₴, Прибуток +${parsed.profit_amount} ₴`,
+      created_by: user.id,
+      from_balance_before: reg.balance,
+      from_balance_after: newRegBal,
+    });
 
     revalidatePath("/admin/finance");
     revalidatePath("/admin");
@@ -207,14 +260,56 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     await requireRole(MONEY_ROLES);
     const supabase = await createClient();
 
-    // 4. Invoke the atomic stored procedure to revert and delete transaction
+    // 1. Отримуємо транзакцію до видалення для перевірки спец-типів
+    const { data: tx } = await supabase
+      .from("transactions")
+      .select("amount, reference_type, description")
+      .eq("id", transactionId)
+      .maybeSingle();
+
+    // 2. Викликаємо атомарну збережену процедуру для повернення коштів на касу/сейф та видалення
     const { error: rpcError } = await supabase.rpc("delete_transaction", {
       transaction_id_to_delete: transactionId
     });
 
     if (rpcError) throw rpcError;
 
-    // 5. Revalidate cache
+    // 3. Синхронізуємо віртуальні фонди в settings
+    if (tx && tx.reference_type === "distribution") {
+      const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
+      if (tx.description?.includes("Вилучення чистого прибутку")) {
+        // Повертаємо вилучений прибуток у фонд прибутку
+        const { data: sProfit } = await adminSupabase
+          .from("settings")
+          .select("value")
+          .eq("key", "finance_profit_fund")
+          .maybeSingle();
+        const cur = typeof sProfit?.value === "object" && sProfit.value !== null && "amount" in sProfit.value
+          ? Number(sProfit.value.amount) || 0 : 0;
+        await adminSupabase
+          .from("settings")
+          .upsert({ key: "finance_profit_fund", value: { amount: cur + Number(tx.amount) } }, { onConflict: "key" });
+      } else {
+        // Спробуємо розпарсити розподіл: "Реінвест +X ₴, Прибуток +Y ₴"
+        const m = tx.description?.match(/Реінвест \+(\d+(?:\.\d+)?) ₴, Прибуток \+(\d+(?:\.\d+)?) ₴/);
+        if (m) {
+          const revAmount = Number(m[1]) || 0;
+          const profAmount = Number(m[2]) || 0;
+          const [{ data: sR }, { data: sP }] = await Promise.all([
+            adminSupabase.from("settings").select("value").eq("key", "finance_reinvest_fund").maybeSingle(),
+            adminSupabase.from("settings").select("value").eq("key", "finance_profit_fund").maybeSingle(),
+          ]);
+          const curR = typeof sR?.value === "object" && sR.value !== null && "amount" in sR.value ? Number(sR.value.amount) || 0 : 0;
+          const curP = typeof sP?.value === "object" && sP.value !== null && "amount" in sP.value ? Number(sP.value.amount) || 0 : 0;
+          await Promise.all([
+            adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: Math.max(0, curR - revAmount) } }, { onConflict: "key" }),
+            adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: Math.max(0, curP - profAmount) } }, { onConflict: "key" }),
+          ]);
+        }
+      }
+    }
+
+    // 4. Revalidate cache
     revalidatePath("/admin/finance");
     revalidatePath("/admin");
 
@@ -267,57 +362,81 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
   }
 }
 
-// Джерело — тільки сейф ЧП: частка нараховується з нього, тож зняття повз
-// нього розсинхронізувало б залишок власника з реальним балансом сейфа.
-// Те, що це саме сейф ЧП, перевіряє RPC — тут відсікаємо лише каси, які
-// приймала стара форма.
 const withdrawSchema = z.object({
-  // Сейф має дві половини — вилучення мусить сказати, якої стосується.
   payment_method: z.enum(["cash", "cashless"]).optional().default("cash"),
-  source_type: z.literal("safe", {
-    message: "Частку можна зняти лише з сейфа «Чистий прибуток»",
-  }),
-  source_id: z.string().uuid("Оберіть сейф чистого прибутку"),
+  source_id: z.string().uuid("Оберіть рахунок для виплати (Готівка або Безготівка)"),
   amount: z.coerce.number().min(1, "Сума вилучення має бути більше 0"),
-  // Сейф, з якого добирається аванс, коли в ЧП не вистачило. Порожній рядок —
-  // це «не потрібен», а не помилка: форма шле поле завжди.
-  advance_safe_id: z
-    .string()
-    .uuid("Оберіть сейф, з якого взяти аванс")
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
   description: z.string().optional(),
 });
 
 export async function withdrawOwnerShareAction(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
   try {
-    // Вилучення частки — строгіше за решту: тільки власник, не менеджер.
     const { user } = await requireRole(["owner"]);
     const data = {
-      source_type: formData.get("source_type"),
       source_id: formData.get("source_id"),
       amount: formData.get("amount"),
-      advance_safe_id: formData.get("advance_safe_id") || "",
       description: formData.get("description") || "",
       payment_method: formData.get("payment_method") || "cash",
     };
 
     const parsed = withdrawSchema.parse(data);
     const supabase = await createClient();
+    const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
 
-    // Ділити суму на частку з сейфа й аванс має база, а не ця дія: обидва
-    // записи мусять з'явитись або не з'явитись разом. Половина вилучення —
-    // гірше, ніж жодного.
-    const { error: rpcError } = await supabase.rpc("withdraw_owner_share_with_advance" as any, {
-      p_np_safe_id: parsed.source_id,
-      p_advance_safe_id: parsed.advance_safe_id ?? null,
-      p_amount: Math.round(parsed.amount),
-      p_desc_text: parsed.description || "Вилучення частки прибутку співвласника",
-      p_user_id: user.id,
-      p_payment_method: parsed.payment_method,
+    // 1. Перевіряємо ліміт доступного прибутку у settings
+    const { data: sProfit } = await adminSupabase
+      .from("settings")
+      .select("value")
+      .eq("key", "finance_profit_fund")
+      .maybeSingle();
+
+    const availableProfit = typeof sProfit?.value === "object" && sProfit?.value !== null && "amount" in sProfit.value
+      ? Number(sProfit.value.amount) || 0 : 0;
+
+    if (parsed.amount > availableProfit) {
+      throw new Error(`Сума перевищує нарахований прибуток (доступно: ${availableProfit} ₴, запитано: ${parsed.amount} ₴)`);
+    }
+
+    // 2. Перевіряємо баланс фізичної каси
+    const { data: reg, error: regErr } = await supabase
+      .from("cash_registers")
+      .select("id, name, balance")
+      .eq("id", parsed.source_id)
+      .single();
+
+    if (regErr || !reg) throw new Error("Касу для виплати не знайдено");
+    if (reg.balance < parsed.amount) {
+      throw new Error(`У касі "${reg.name}" недостатньо коштів (баланс: ${reg.balance} ₴, потрібно: ${parsed.amount} ₴)`);
+    }
+
+    // 3. Списуємо кошти з каси
+    const newBal = reg.balance - parsed.amount;
+    const { error: updErr } = await supabase
+      .from("cash_registers")
+      .update({ balance: newBal, updated_at: new Date().toISOString() })
+      .eq("id", reg.id);
+    if (updErr) throw updErr;
+
+    // 4. Зменшуємо віртуальний фонд прибутку
+    const newProfitFund = availableProfit - parsed.amount;
+    await adminSupabase
+      .from("settings")
+      .upsert({ key: "finance_profit_fund", value: { amount: newProfitFund } }, { onConflict: "key" });
+
+    // 5. Фіксуємо транзакцію вилучення
+    await supabase.from("transactions").insert({
+      amount: parsed.amount,
+      from_type: "cash_register",
+      from_id: reg.id,
+      to_type: "external",
+      to_id: null,
+      reference_type: "distribution",
+      payment_method: parsed.payment_method,
+      description: parsed.description || "Вилучення чистого прибутку власником",
+      created_by: user.id,
+      from_balance_before: reg.balance,
+      from_balance_after: newBal,
     });
-
-    if (rpcError) throw rpcError;
 
     revalidatePath("/admin/finance");
     revalidatePath("/admin");
@@ -378,5 +497,29 @@ export async function convertSafeHalvesAction(
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
+  }
+}
+
+/**
+ * Зменшує віртуальний фонд реінвесту при закупівлях запчастин чи техніки.
+ */
+export async function deductReinvestFund(amount: number) {
+  if (!amount || amount <= 0) return;
+  try {
+    const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
+    const { data: sReinvest } = await adminSupabase
+      .from("settings")
+      .select("value")
+      .eq("key", "finance_reinvest_fund")
+      .maybeSingle();
+
+    const cur = typeof sReinvest?.value === "object" && sReinvest?.value !== null && "amount" in sReinvest.value
+      ? Number(sReinvest.value.amount) || 0 : 0;
+    const newBal = Math.max(0, cur - Math.round(amount));
+    await adminSupabase
+      .from("settings")
+      .upsert({ key: "finance_reinvest_fund", value: { amount: newBal } }, { onConflict: "key" });
+  } catch (e) {
+    console.error("Помилка списання з фонду реінвесту:", e);
   }
 }
