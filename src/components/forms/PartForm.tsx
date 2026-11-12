@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useRef } from "react";
 import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import {
   PaymentSourcePicker,
@@ -8,6 +8,7 @@ import {
   type ChosenSource,
   type SourceAccount,
 } from "@/components/ui/PaymentSourcePicker";
+import { CostAdjustmentModal, type CostAdjustmentData } from "@/components/modals/CostAdjustmentModal";
 import { createPart, updatePart } from "@/lib/actions/parts";
 import { Input } from "@/components/ui/Input";
 import type { Database } from "@/types/database";
@@ -41,13 +42,52 @@ export function PartForm({
     return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   });
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const isEdit = !!part;
+  const [costAdjustmentModalOpen, setCostAdjustmentModalOpen] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState<{ oldCost: number; newCost: number } | null>(null);
+  const [adjustmentData, setAdjustmentData] = useState<CostAdjustmentData | null>(null);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (isEdit && adjustmentData === null) {
+      const formData = new FormData(e.currentTarget);
+      const newCost = Number(formData.get("cost_price")) || 0;
+      const oldCost = Number(part?.cost_price) || 0;
+
+      if (newCost !== oldCost) {
+        e.preventDefault();
+        setPendingAdjustment({ oldCost, newCost });
+        setCostAdjustmentModalOpen(true);
+        return;
+      }
+    }
+  };
+
+  const handleConfirmAdjustment = (data: CostAdjustmentData) => {
+    setAdjustmentData(data);
+    setCostAdjustmentModalOpen(false);
+    setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 50);
+  };
+
   useEffect(() => { if (state.success) onSuccess(); }, [state.success, onSuccess]);
 
   const isTransit = status === "transit";
   const isCreating = !part;
 
   return (
-    <form action={formAction} className="space-y-4 p-2">
+    <>
+      <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-4 p-2">
+        {adjustmentData && pendingAdjustment && (
+          <>
+            <input type="hidden" name="adjustment_action" value={adjustmentData.action} />
+            <input type="hidden" name="adjustment_source_type" value={adjustmentData.sourceType} />
+            <input type="hidden" name="adjustment_source_id" value={adjustmentData.sourceId} />
+            <input type="hidden" name="adjustment_payment_method" value={adjustmentData.paymentMethod} />
+            <input type="hidden" name="cost_delta" value={pendingAdjustment.newCost - pendingAdjustment.oldCost} />
+          </>
+        )}
       {state.error && (
         <div className="fixed bottom-5 right-5 z-[9999] max-w-sm rounded-xl border border-rose/30 bg-warm-surface p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className="flex items-start gap-3">
@@ -189,7 +229,7 @@ export function PartForm({
           </div>
           <input type="hidden" name="payment_status" value={paymentStatus} />
 
-          {paymentStatus === "paid" && safes.length > 0 && (
+          {paymentStatus === "paid" && (registers.length > 0 || safes.length > 0) && (
             <div>
               <PaymentSourcePicker
                 label="Списати з"
@@ -199,12 +239,6 @@ export function PartForm({
                 value={source}
                 onChange={setSource}
               />
-              {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
-              {source?.type === "safe" && (
-                <div className="mt-3">
-                  <PaymentMethodPicker />
-                </div>
-              )}
             </div>
           )}
 
@@ -258,5 +292,20 @@ export function PartForm({
         {pending ? "Збереження..." : part ? "Зберегти зміни" : isTransit ? "Додати деталь (в дорозі 🚚)" : "Додати деталь"}
       </button>
     </form>
+
+    {isEdit && pendingAdjustment && (
+      <CostAdjustmentModal
+        isOpen={costAdjustmentModalOpen}
+        onClose={() => setCostAdjustmentModalOpen(false)}
+        onConfirm={handleConfirmAdjustment}
+        itemName={part?.name || "Деталь"}
+        oldCost={pendingAdjustment.oldCost}
+        newCost={pendingAdjustment.newCost}
+        safes={safes as any}
+        registers={registers}
+        isPending={pending}
+      />
+    )}
+    </>
   );
 }

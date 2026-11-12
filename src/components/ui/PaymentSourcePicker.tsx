@@ -33,22 +33,21 @@ export interface SourceAccount {
 export interface ChosenSource {
   type: "safe" | "cash_register";
   id: string;
-  /** Каса диктує спосіб оплати; сейф лишає вибір за користувачем. */
+  /** Каса диктує спосіб оплати. */
   method: "cash" | "cashless" | null;
   name: string;
 }
 
 export function PaymentSourcePicker({
-  safes,
-  registers,
+  safes = [],
+  registers = [],
   label = "Звідки платимо",
   legacyName,
   excludeSafeTypes = [],
   value,
   onChange,
 }: {
-  safes: SourceAccount[];
-  /** Уже відфільтровані до безготівкових — компонент сам нічого не відкидає. */
+  safes?: SourceAccount[];
   registers: SourceAccount[];
   label?: string;
   /** Ім'я поля, яке досі читає серверна дія (`paid_from_safe_id`, `safe_id`). */
@@ -57,22 +56,17 @@ export function PaymentSourcePicker({
   value?: ChosenSource | null;
   onChange?: (v: ChosenSource) => void;
 }) {
-  const options: ChosenSource[] = [
-    ...safes
-      .filter((s) => !excludeSafeTypes.includes(s.type))
-      .map((s) => ({ type: "safe" as const, id: s.id, method: null, name: s.name })),
-    ...registers.map((r) => ({
-      type: "cash_register" as const,
-      id: r.id,
-      method: (r.type === "cashless" ? "cashless" : "cash") as "cash" | "cashless",
-      name: r.name,
-    })),
-  ];
+  // Джерелами коштів є виключно фізичні каси та безготівковий рахунок (без рудиментних сейфів)
+  const options: ChosenSource[] = registers.map((r) => ({
+    type: "cash_register" as const,
+    id: r.id,
+    method: (r.type === "cashless" ? "cashless" : "cash") as "cash" | "cashless",
+    name: r.name,
+  }));
 
-  const balances = new Map<string, number>([
-    ...safes.map((s) => [s.id, s.balance] as const),
-    ...registers.map((r) => [r.id, r.balance] as const),
-  ]);
+  const balances = new Map<string, number>(
+    registers.map((r) => [r.id, r.balance] as const),
+  );
 
   const [internal, setInternal] = useState<ChosenSource | null>(options[0] ?? null);
   const chosen = value !== undefined ? value : internal;
@@ -87,13 +81,13 @@ export function PaymentSourcePicker({
   return (
     <div>
       <FieldLabel htmlFor="payment-source">{label}</FieldLabel>
-      <input type="hidden" name="source_type" value={chosen?.type ?? ""} />
+      <input type="hidden" name="source_type" value={chosen?.type ?? "cash_register"} />
       <input type="hidden" name="source_id" value={chosen?.id ?? ""} />
       {legacyName && (
         <input
           type="hidden"
           name={legacyName}
-          value={chosen?.type === "safe" ? chosen.id : ""}
+          value={chosen?.id ?? ""}
         />
       )}
       <select
@@ -103,23 +97,26 @@ export function PaymentSourcePicker({
         className={cn(fieldClass, fieldTone(false))}
       >
         {options.length === 0 && <option value="">Немає доступних рахунків</option>}
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.type === "cash_register" ? "Рахунок · " : "Сейф · "}
-            {o.name} ({(balances.get(o.id) ?? 0).toLocaleString("uk-UA")} ₴)
-          </option>
-        ))}
+        {options.map((o) => {
+          const bal = balances.get(o.id) ?? 0;
+          const isCard = o.method === "cashless";
+          return (
+            <option key={o.id} value={o.id}>
+              {isCard ? "💳 Безготівка" : "💵 Готівка"} · {o.name} ({bal.toLocaleString("uk-UA")} ₴)
+            </option>
+          );
+        })}
       </select>
       {chosen?.method && (
         <p className="mt-1.5 text-xs text-faint">
-          Спосіб оплати визначає сам рахунок — {chosen.method === "cashless" ? "безготівка" : "готівка"}.
+          Спосіб списання — {chosen.method === "cashless" ? "безготівковий" : "готівковий"}.
         </p>
       )}
     </div>
   );
 }
 
-/** Безготівкові каси — єдині, з яких дозволено платити прямо. */
+/** Доступні каси для оплати — повертає всі доступні фізичні каси (готівка + безготівка). */
 export function spendableRegisters<T extends { type: string }>(registers: T[]): T[] {
-  return registers.filter((r) => r.type === "cashless");
+  return registers;
 }

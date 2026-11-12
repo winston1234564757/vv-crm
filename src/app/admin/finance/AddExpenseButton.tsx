@@ -12,7 +12,7 @@ interface ExpenseCategory {
   description: string | null;
 }
 
-interface Safe {
+interface CashRegisterItem {
   id: string;
   name: string;
   type: string;
@@ -21,13 +21,11 @@ interface Safe {
 
 export function AddExpenseButton({
   expenseCategories,
-  safes,
   registers = [],
 }: {
   expenseCategories: ExpenseCategory[];
-  safes: Safe[];
-  /** Каси як джерело оплати. Форма сама лишить із них лише безготівкові. */
-  registers?: Safe[];
+  safes?: unknown[];
+  registers?: CashRegisterItem[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -40,7 +38,6 @@ export function AddExpenseButton({
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Створення нової витрати" size="default">
         <ExpenseForm
           expenseCategories={expenseCategories}
-          safes={safes}
           registers={registers}
           onSuccess={() => setIsOpen(false)}
         />

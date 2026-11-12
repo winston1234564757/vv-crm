@@ -171,46 +171,16 @@ export function CostAdjustmentModal({
           </div>
         </div>
 
-        {/* Вибір сейфу/каси якщо обрано рух коштів */}
+        {/* Вибір каси/рахунку якщо обрано рух коштів */}
         {shouldAdjust && (
           <div className="space-y-3 pt-1 animate-entry">
             <PaymentSourcePicker
-              label={isIncrease ? "Списати з сейфу / рахунку" : "Повернути у сейф / рахунок"}
+              label={isIncrease ? "Списати з каси / рахунку" : "Повернути в касу / на рахунок"}
               safes={safes}
               registers={spendable}
               value={source}
               onChange={setSource}
             />
-
-            {source?.type === "safe" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-text-secondary">Спосіб оплати / половина сейфу</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("cash")}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                      paymentMethod === "cash"
-                        ? "border-violet bg-violet text-white shadow-sm"
-                        : "border-warm-border/60 bg-warm-surface text-text-secondary hover:bg-warm-hover"
-                    }`}
-                  >
-                    💵 Готівка
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("cashless")}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                      paymentMethod === "cashless"
-                        ? "border-violet bg-violet text-white shadow-sm"
-                        : "border-warm-border/60 bg-warm-surface text-text-secondary hover:bg-warm-hover"
-                    }`}
-                  >
-                    💳 Безготівка
-                  </button>
-                </div>
-              </div>
-            )}
 
             {selectedBalance !== null && (
               <div

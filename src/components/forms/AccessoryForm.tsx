@@ -24,7 +24,7 @@ export function AccessoryForm({
   registers = []
 }: {
   onSuccess: () => void;
-  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; min_stock?: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null; supplier_sku?: string | null };
+  accessory?: { id: string; type: string; name: string; price: number; cost_price: number; stock: number; min_stock?: number; warranty_months?: number; description: string | null; is_visible: boolean; source?: string | null; barcode?: string | null; warehouse_location?: string | null; photo_urls?: string[] | null; supplier_sku?: string | null; compatible_model?: string | null };
   safes?: SourceAccount[];
   /** Каси як джерело оплати. Пікер лишить із них лише безготівкові. */
   registers?: SourceAccount[];
@@ -32,6 +32,7 @@ export function AccessoryForm({
   const action = accessory ? updateAccessory.bind(null, accessory.id) : createAccessory;
   const [state, formAction, pending] = useActionState(action, initialState);
   const [source, setSource] = useState<ChosenSource | null>(null);
+  const [selectedType, setSelectedType] = useState(accessory?.type ?? "case");
 
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = !!accessory;
@@ -106,6 +107,7 @@ export function AccessoryForm({
             name="type"
             required
             defaultValue={accessory?.type ?? "case"}
+            onChange={(e) => setSelectedType(e.target.value)}
             className="w-full rounded-xl border border-warm-border/60 bg-warm-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-violet/40"
           >
             {optionsOf(accessoryType).map((o) => (
@@ -115,6 +117,16 @@ export function AccessoryForm({
         </div>
 
         <Input label="Назва аксесуару" name="name" required placeholder="Чохол Silicone Case iPhone 15" defaultValue={accessory?.name ?? ""} />
+
+        {/* Модель телефону — тільки для чохлів і захисних стікол */}
+        {(selectedType === "case" || selectedType === "screen_protector") && (
+          <Input
+            label="Модель телефону"
+            name="compatible_model"
+            placeholder="iPhone 15 Pro, Samsung S24 Ultra..."
+            defaultValue={accessory?.compatible_model ?? ""}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Input label="Собівартість (грн)" name="cost_price" type="number" required placeholder="300" defaultValue={accessory?.cost_price.toString() ?? ""} />
@@ -213,7 +225,7 @@ export function AccessoryForm({
             <Input label="Розташування на складі" name="warehouse_location" placeholder="Стелаж Б, полиця 1" defaultValue={accessory?.warehouse_location ?? ""} />
           </div>
 
-          {!accessory && safes.length > 0 && (
+          {!accessory && (registers.length > 0 || safes.length > 0) && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <PaymentSourcePicker
                 label="Списати з"
@@ -223,8 +235,6 @@ export function AccessoryForm({
                 value={source}
                 onChange={setSource}
               />
-              {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
-              {source?.type === "safe" && <PaymentMethodPicker />}
             </div>
           )}
         </div>

@@ -3,10 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import { createExpenseAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
-import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import {
   PaymentSourcePicker,
-  spendableRegisters,
   type ChosenSource,
   type SourceAccount,
 } from "@/components/ui/PaymentSourcePicker";
@@ -14,27 +12,19 @@ import {
 interface ExpenseCategory {
   id: string;
   name: string;
-  safe_type: string;
+  safe_type?: string;
   description: string | null;
-}
-
-interface Safe {
-  id: string;
-  name: string;
-  type: string;
-  balance: number;
 }
 
 const initialState = { success: false, error: "" };
 
 export function ExpenseForm({
   expenseCategories,
-  safes,
   registers = [],
   onSuccess,
 }: {
   expenseCategories: ExpenseCategory[];
-  safes: Safe[];
+  safes?: unknown[];
   registers?: SourceAccount[];
   onSuccess: () => void;
 }) {
@@ -51,30 +41,25 @@ export function ExpenseForm({
     }
   }, [state.success, onSuccess]);
 
-  // Auto-select correct safe type based on category safe_type setting
+  // За замовчуванням обираємо перший доступний рахунок (наприклад, Безготівка або перша каса)
   useEffect(() => {
-    if (categoryId) {
-      const cat = expenseCategories.find(c => c.id === categoryId);
-      if (cat) {
-        /* Категорія підказує сейф — але лише поки користувач не обрав джерело
-           сам. Інакше вибір «Безготівка» стирався б на кожну зміну категорії. */
-        const matchingSafe = safes.find(s => s.type === cat.safe_type);
-        if (matchingSafe) {
-          setSource((cur) =>
-            cur === null ? { type: "safe", id: matchingSafe.id, method: null, name: matchingSafe.name } : cur,
-          );
-        }
+    if (!source && registers.length > 0) {
+      const defaultReg = registers.find(r => r.type === "cashless") ?? registers[0];
+      if (defaultReg) {
+        setSource({
+          type: "cash_register",
+          id: defaultReg.id,
+          method: defaultReg.type === "cashless" ? "cashless" : "cash",
+          name: defaultReg.name,
+        });
       }
     }
-  }, [categoryId, expenseCategories, safes]);
+  }, [registers, source]);
 
-  /* Баланс шукаємо і серед сейфів, і серед кас: підказка про перевищення
-     мусить знати про обидва види джерел, інакше витрата з рахунку показувала б
-     «баланс невідомий» і кнопка ніколи не блокувалась би. */
   const selectedBalance =
     source === null
       ? null
-      : (source.type === "safe" ? safes : registers).find((a) => a.id === source.id)?.balance ?? null;
+      : registers.find((a) => a.id === source.id)?.balance ?? null;
   const amountNum = parseFloat(amount) || 0;
   const hasOverdraft = selectedBalance !== null && amountNum > selectedBalance;
 
@@ -99,19 +84,15 @@ export function ExpenseForm({
           <option value="" disabled>Оберіть категорію...</option>
           {expenseCategories.map((cat) => (
             <option key={cat.id} value={cat.id}>
-              {cat.name} ({cat.safe_type === "opex" ? "OPEX" : "Growth"})
+              {cat.name}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Сейф АБО рахунок. Сейф чистого прибутку виключений як і раніше:
-          вилучення частки — це Переказ, а не Витрата. */}
       <PaymentSourcePicker
-        label="Списати з"
-        safes={safes}
-        registers={spendableRegisters(registers)}
-        excludeSafeTypes={["net_profit"]}
+        label="Списати з (Готівка або Безготівка)"
+        registers={registers}
         legacyName="paid_from_safe_id"
         value={source}
         onChange={setSource}
@@ -128,11 +109,6 @@ export function ExpenseForm({
         error={hasOverdraft ? `Сума перевищує доступний баланс (${selectedBalance?.toLocaleString()} грн)` : undefined}
         placeholder="1000"
       />
-
-      {/* Спосіб оплати питаємо лише для сейфа: у нього дві половини, і треба
-          сказати, з якої брати. У каси половин немає — її природа і є спосіб,
-          тому питання зникає замість того, щоб дозволити хибну відповідь. */}
-      {source?.type === "safe" && <PaymentMethodPicker />}
 
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Коментар / Деталі (опціонально)</label>

@@ -138,7 +138,7 @@ export function FinanceTransactionsTable({
 
   async function handleDeleteTransaction(id: string) {
     const confirmed = window.confirm(
-      "Ви впевнені, що хочете видалити цю транзакцію/переказ? Грошовий рух буде скасовано, а баланси кас та сейфів скориговані."
+      "Ви впевнені, що хочете видалити цю транзакцію/переказ? Грошовий рух буде скасовано, а баланси кас та фондів скориговані."
     );
     if (!confirmed) return;
 
@@ -196,20 +196,59 @@ export function FinanceTransactionsTable({
     !!t.reference_type && ["sale", "repair_payment", "purchase"].includes(t.reference_type);
   const hasRef = (t: TransactionRow) => !!t.reference_type && !!t.reference_id;
 
-  const query = useListQuery({ mode: "client", filters: { type: "all" } });
+  const query = useListQuery({
+    mode: "client",
+    filters: { type: "all", period: "all", from: "", to: "" },
+  });
 
   const visible = useMemo(() => {
     const needle = query.search.trim().toLowerCase();
     const type = query.filters.type;
+    const period = query.filters.period || "all";
+    const customFrom = query.filters.from;
+    const customTo = query.filters.to;
+
+    const localToday = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const todayStr = `${localToday.getFullYear()}-${pad(localToday.getMonth() + 1)}-${pad(localToday.getDate())}`;
+    const currentMonth = `${localToday.getFullYear()}-${pad(localToday.getMonth() + 1)}`;
+    const prevMonthDate = new Date(localToday.getFullYear(), localToday.getMonth() - 1, 1);
+    const prevMonth = `${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth() + 1)}`;
+
+    const d7Date = new Date(localToday);
+    d7Date.setDate(d7Date.getDate() - 7);
+    const d7Str = `${d7Date.getFullYear()}-${pad(d7Date.getMonth() + 1)}-${pad(d7Date.getDate())}`;
+
+    const d30Date = new Date(localToday);
+    d30Date.setDate(d30Date.getDate() - 30);
+    const d30Str = `${d30Date.getFullYear()}-${pad(d30Date.getMonth() + 1)}-${pad(d30Date.getDate())}`;
 
     return transactions.filter((t) => {
       if (type !== "all" && t.type !== type) return false;
+
+      if (period === "today" && t.date !== todayStr) return false;
+      if (period === "7d" && t.date < d7Str) return false;
+      if (period === "30d" && t.date < d30Str) return false;
+      if (period === "month" && !t.date.startsWith(currentMonth)) return false;
+      if (period === "prev_month" && !t.date.startsWith(prevMonth)) return false;
+      if (period === "custom") {
+        if (customFrom && t.date < customFrom) return false;
+        if (customTo && t.date > customTo) return false;
+      }
+
       if (!needle) return true;
       return [t.from, t.to, t.description, String(t.amount)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
-  }, [transactions, query.search, query.filters.type]);
+  }, [
+    transactions,
+    query.search,
+    query.filters.type,
+    query.filters.period,
+    query.filters.from,
+    query.filters.to,
+  ]);
 
   function DeleteCell({ t }: { t: TransactionRow }) {
     if (isSystem(t)) {
@@ -330,6 +369,41 @@ export function FinanceTransactionsTable({
                 }
               >
                 <Select
+                  value={query.filters.period || "all"}
+                  onChange={(e) => query.setFilter("period", e.target.value)}
+                  inline
+                  aria-label="Період дат"
+                >
+                  <option value="all">Вся історія</option>
+                  <option value="month">Цей місяць</option>
+                  <option value="prev_month">Минулий місяць</option>
+                  <option value="30d">Останні 30 днів</option>
+                  <option value="7d">Останні 7 днів</option>
+                  <option value="today">Сьогодні</option>
+                  <option value="custom">Свій період</option>
+                </Select>
+
+                {query.filters.period === "custom" && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={query.filters.from || ""}
+                      onChange={(e) => query.setFilter("from", e.target.value)}
+                      className="h-9 rounded-[var(--radius-md)] border border-border bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                      aria-label="Дата з"
+                    />
+                    <span className="text-xs text-muted">—</span>
+                    <input
+                      type="date"
+                      value={query.filters.to || ""}
+                      onChange={(e) => query.setFilter("to", e.target.value)}
+                      className="h-9 rounded-[var(--radius-md)] border border-border bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                      aria-label="Дата по"
+                    />
+                  </div>
+                )}
+
+                <Select
                   value={query.filters.type}
                   onChange={(e) => query.setFilter("type", e.target.value)}
                   inline
@@ -345,7 +419,7 @@ export function FinanceTransactionsTable({
             empty={{
               title: "Рухів коштів немає",
               description:
-                "Тут з'являться продажі, витрати й розподіли — щойно перший рух пройде через касу або сейф.",
+                "Тут з'являться продажі, витрати й розподіли — щойно перший рух пройде через касу або рахунок.",
             }}
             noResults={{
               title: "Нічого не знайдено",

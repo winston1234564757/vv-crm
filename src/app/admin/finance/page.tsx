@@ -2,12 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { requirePageRole } from "@/lib/utils/rbac";
 import { MONEY_ROLES } from "@/lib/roles";
-import { getFinanceData, getFinanceReport, type SafeWithSplit } from "@/lib/data-finance";
+import { getFinanceData, getFinanceReport } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
-import { AddConvertButton } from "./AddConvertButton";
 import { AddExpenseButton } from "./AddExpenseButton";
 import { AddDistributionButton } from "./AddDistributionButton";
-import { AddTopUpButton } from "./AddTopUpButton";
 import { AIFinanceButton } from "./AIFinanceButton";
 import { getSettings } from "@/lib/data-settings";
 import type { SafeDistribution } from "@/lib/data-settings";
@@ -74,22 +72,10 @@ export default async function FinancePage({
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
   const kinds = splitByKind(cashRegisters);
 
-  /* Ліквідність рахується по касах І СЕЙФАХ разом.
-     Раніше тут стояли самі каси, і при 16 000 купюр, які лежали в сейфах,
-     рядок казав «Готівкою 0 ₴». Формально він відповідав на «скільки в касах»,
-     але читався як «скільки в магазині грошей» — і відповідав неправдою. Блок
-     «Зараз у касах і сейфах» нижче весь час показував правильні 16 000, тож
-     два сусідні місця на одному екрані розходились удвічі.
-     `Нерозподілені каси` у «Статусі активів» лишається по касах: воно про те,
-     що ЩЕ НЕ рознесене по сейфах, і сейфи туди за визначенням не входять. */
-  const safeRows = safes as SafeWithSplit[];
-  /* Купюри в сейфах — окремо від їхнього повного балансу: безготівкова половина
-     лежить на банківському рахунку, а не в сейфі, і рахувати її «резервом»
-     означало б назвати резервом те, чого в сейфі немає. */
-  const safesCash = safeRows.reduce((s, v) => s + v.cashBalance, 0);
+  /* Ліквідність: чисті фізичні гроші магазину — Готівка в касах і Безготівка на рахунку */
   const liquidity = {
-    cash: kinds.cash + safesCash,
-    cashless: kinds.cashless + safeRows.reduce((s, v) => s + v.cardBalance, 0),
+    cash: kinds.cash,
+    cashless: kinds.cashless,
   };
 
 
@@ -100,23 +86,21 @@ export default async function FinancePage({
       <div className="border-b border-border pb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">Фінанси</h1>
-          <p className="mt-0.5 text-sm text-muted">Каси, сейфи, рух грошей і прибуток</p>
+          <p className="mt-0.5 text-sm text-muted">Каси, рахунки, рух грошей і прибуток</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <RangeTabs preset={preset} />
           <AIFinanceButton />
-          {/* Усі сейфи, не лише ЧП: решта потрібна формі під аванс, коли в ЧП
-              не вистачило. Джерело частки кнопка відбирає сама. */}
-          <WithdrawShareButton safes={safes as SafeWithSplit[]} />
-          <AddTopUpButton safes={safes} />
+          <WithdrawShareButton
+            profitFund={settings.finance_profit_fund}
+            cashRegisters={cashRegisters}
+          />
           <AddExpenseButton
             expenseCategories={expenseCategories}
-            safes={safes}
             registers={cashRegisters}
           />
           <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
-          <AddConvertButton safes={safeRows} cashRegisters={cashRegisters} />
-          <AddTransferButton cashRegisters={cashRegisters} safes={safes} />
+          <AddTransferButton cashRegisters={cashRegisters} />
         </div>
       </div>
 
@@ -226,82 +210,55 @@ export default async function FinancePage({
               ))}
             </div>
 
-            {/* Safes layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {(safes as SafeWithSplit[]).map((s) => {
-                const techSplit = settings.distribution_tech[s.type as keyof SafeDistribution] ?? 0;
-                const accSplit = settings.distribution_accessories[s.type as keyof SafeDistribution] ?? 0;
-                const repSplit = settings.distribution_repairs[s.type as keyof SafeDistribution] ?? 0;
-                const avgTarget = Math.round((techSplit + accSplit + repSplit) / 3);
-
-                const total = Math.max(Math.abs(s.cashBalance) + Math.abs(s.cardBalance), 1);
-                const cashPct = Math.round((Math.max(s.cashBalance, 0) / total) * 100);
-                const cardPct = Math.round((Math.max(s.cardBalance, 0) / total) * 100);
-                const isOverdraft = s.balance < 0;
-
-                return (
-                  <div
-                    key={s.id}
-                    className="card card-hover flex flex-col justify-between border border-border bg-surface p-4 transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-faint">Сейф резерву</span>
-                        <span className="rounded-full bg-hover px-2 py-0.5 text-[11px] tabular text-muted">
-                          сер. {avgTarget}%
-                        </span>
-                      </div>
-                      <h4 className="mt-0.5 text-xs font-semibold text-ink">{s.name}</h4>
-                      <p
-                        className={`mt-2 text-lg font-semibold tabular ${isOverdraft ? "text-danger" : "text-ink"}`}
-                      >
-                        {s.balance.toLocaleString()} ₴
-                      </p>
-
-                      {/* Половини сейфа: готівка проти безготівки. Смуга —
-                          єдине місце на картці, де колір несе сенс, тож вона
-                          лишається двоколірною. */}
-                      <div className="mt-2 space-y-1">
-                        <MeterStack
-                          segments={[
-                            {
-                              key: "cash",
-                              value: cashPct,
-                              tone: "accent",
-                              title: `Готівка: ${s.cashBalance.toLocaleString()} ₴`,
-                            },
-                            {
-                              key: "card",
-                              value: cardPct,
-                              tone: "info",
-                              title: `Картка: ${s.cardBalance.toLocaleString()} ₴`,
-                            },
-                          ]}
-                        />
-                        <div className="flex justify-between text-[11px] text-muted">
-                          <span className="flex items-center gap-1">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                            Готівка <span className="tabular">{s.cashBalance.toLocaleString()} ₴</span>
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-info" />
-                            Картка <span className="tabular">{s.cardBalance.toLocaleString()} ₴</span>
-                          </span>
-                        </div>
-                      </div>
+            {/* Показники фондів (Реінвест та Прибуток) — просто цифри без окремих сейфів */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">
+                Розрахункові показники (фонди)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. Реінвест */}
+                <div className="card border border-violet/20 bg-surface p-5 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-violet">🔄 Фонд Реінвесту</span>
+                      <span className="rounded-full bg-violet/10 px-2 py-0.5 text-[11px] font-semibold text-violet">
+                        {settings.finance_distribution_shares?.reinvest_percent ?? 40}% від розподілу
+                      </span>
                     </div>
-
-                    <div className="mt-4 space-y-2">
-                      <Meter size="xs" value={avgTarget} />
-                      <div className="grid grid-cols-3 gap-1 pt-1 text-[11px] leading-none text-muted">
-                        <div className="border-r border-border pr-1">Тех: <span className="tabular">{techSplit}%</span></div>
-                        <div className="border-r border-border px-1">Акс: <span className="tabular">{accSplit}%</span></div>
-                        <div className="pl-1">Рем: <span className="tabular">{repSplit}%</span></div>
-                      </div>
-                    </div>
+                    <p className="mt-2 text-2xl font-bold tabular text-ink">
+                      {settings.finance_reinvest_fund.toLocaleString()} ₴
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Бюджет на закупівлі запчастин, аксесуарів та техніки
+                    </p>
                   </div>
-                );
-              })}
+                </div>
+
+                {/* 2. Чистий прибуток */}
+                <div className="card border border-emerald/20 bg-surface p-5 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-emerald">💰 Чистий прибуток</span>
+                      <span className="rounded-full bg-emerald/10 px-2 py-0.5 text-[11px] font-semibold text-emerald">
+                        {settings.finance_distribution_shares?.profit_percent ?? 60}% від розподілу
+                      </span>
+                    </div>
+                    <p className="mt-2 text-2xl font-bold tabular text-emerald">
+                      {settings.finance_profit_fund.toLocaleString()} ₴
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Нарахована сума, яку власник може зняти в будь-який момент
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-border flex justify-end">
+                    <WithdrawShareButton
+                      profitFund={settings.finance_profit_fund}
+                      cashRegisters={cashRegisters}
+                      label="💵 Зняти прибуток"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -360,43 +317,37 @@ export default async function FinancePage({
                 числом, яке можна перерахувати руками. */}
             <div className="space-y-4">
               <div className="border-b border-border pb-3">
-                <p className="text-xs text-muted">Нерозподілені каси</p>
+                <p className="text-xs text-muted">Готівка на точці</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-ink">
-                  {kinds.cash.toLocaleString()} ₴
+                  {liquidity.cash.toLocaleString()} ₴
                 </p>
-              </div>
-
-              <div className="border-b border-border pb-3 space-y-2">
-                <p className="text-xs text-muted">На рахунку</p>
-                <p className="text-xl font-semibold tabular text-ink">
-                  {liquidity.cashless.toLocaleString()} ₴
-                </p>
-                {/* Розбивка: картка на рахунку + картка-частина сейфів */}
-                <div className="space-y-1 pt-0.5">
-                  {/* Каса безготівки */}
-                  {cashRegisters.filter(cr => cr.type === "cashless").map(cr => (
-                    <div key={cr.id} className="flex justify-between items-baseline text-[11px]">
-                      <span className="text-muted truncate mr-2">На картці</span>
-                      <span className="tabular text-ink font-medium shrink-0">{cr.balance.toLocaleString()} ₴</span>
-                    </div>
-                  ))}
-                  {/* Картка-частина кожного сейфа (якщо > 0) */}
-                  {safeRows
-                    .filter(s => s.cardBalance > 0)
-                    .map(s => (
-                      <div key={s.id} className="flex justify-between items-baseline text-[11px]">
-                        <span className="text-muted truncate mr-2">У сейфі «{s.name}»</span>
-                        <span className="tabular text-ink font-medium shrink-0">{s.cardBalance.toLocaleString()} ₴</span>
-                      </div>
-                    ))
-                  }
-                </div>
               </div>
 
               <div className="border-b border-border pb-3">
-                <p className="text-xs text-muted">Чисті резерви (сейфи)</p>
+                <p className="text-xs text-muted">На банківському рахунку</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-ink">
-                  {safesCash.toLocaleString()} ₴
+                  {liquidity.cashless.toLocaleString()} ₴
+                </p>
+              </div>
+
+              <div className="border-b border-border pb-3">
+                <p className="text-xs text-muted">Всього реальних коштів</p>
+                <p className="mt-0.5 text-xl font-bold tabular text-ink">
+                  {(liquidity.cash + liquidity.cashless).toLocaleString()} ₴
+                </p>
+              </div>
+
+              <div className="border-b border-border pb-3">
+                <p className="text-xs text-muted">Доступно прибутку до виведення</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-emerald">
+                  {settings.finance_profit_fund.toLocaleString()} ₴
+                </p>
+              </div>
+
+              <div className="border-b border-border pb-3">
+                <p className="text-xs text-muted">Фонд реінвесту (на закупівлі)</p>
+                <p className="mt-0.5 text-xl font-semibold tabular text-violet">
+                  {settings.finance_reinvest_fund.toLocaleString()} ₴
                 </p>
               </div>
 

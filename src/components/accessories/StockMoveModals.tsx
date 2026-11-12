@@ -10,7 +10,7 @@ import {
   spendableRegisters,
   type ChosenSource,
 } from "@/components/ui/PaymentSourcePicker";
-import { purchaseAccessoryStock, writeOffAccessoryStock } from "@/lib/actions/accessories";
+import { purchaseAccessoryStock, writeOffAccessoryStock, adjustAccessoryStock } from "@/lib/actions/accessories";
 import { weightedCost } from "@/lib/inventory-cost";
 import { cn } from "@/lib/utils/cn";
 
@@ -185,18 +185,12 @@ export function PurchaseStockModal({
             коли платити нічого, означало б вимагати відповідь на питання, якого
             немає. */}
         {total > 0 && (
-          <>
-            <PaymentSourcePicker
-              safes={safes}
-              registers={spendableRegisters(registers)}
-              value={source}
-              onChange={setSource}
-            />
-            {/* Половини має лише сейф. У каси спосіб оплати — це вона сама. */}
-            {source?.type === "safe" && (
-              <PaymentMethodPicker value={method} onChange={setMethod} />
-            )}
-          </>
+          <PaymentSourcePicker
+            safes={safes}
+            registers={spendableRegisters(registers)}
+            value={source}
+            onChange={setSource}
+          />
         )}
       </div>
     </Modal>
@@ -325,6 +319,142 @@ export function WriteOffStockModal({
             {(qty * item.cost_price).toLocaleString("uk-UA")} ₴
           </span>{" "}
           — це врахує звірка на сторінці фінансів.
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Коригування без списання коштів ─────────────────────────────────────── */
+
+/**
+ * Два режими:
+ *   • "add" — безкоштовне надходження (зразки, знайдені, подарунок від постачальника).
+ *   • "set" — інвентаризація (встановити фактичну кількість).
+ *
+ * Гроші не рухаються. Слід лягає в `inventory_movements` (reason = 'adjustment').
+ */
+export function AdjustStockModal({
+  item,
+  onClose,
+  onDone,
+}: {
+  item: StockMoveTarget;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
+  const [mode, setMode] = useState<"add" | "set">("add");
+  const [value, setValue] = useState("1");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+
+  const num = toInt(value);
+  const newStock = mode === "set" ? num : item.stock + num;
+  const delta = newStock - item.stock;
+  const invalid = mode === "set" ? num < 0 : num <= 0;
+
+  async function submit() {
+    setError("");
+    setPending(true);
+    const res = await adjustAccessoryStock({
+      accessoryId: item.id,
+      mode,
+      value: num,
+      note: note.trim() || null,
+    });
+    setPending(false);
+    if (!res.success) {
+      setError(res.error ?? "Не вдалося провести коригування");
+      return;
+    }
+    onDone?.();
+    onClose();
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Коригування без оплати"
+      description={`${item.name} · зараз на складі ${item.stock} шт`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
+            Скасувати
+          </Button>
+          <Button onClick={submit} isLoading={pending} disabled={invalid || delta === 0}>
+            Провести
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {error && <ErrorNote message={error} />}
+
+        {/* Перемикач режиму */}
+        <div>
+          <p className="mb-1.5 block text-xs font-medium text-muted">Режим</p>
+          <div role="group" aria-label="Режим коригування" className="grid grid-cols-2 gap-2">
+            <Button
+              variant={mode === "add" ? "primary" : "secondary"}
+              aria-pressed={mode === "add"}
+              onClick={() => { setMode("add"); setValue("1"); }}
+            >
+              Додати безкоштовно
+            </Button>
+            <Button
+              variant={mode === "set" ? "primary" : "secondary"}
+              aria-pressed={mode === "set"}
+              onClick={() => { setMode("set"); setValue(String(item.stock)); }}
+            >
+              Встановити кількість
+            </Button>
+          </div>
+        </div>
+
+        <Input
+          label={mode === "add" ? "Кількість для додавання" : "Нова кількість на складі"}
+          type="number"
+          min={mode === "add" ? 1 : 0}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          hint={
+            mode === "add"
+              ? "Безкоштовне надходження — кошти не списуються"
+              : "Фактична кількість за результатами інвентаризації"
+          }
+        />
+
+        {/* Підсумок */}
+        <div className="rounded-[var(--radius-md)] bg-hover px-3 py-2.5 text-sm">
+          <p className="flex items-baseline justify-between gap-3">
+            <span className="text-muted">Стане на складі</span>
+            <span className="font-semibold tabular text-ink">{Math.max(0, newStock)} шт</span>
+          </p>
+          {delta !== 0 && (
+            <p className="mt-1 flex items-baseline justify-between gap-3 text-xs">
+              <span className="text-muted">Зміна</span>
+              <span className={cn("tabular font-medium", delta > 0 ? "text-cyan" : "text-rose")}>
+                {delta > 0 ? `+${delta}` : delta} шт
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="adjust-note">Коментар</FieldLabel>
+          <input
+            id="adjust-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Необов'язково — причина коригування"
+            className={cn(fieldClass, fieldTone(false))}
+          />
+        </div>
+
+        <p className="text-[11px] leading-relaxed text-faint">
+          Гроші не рухаються. Зміна буде зафіксована в журналі руху складу з приміткою.
         </p>
       </div>
     </Modal>

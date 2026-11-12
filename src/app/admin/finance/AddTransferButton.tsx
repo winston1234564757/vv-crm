@@ -17,14 +17,17 @@ interface Safe {
   name: string;
   type: string;
   balance: number;
+  balance_cash?: number | null;
+  balance_cashless?: number | null;
+  cashBalance?: number;
+  cardBalance?: number;
 }
 
 export function AddTransferButton({
   cashRegisters,
-  safes,
 }: {
   cashRegisters: CashRegister[];
-  safes: Safe[];
+  safes?: unknown[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -34,10 +37,9 @@ export function AddTransferButton({
         💸 Здійснити переказ
       </Button>
 
-      <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Переказ між касами та сейфами" size="default">
+      <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Переказ між рахунками" size="default">
         <TransferForm
           cashRegisters={cashRegisters}
-          safes={safes}
           onSuccess={() => setIsOpen(false)}
         />
       </Drawer>

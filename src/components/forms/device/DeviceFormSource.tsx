@@ -45,7 +45,7 @@ export function DeviceFormSource({ device, safes = [], registers = [] }: DeviceF
         </div>
       </div>
 
-      {!isEdit && safes.length > 0 && (
+      {!isEdit && (registers.length > 0 || safes.length > 0) && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <PaymentSourcePicker
             label="Списати з"
@@ -55,8 +55,6 @@ export function DeviceFormSource({ device, safes = [], registers = [] }: DeviceF
             value={source}
             onChange={setSource}
           />
-          {/* Половини має лише сейф — у каси спосіб оплати це вона сама. */}
-          {source?.type === "safe" && <PaymentMethodPicker />}
         </div>
       )}
     </div>

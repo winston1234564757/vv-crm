@@ -1,34 +1,32 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { createTransfer } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 
-interface FinanceItem {
+interface CashRegister {
   id: string;
   name: string;
   type: string;
   balance: number;
-  kind: "cash_register" | "safe";
 }
 
 const initialState = { success: false, error: "" };
 
 export function TransferForm({ 
   cashRegisters, 
-  safes, 
   onSuccess 
 }: { 
-  cashRegisters: Array<{ id: string; name: string; type: string; balance: number }>;
-  safes: Array<{ id: string; name: string; type: string; balance: number }>;
+  cashRegisters: CashRegister[];
+  safes?: unknown[];
   onSuccess: () => void;
 }) {
   const [state, action, pending] = useActionState(createTransfer, initialState);
 
-  const [fromItem, setFromItem] = useState<string>("");
-  const [toItem, setToItem] = useState<string>("");
+  const [fromId, setFromId] = useState<string>("");
+  const [toId, setToId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
 
   useEffect(() => {
     if (state.success) {
@@ -36,110 +34,120 @@ export function TransferForm({
     }
   }, [state.success, onSuccess]);
 
-  // Combine registers and safes for dropdowns
-  const items: FinanceItem[] = [
-    ...cashRegisters.map(cr => ({ ...cr, kind: "cash_register" as const })),
-    ...safes.map(s => ({ ...s, kind: "safe" as const }))
-  ];
+  const selectedSource = cashRegisters.find((cr) => cr.id === fromId);
+  const selectedTarget = cashRegisters.find((cr) => cr.id === toId);
 
-  const selectedSource = items.find(i => i.id === fromItem);
+  const availableBalance = selectedSource?.balance ?? 0;
   const amountNum = parseFloat(amount) || 0;
-  const hasOverdraft = selectedSource ? amountNum > selectedSource.balance : false;
+  const hasOverdraft = selectedSource ? amountNum > availableBalance : false;
+
+  const paymentMethod = selectedSource?.type === "cashless" ? "cashless" : "cash";
 
   return (
     <form action={action} className="space-y-4 p-5">
       {state.error && (
-        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose">
+        <div className="rounded-xl bg-rose/10 p-4 text-sm text-rose animate-entry">
           {state.error}
         </div>
       )}
 
       <div>
-        <label htmlFor="from_select" className="mb-1.5 block text-xs font-medium text-text-secondary">Джерело (Звідки списуємо)</label>
+        <label htmlFor="from_select" className="mb-1.5 block text-xs font-medium text-text-secondary">
+          Джерело (Звідки списуємо)
+        </label>
         <select
           id="from_select"
           required
-          value={fromItem}
+          value={fromId}
           onChange={(e) => {
-            setFromItem(e.target.value);
-            setAmount(""); // Reset amount when changing source
+            setFromId(e.target.value);
+            setAmount("");
           }}
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
         >
           <option value="" disabled>Оберіть джерело...</option>
-          {items.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.kind === "safe" ? "Сейф" : "Каса"} — {item.name} ({item.balance.toLocaleString()} грн)
-            </option>
-          ))}
+          {cashRegisters.map((cr) => {
+            const isCard = cr.type === "cashless";
+            return (
+              <option key={cr.id} value={cr.id}>
+                {isCard ? "💳 Безготівка" : "💵 Готівка"} · {cr.name} ({cr.balance.toLocaleString()} грн)
+              </option>
+            );
+          })}
         </select>
-        {/* Hidden inputs to pass kind to server action */}
-        {selectedSource && (
-          <input type="hidden" name="from_type" value={selectedSource.kind} />
-        )}
-        <input type="hidden" name="from_id" value={fromItem} />
+        <input type="hidden" name="from_type" value="cash_register" />
+        <input type="hidden" name="from_id" value={fromId} />
+        <input type="hidden" name="payment_method" value={paymentMethod} />
       </div>
 
       <div>
-        <label htmlFor="to_select" className="mb-1.5 block text-xs font-medium text-text-secondary">Одержувач (Куди зараховуємо)</label>
+        <label htmlFor="to_select" className="mb-1.5 block text-xs font-medium text-text-secondary">
+          Одержувач (Куди зараховуємо)
+        </label>
         <select
           id="to_select"
           required
-          value={toItem}
-          onChange={(e) => setToItem(e.target.value)}
+          value={toId}
+          onChange={(e) => setToId(e.target.value)}
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
         >
           <option value="" disabled>Оберіть одержувача...</option>
-          {items
-            .filter((item) => item.id !== fromItem) // Prevent sending to the same item
-            .map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.kind === "safe" ? "Сейф" : "Каса"} — {item.name} ({item.balance.toLocaleString()} грн)
-              </option>
-            ))}
+          {cashRegisters
+            .filter((cr) => cr.id !== fromId)
+            .map((cr) => {
+              const isCard = cr.type === "cashless";
+              return (
+                <option key={cr.id} value={cr.id}>
+                  {isCard ? "💳 Безготівка" : "💵 Готівка"} · {cr.name} ({cr.balance.toLocaleString()} грн)
+                </option>
+              );
+            })}
         </select>
-        {/* Hidden inputs to pass kind to server action */}
-        {items.find(i => i.id === toItem) && (
-          <input type="hidden" name="to_type" value={items.find(i => i.id === toItem)?.kind} />
-        )}
-        <input type="hidden" name="to_id" value={toItem} />
+        <input type="hidden" name="to_type" value="cash_register" />
+        <input type="hidden" name="to_id" value={toId} />
       </div>
 
-      <Input 
-        label="Сума переказу (грн)" 
-        name="amount" 
-        type="number" 
-        min="1" 
-        required 
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        error={hasOverdraft ? `Сума перевищує доступний баланс (${selectedSource?.balance.toLocaleString()} грн)` : undefined}
-        placeholder="1000" 
-      />
-
-      {/* Половини є лише в сейфів. Переказ між касами способу не потребує —
-          там усе одно рухається одна цифра. */}
-      {(selectedSource?.kind === "safe" || items.find((i) => i.id === toItem)?.kind === "safe") && (
-        <PaymentMethodPicker label="Яку половину рухаємо" />
-      )}
+      <div>
+        <Input
+          label={selectedSource ? `Сума переказу (доступно: ${availableBalance.toLocaleString()} грн)` : "Сума переказу (грн)"}
+          name="amount"
+          type="number"
+          min="1"
+          max={availableBalance}
+          required
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          error={hasOverdraft ? `Сума перевищує доступний залишок (${availableBalance.toLocaleString()} грн)` : undefined}
+          placeholder="1000"
+        />
+        {selectedSource && !hasOverdraft && amountNum > 0 && (
+          <p className="mt-1 text-[11px] text-text-secondary">
+            Залишок після переказу: <span className="font-semibold text-text-primary">{(availableBalance - amountNum).toLocaleString()} грн</span>
+          </p>
+        )}
+      </div>
 
       <div>
-        <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">Призначення / Опис (опціонально)</label>
+        <label htmlFor="transfer_desc" className="mb-1.5 block text-xs font-medium text-text-secondary">
+          Призначення / Коментар (опціонально)
+        </label>
         <textarea
-          id="description"
+          id="transfer_desc"
           name="description"
           rows={2}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Наприклад: Зняття готівки в касу / Інкасація на розрахунковий рахунок..."
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet placeholder:text-text-secondary/30"
-          placeholder="Напр. Розподіл прибутку, інкасація..."
         />
       </div>
 
       <button
         type="submit"
-        disabled={pending || hasOverdraft || !fromItem || !toItem || !amount}
-        className="btn-press mt-4 w-full rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50"
+        disabled={pending || hasOverdraft || !fromId || !toId || amountNum <= 0}
+        className="btn-press mt-4 w-full rounded-xl bg-violet py-3.5 text-sm font-medium text-white transition-colors hover:bg-violet-hover disabled:opacity-50 cursor-pointer"
       >
-        {pending ? "Здійснення переказу..." : "Переказати кошти"}
+        {pending ? "Виконання переказу..." : "Переказати кошти"}
       </button>
     </form>
   );
