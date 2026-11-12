@@ -24,26 +24,16 @@ export function GeneralSettingsTab({
     initialSettings.sales_targets.monthly !== null ? String(initialSettings.sales_targets.monthly) : ""
   );
 
-  // Tech state
-  const [techOpex, setTechOpex] = useState(initialSettings.distribution_tech.opex);
-  const [techGrowth, setTechGrowth] = useState(initialSettings.distribution_tech.growth);
-  const [techProfit, setTechProfit] = useState(initialSettings.distribution_tech.net_profit);
+  // 2-point Fund distribution: Reinvest & Profit
+  const [reinvestPct, setReinvestPct] = useState(
+    initialSettings.finance_distribution_shares?.reinvest_percent ?? 40
+  );
+  const [profitPct, setProfitPct] = useState(
+    initialSettings.finance_distribution_shares?.profit_percent ?? 60
+  );
 
-  // Acc state
-  const [accOpex, setAccOpex] = useState(initialSettings.distribution_accessories.opex);
-  const [accGrowth, setAccGrowth] = useState(initialSettings.distribution_accessories.growth);
-  const [accProfit, setAccProfit] = useState(initialSettings.distribution_accessories.net_profit);
-
-  // Rep state
-  const [repOpex, setRepOpex] = useState(initialSettings.distribution_repairs.opex);
-  const [repGrowth, setRepGrowth] = useState(initialSettings.distribution_repairs.growth);
-  const [repProfit, setRepProfit] = useState(initialSettings.distribution_repairs.net_profit);
-
-  const techTotal = techOpex + techGrowth + techProfit;
-  const accTotal = accOpex + accGrowth + accProfit;
-  const repTotal = repOpex + repGrowth + repProfit;
-
-  const isValid = techTotal === 100 && accTotal === 100 && repTotal === 100;
+  const totalPct = reinvestPct + profitPct;
+  const isValid = totalPct === 100;
 
   return (
     <form action={action} className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -85,11 +75,11 @@ export function GeneralSettingsTab({
           <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Зберегти зміни</h2>
           <p className="text-xs leading-relaxed text-text-secondary">
             Зміна назви магазину оновлює заголовок у сайдбарі та на публічній сторінці трекінгу ремонтів.
-            Зміна розподілів впливає на розподіл нових надходжень між сейфами OPEX, Growth та Чистий прибуток.
+            Зміна розподілу визначає частки нарахування у фонд Реінвесту та Чистий прибуток.
           </p>
           {!isValid && (
             <div className="mt-3 text-xs text-rose font-medium bg-rose/5 p-2.5 rounded-lg border border-rose/10">
-              ⚠️ Сума часток для кожної каси має складати рівно 100%. Перевірте повзунки нижче.
+              ⚠️ Сума часток Реінвесту та Прибутку має складати рівно 100%.
             </div>
           )}
         </div>
@@ -152,190 +142,71 @@ export function GeneralSettingsTab({
         </div>
       </div>
 
-      {/* Splits card */}
+      {/* Splits card: 2 items (Operational Account & Profit) */}
       <div className="card p-5 space-y-5 md:col-span-2 bg-warm-surface border border-iris/10 rounded-2xl shadow-sm">
         <div>
-          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Фінансовий спліт (Розподіл часток каси)</h2>
+          <h2 className="text-base font-semibold text-text-primary text-balance tracking-tight">Автоматичний розподіл прибутку</h2>
           <p className="text-xs text-text-secondary mt-1">
-            Налаштуйте, скільки відсотків від доходів кожної каси має йти до сейфів OPEX, Growth та Чистий прибуток.
-            Сума кожної каси повинна дорівнювати <b>рівно 100%</b>.
+            Налаштуйте, як розподіляється маржа (Прибуток = Ціна - Собівартість) від готівкових оплат між <b>Операційним рахунком</b> (оборотні кошти й покриття витрат) та <b>Чистим прибутком</b> (доступно до зняття). Собівартість товару/запчастин завжди повертається в Операційний рахунок у повному обсязі (100%).
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {/* Tech splits */}
+        <input type="hidden" name="reinvest_percent" value={reinvestPct} />
+        <input type="hidden" name="profit_percent" value={profitPct} />
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* Operational Account */}
           <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса техніки</h3>
-            <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>OPEX (Операційні витрати)</span>
-                  <span className="font-semibold text-text-primary">{techOpex}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="tech_opex"
-                  value={techOpex}
-                  onChange={(e) => setTechOpex(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">Операційний рахунок</h3>
+                <p className="text-[11px] text-text-secondary mt-0.5">Оборотні кошти: закупівлі та операційні витрати</p>
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Growth (Розвиток)</span>
-                  <span className="font-semibold text-text-primary">{techGrowth}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="tech_growth"
-                  value={techGrowth}
-                  onChange={(e) => setTechGrowth(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Чистий прибуток</span>
-                  <span className="font-semibold text-text-primary">{techProfit}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="tech_profit"
-                  value={techProfit}
-                  onChange={(e) => setTechProfit(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div className="pt-3 border-t border-warm-border/60 flex justify-between items-center text-xs">
-                <span className="text-text-secondary font-medium">Разом:</span>
-                <span className={`font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] ${techTotal === 100 ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}>
-                  {techTotal}% {techTotal === 100 ? "✓" : "≠ 100%"}
-                </span>
-              </div>
+              <span className="text-lg font-bold tabular text-violet">{reinvestPct}%</span>
             </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={reinvestPct}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setReinvestPct(val);
+                setProfitPct(100 - val);
+              }}
+              className="w-full h-2 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet"
+            />
           </div>
 
-          {/* Accessory splits */}
+          {/* Profit */}
           <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса аксесуарів</h3>
-            <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>OPEX (Операційні витрати)</span>
-                  <span className="font-semibold text-text-primary">{accOpex}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="acc_opex"
-                  value={accOpex}
-                  onChange={(e) => setAccOpex(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
+                <h3 className="text-sm font-semibold text-text-primary tracking-tight">Чистий прибуток</h3>
+                <p className="text-[11px] text-text-secondary mt-0.5">Фонд доступний до зняття власниками</p>
               </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Growth (Розвиток)</span>
-                  <span className="font-semibold text-text-primary">{accGrowth}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="acc_growth"
-                  value={accGrowth}
-                  onChange={(e) => setAccGrowth(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Чистий прибуток</span>
-                  <span className="font-semibold text-text-primary">{accProfit}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="acc_profit"
-                  value={accProfit}
-                  onChange={(e) => setAccProfit(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div className="pt-3 border-t border-warm-border/60 flex justify-between items-center text-xs">
-                <span className="text-text-secondary font-medium">Разом:</span>
-                <span className={`font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] ${accTotal === 100 ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}>
-                  {accTotal}% {accTotal === 100 ? "✓" : "≠ 100%"}
-                </span>
-              </div>
+              <span className="text-lg font-bold tabular text-emerald">{profitPct}%</span>
             </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={profitPct}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setProfitPct(val);
+                setReinvestPct(100 - val);
+              }}
+              className="w-full h-2 bg-warm-border rounded-lg appearance-none cursor-pointer accent-emerald"
+            />
           </div>
+        </div>
 
-          {/* Repair splits */}
-          <div className="space-y-4 p-5 rounded-2xl bg-warm-bg/30 dark:bg-zinc-950/20 border border-warm-border/50 transition-all hover:border-violet/10">
-            <h3 className="text-sm font-semibold text-text-primary tracking-tight">Каса ремонтів</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>OPEX (Операційні витрати)</span>
-                  <span className="font-semibold text-text-primary">{repOpex}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="rep_opex"
-                  value={repOpex}
-                  onChange={(e) => setRepOpex(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Growth (Розвиток)</span>
-                  <span className="font-semibold text-text-primary">{repGrowth}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="rep_growth"
-                  value={repGrowth}
-                  onChange={(e) => setRepGrowth(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-text-secondary flex justify-between">
-                  <span>Чистий прибуток</span>
-                  <span className="font-semibold text-text-primary">{repProfit}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  name="rep_profit"
-                  value={repProfit}
-                  onChange={(e) => setRepProfit(Number(e.target.value))}
-                  className="w-full h-1.5 bg-warm-border rounded-lg appearance-none cursor-pointer accent-violet mt-1.5"
-                />
-              </div>
-              <div className="pt-3 border-t border-warm-border/60 flex justify-between items-center text-xs">
-                <span className="text-text-secondary font-medium">Разом:</span>
-                <span className={`font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] ${repTotal === 100 ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}>
-                  {repTotal}% {repTotal === 100 ? "✓" : "≠ 100%"}
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="pt-3 border-t border-warm-border/60 flex justify-between items-center text-xs">
+          <span className="text-text-secondary font-medium">Сума часток:</span>
+          <span className={`font-bold flex items-center gap-1 px-3 py-1 rounded-full text-xs ${isValid ? "bg-emerald/10 text-emerald" : "bg-rose/10 text-rose"}`}>
+            {totalPct}% {isValid ? "✓ Готово до збереження" : "≠ 100% (скоригуйте)"}
+          </span>
         </div>
       </div>
     </form>

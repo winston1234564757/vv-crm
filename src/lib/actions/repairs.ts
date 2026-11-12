@@ -892,14 +892,17 @@ async function recalcRepairPaymentStatus(
 
   const { data: payments, error } = await supabase
     .from("transactions")
-    .select("amount, created_at")
+    .select("amount, created_at, from_type, to_type")
     .eq("reference_type", "repair_payment")
     .eq("reference_id", repairId);
 
   if (error) return;
 
   const rows = payments ?? [];
-  const paid = rows.reduce((s, p) => s + p.amount, 0);
+  const paid = rows.reduce((s, p) => {
+    const delta = p.from_type === "cash_register" ? -p.amount : p.amount;
+    return s + delta;
+  }, 0);
   const status = paid <= 0 ? "unpaid" : paid >= price ? "paid" : "partial";
 
   /* `paid_at` — дата, коли борг закрився, і вона мусить рухатись разом зі
@@ -951,6 +954,15 @@ export async function payRepair(
       p_user_id: user.id,
     });
     if (error) throw error;
+
+    // Автоматичний розподіл прибутку та собівартості запчастин при готівковій оплаті
+    const { data: targetReg } = await supabase.from("cash_registers").select("type").eq("id", cashRegisterId).maybeSingle();
+    if (targetReg && targetReg.type !== "cashless") {
+      const { data: repParts } = await supabase.from("repair_parts").select("unit_cost, quantity").eq("repair_id", repairId);
+      const partsCost = repParts?.reduce((sum, p) => sum + ((Number(p.unit_cost) || 0) * (Number(p.quantity) || 1)), 0) || 0;
+      const { allocateCashIncome } = await import("./finance");
+      await allocateCashIncome({ amount: Math.round(amount), costPrice: partsCost });
+    }
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin/finance");

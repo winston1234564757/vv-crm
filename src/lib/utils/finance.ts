@@ -194,12 +194,20 @@ export function splitByKind<T extends { type: string; balance: number }>(
  */
 export function targetRegisterType(
   method: string,
-  category: "device" | "accessory" | "service",
+  _category?: "device" | "accessory" | "service",
 ): string {
   if (method !== "cash") return CASHLESS_REGISTER_TYPE;
-  if (category === "accessory") return "accessories";
-  if (category === "service") return "repairs";
-  return "tech";
+  // Вся готівка тепер спрямовується в єдину фізичну касу «Готівка» (тип repairs у БД)
+  return "repairs";
+}
+
+/**
+ * Фільтрує список кас до двох активних фізичних рахунків: «Готівка» та «Безготівка».
+ */
+export function filterActiveAccounts<T extends { type: string; name?: string }>(registers: T[]): T[] {
+  return registers.filter(
+    (r) => r.type === CASHLESS_REGISTER_TYPE || r.name === "Готівка" || r.type === "repairs",
+  );
 }
 
 const METHOD_LABELS: Record<string, string> = {

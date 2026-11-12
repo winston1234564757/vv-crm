@@ -5,14 +5,13 @@ import { MONEY_ROLES } from "@/lib/roles";
 import { getFinanceData, getFinanceReport } from "@/lib/data-finance";
 import { AddTransferButton } from "./AddTransferButton";
 import { AddExpenseButton } from "./AddExpenseButton";
-import { AddDistributionButton } from "./AddDistributionButton";
 import { AIFinanceButton } from "./AIFinanceButton";
 import { getSettings } from "@/lib/data-settings";
 import type { SafeDistribution } from "@/lib/data-settings";
 import { getSales } from "@/lib/data-sales";
 import { getRepairs } from "@/lib/data-repairs";
 import { getPurchases } from "@/lib/data-purchases";
-import { splitByKind, isCashless } from "@/lib/utils/finance";
+import { splitByKind, isCashless, filterActiveAccounts } from "@/lib/utils/finance";
 import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
@@ -70,9 +69,10 @@ export default async function FinancePage({
   ]);
 
   const todayTx = transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]).length;
-  const kinds = splitByKind(cashRegisters);
+  const activeRegisters = filterActiveAccounts(cashRegisters);
+  const kinds = splitByKind(activeRegisters);
 
-  /* Ліквідність: чисті фізичні гроші магазину — Готівка в касах і Безготівка на рахунку */
+  /* Ліквідність: чисті фізичні гроші магазину — Готівка в касі та Безготівка на рахунку */
   const liquidity = {
     cash: kinds.cash,
     cashless: kinds.cashless,
@@ -93,14 +93,13 @@ export default async function FinancePage({
           <AIFinanceButton />
           <WithdrawShareButton
             profitFund={settings.finance_profit_fund}
-            cashRegisters={cashRegisters}
+            cashRegisters={activeRegisters}
           />
           <AddExpenseButton
             expenseCategories={expenseCategories}
-            registers={cashRegisters}
+            registers={activeRegisters}
           />
-          <AddDistributionButton cashRegisters={cashRegisters} settings={settings} />
-          <AddTransferButton cashRegisters={cashRegisters} />
+          <AddTransferButton cashRegisters={activeRegisters} />
         </div>
       </div>
 
@@ -190,16 +189,16 @@ export default async function FinancePage({
               </span>
             </div>
 
-            {/* Каси */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {cashRegisters.map((cr) => (
+            {/* Фізичні рахунки (Готівка та Безготівка) */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {activeRegisters.map((cr) => (
                 <div
                   key={cr.id}
                   className="card card-hover flex min-h-[90px] flex-col justify-between border border-border bg-surface p-4 transition-colors"
                 >
                   <div>
                     <span className="text-[11px] text-faint">
-                      {isCashless(cr.type) ? "Безготівковий рахунок" : "Поточна каса"}
+                      {isCashless(cr.type) ? "Банківський рахунок" : "Фізична каса точки"}
                     </span>
                     <h4 className="mt-0.5 text-xs font-semibold text-ink">{cr.name}</h4>
                   </div>
@@ -210,26 +209,26 @@ export default async function FinancePage({
               ))}
             </div>
 
-            {/* Показники фондів (Реінвест та Прибуток) — просто цифри без окремих сейфів */}
+            {/* Розрахункові показники (Операційний рахунок та Прибуток) */}
             <div className="space-y-3 pt-2">
               <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">
-                Розрахункові показники (фонди)
+                Розрахункові фонди (автоматичний розподіл прибутку)
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 1. Реінвест */}
+                {/* 1. Операційний рахунок */}
                 <div className="card border border-violet/20 bg-surface p-5 rounded-2xl flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-violet">🔄 Фонд Реінвесту</span>
+                      <span className="text-xs font-medium text-violet">🔄 Операційний рахунок</span>
                       <span className="rounded-full bg-violet/10 px-2 py-0.5 text-[11px] font-semibold text-violet">
-                        {settings.finance_distribution_shares?.reinvest_percent ?? 40}% від розподілу
+                        {settings.finance_distribution_shares?.reinvest_percent ?? 40}% маржі + 100% собівартості
                       </span>
                     </div>
                     <p className="mt-2 text-2xl font-bold tabular text-ink">
                       {settings.finance_reinvest_fund.toLocaleString()} ₴
                     </p>
                     <p className="mt-1 text-xs text-muted">
-                      Бюджет на закупівлі запчастин, аксесуарів та техніки
+                      Оборотні кошти: бюджет закупівель та покриття операційних витрат
                     </p>
                   </div>
                 </div>
@@ -240,7 +239,7 @@ export default async function FinancePage({
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-emerald">💰 Чистий прибуток</span>
                       <span className="rounded-full bg-emerald/10 px-2 py-0.5 text-[11px] font-semibold text-emerald">
-                        {settings.finance_distribution_shares?.profit_percent ?? 60}% від розподілу
+                        {settings.finance_distribution_shares?.profit_percent ?? 60}% маржі
                       </span>
                     </div>
                     <p className="mt-2 text-2xl font-bold tabular text-emerald">
@@ -253,7 +252,7 @@ export default async function FinancePage({
                   <div className="mt-4 pt-3 border-t border-border flex justify-end">
                     <WithdrawShareButton
                       profitFund={settings.finance_profit_fund}
-                      cashRegisters={cashRegisters}
+                      cashRegisters={activeRegisters}
                       label="💵 Зняти прибуток"
                     />
                   </div>
@@ -345,7 +344,7 @@ export default async function FinancePage({
               </div>
 
               <div className="border-b border-border pb-3">
-                <p className="text-xs text-muted">Фонд реінвесту (на закупівлі)</p>
+                <p className="text-xs text-muted">Операційний рахунок (оборотні кошти)</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-violet">
                   {settings.finance_reinvest_fund.toLocaleString()} ₴
                 </p>

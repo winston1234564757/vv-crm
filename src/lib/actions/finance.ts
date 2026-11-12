@@ -124,6 +124,9 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
       .eq("id", reg.id);
     if (updErr) throw updErr;
 
+    // 2.1. Зменшуємо віртуальний Операційний рахунок (Реінвест) на суму витрати
+    await deductReinvestFund(parsed.amount);
+
     // 3. Записуємо витрату в expenses
     await supabase.from("expenses").insert({
       category_id: parsed.category_id,
@@ -521,5 +524,53 @@ export async function deductReinvestFund(amount: number) {
       .upsert({ key: "finance_reinvest_fund", value: { amount: newBal } }, { onConflict: "key" });
   } catch (e) {
     console.error("Помилка списання з фонду реінвесту:", e);
+  }
+}
+
+/**
+ * Автоматичний розподіл готівкового доходу в момент продажу чи ремонту:
+ * 1. Собівартість товару повертається в Операційний рахунок (відновлення оборотних коштів)
+ * 2. Маржа (Сума - Собівартість) ділиться за налаштованими % між Операційним рахунком та Чистим прибутком
+ */
+export async function allocateCashIncome({
+  amount,
+  costPrice = 0,
+}: {
+  amount: number;
+  costPrice?: number;
+}): Promise<void> {
+  if (!amount || amount <= 0) return;
+  try {
+    const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
+    
+    const [{ data: sShares }, { data: sReinvest }, { data: sProfit }] = await Promise.all([
+      adminSupabase.from("settings").select("value").eq("key", "finance_distribution_shares").maybeSingle(),
+      adminSupabase.from("settings").select("value").eq("key", "finance_reinvest_fund").maybeSingle(),
+      adminSupabase.from("settings").select("value").eq("key", "finance_profit_fund").maybeSingle(),
+    ]);
+
+    const shares = sShares?.value as { reinvest_percent?: number; profit_percent?: number } | null;
+    const reinvestPct = shares?.reinvest_percent ?? 40;
+
+    const curReinvest = typeof sReinvest?.value === "object" && sReinvest.value !== null && "amount" in sReinvest.value
+      ? Number(sReinvest.value.amount) || 0 : 0;
+    const curProfit = typeof sProfit?.value === "object" && sProfit.value !== null && "amount" in sProfit.value
+      ? Number(sProfit.value.amount) || 0 : 0;
+
+    const cost = Math.min(amount, Math.max(0, Math.round(costPrice)));
+    const margin = Math.max(0, amount - cost);
+
+    const marginReinvest = Math.round(margin * (reinvestPct / 100));
+    const marginProfit = margin - marginReinvest;
+
+    const addReinvest = cost + marginReinvest;
+    const addProfit = marginProfit;
+
+    await Promise.all([
+      adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: curReinvest + addReinvest } }, { onConflict: "key" }),
+      adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: curProfit + addProfit } }, { onConflict: "key" }),
+    ]);
+  } catch (err) {
+    console.error("Помилка автоматичного розподілу готівкового доходу:", err);
   }
 }

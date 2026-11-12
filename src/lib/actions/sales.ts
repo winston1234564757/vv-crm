@@ -175,6 +175,26 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
 
     if (rpcError) throw rpcError;
 
+    // Автоматичний розподіл виручки у фонди при оплаті готівкою
+    let cashPaid = 0;
+    if (parsed.is_split) {
+      cashPaid = parsed.cash_amount;
+    } else if (parsed.method === "cash") {
+      cashPaid = parsed.amount;
+    }
+    if (cashPaid > 0) {
+      let costPrice = 0;
+      if (parsed.item_id && parsed.item_category === "accessory") {
+        const { data: acc } = await supabase.from("accessories").select("cost_price").eq("id", parsed.item_id).maybeSingle();
+        costPrice = Number(acc?.cost_price) || 0;
+      } else if (parsed.item_id && parsed.item_category === "device") {
+        const { data: dev } = await supabase.from("devices").select("cost_price").eq("id", parsed.item_id).maybeSingle();
+        costPrice = Number(dev?.cost_price) || 0;
+      }
+      const { allocateCashIncome } = await import("./finance");
+      await allocateCashIncome({ amount: cashPaid, costPrice });
+    }
+
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
@@ -475,6 +495,16 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
 
     if (rpcError) throw rpcError;
     createdSaleId = saleId as unknown as string;
+
+    // Автоматичний розподіл готівкового заробітку
+    const cashPayment = payments.find(p => p.method === "cash");
+    if (cashPayment && cashPayment.amount > 0) {
+      const totalCost = parsed.items.reduce((sum, it) => sum + (it.unit_cost * it.quantity), 0);
+      const cashRatio = finalTotal > 0 ? cashPayment.amount / finalTotal : 1;
+      const cashCost = Math.round(totalCost * cashRatio);
+      const { allocateCashIncome } = await import("./finance");
+      await allocateCashIncome({ amount: cashPayment.amount, costPrice: cashCost });
+    }
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
