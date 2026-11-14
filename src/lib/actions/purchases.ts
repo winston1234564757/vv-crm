@@ -205,6 +205,11 @@ export async function updatePurchaseStatus(
       if (!safeId) {
         throw new Error("Оберіть, звідки оплатити закупівлю");
       }
+      const { data: purRow } = await supabase
+        .from("purchases")
+        .select("total_amount")
+        .eq("id", id)
+        .maybeSingle();
       const { error: rpcError } = await supabase.rpc("pay_purchase_atomic", {
         p_id: id,
         /* Веде перед `p_source_id`; для каси мусить бути null. У згенерованих
@@ -218,6 +223,10 @@ export async function updatePurchaseStatus(
         p_source_id: safeId,
       });
       if (rpcError) throw rpcError;
+      if (sourceType === "cash_register" && purRow?.total_amount && purRow.total_amount > 0) {
+        const { deductReinvestFund } = await import("./finance");
+        await deductReinvestFund(purRow.total_amount);
+      }
     } else {
       const updateData: PurchaseUpdate = { status };
       const { error } = await supabase.from("purchases").update(updateData).eq("id", id);

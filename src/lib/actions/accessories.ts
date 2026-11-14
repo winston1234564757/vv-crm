@@ -10,6 +10,7 @@ import type { Database } from "@/types/database";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadMediaFiles } from "@/lib/supabase/storage";
 import { ACCESSORY_TYPES } from "@/lib/domain-labels";
+import { inferAccessorySpecs } from "@/lib/accessories-specs";
 import { MONEY_ROLES } from "@/lib/roles";
 
 type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"];
@@ -36,6 +37,17 @@ const accessorySchema = z.object({
   supplier_sku: z.string().nullable().optional(),
   min_stock: z.coerce.number().min(0).optional().default(3),
   photo_urls: z.array(z.string()).optional().default([]),
+  compatible_model: z.string().nullable().optional(),
+  connector_in: z.string().nullable().optional(),
+  connector_out: z.string().nullable().optional(),
+  ports_count: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().min(1).max(16).nullable().optional(),
+  ),
+  power_watts: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().min(1).max(500).nullable().optional(),
+  ),
 });
 
 export async function createAccessory(prevState: ActionState | null, formData: FormData): Promise<ActionState> {
@@ -55,6 +67,11 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       warehouse_location: formData.get("warehouse_location") || null,
       supplier_sku: formData.get("supplier_sku") || null,
       min_stock: formData.get("min_stock") || "3",
+      compatible_model: formData.get("compatible_model") || null,
+      connector_in: (formData.get("connector_in") as string | null)?.trim() || null,
+      connector_out: (formData.get("connector_out") as string | null)?.trim() || null,
+      ports_count: formData.get("ports_count") || null,
+      power_watts: formData.get("power_watts") || null,
       photo_urls: [], // will be handled after parsing
     };
 
@@ -86,16 +103,18 @@ export async function createAccessory(prevState: ActionState | null, formData: F
 
     let chosenType = sourceType;
     if (!sourceId) {
-      const { data: opexSafe } = await supabase
-        .from("safes")
+      const regType = parsed.payment_method === "cashless" ? "cashless" : "repairs";
+      const { data: activeReg } = await supabase
+        .from("cash_registers")
         .select("id")
-        .eq("type", "opex")
-        .single();
-      sourceId = opexSafe?.id ?? null;
-      chosenType = "safe";
+        .eq("type", regType)
+        .maybeSingle();
+      sourceId = activeReg?.id ?? null;
+      chosenType = "cash_register";
     }
 
     const totalCost = parsed.cost_price * parsed.stock;
+    const inferred = inferAccessorySpecs(parsed.type, parsed.name);
 
     // 2. Perform insert
     const { data: inserted, error } = await supabase.from("accessories").insert({
@@ -113,6 +132,11 @@ export async function createAccessory(prevState: ActionState | null, formData: F
       supplier_sku: parsed.supplier_sku ?? null,
       min_stock: parsed.min_stock,
       photo_urls: parsed.photo_urls,
+      compatible_model: parsed.compatible_model ?? null,
+      connector_in: parsed.connector_in ?? inferred.connector_in,
+      connector_out: parsed.connector_out ?? inferred.connector_out,
+      ports_count: parsed.ports_count ?? inferred.ports_count,
+      power_watts: parsed.power_watts ?? inferred.power_watts,
       status: "active"
     } as AccessoryInsert).select("id").single();
 
@@ -138,6 +162,10 @@ export async function createAccessory(prevState: ActionState | null, formData: F
           p_source_id: sourceId,
         });
         if (rpcErr) throw rpcErr;
+        if (chosenType === "cash_register") {
+          const { deductReinvestFund } = await import("./finance");
+          await deductReinvestFund(totalCost);
+        }
       } catch (rpcError) {
         // Rollback insert on failure
         await supabase.from("accessories").delete().eq("id", inserted.id);
@@ -173,6 +201,11 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
       warehouse_location: formData.get("warehouse_location") || null,
       supplier_sku: formData.get("supplier_sku") || null,
       min_stock: formData.get("min_stock") || "3",
+      compatible_model: formData.get("compatible_model") || null,
+      connector_in: (formData.get("connector_in") as string | null)?.trim() || null,
+      connector_out: (formData.get("connector_out") as string | null)?.trim() || null,
+      ports_count: formData.get("ports_count") || null,
+      power_watts: formData.get("power_watts") || null,
       photo_urls: [], // placeholder
     };
 
@@ -281,6 +314,10 @@ export async function updateAccessory(id: string, prevState: ActionState | null,
           to_balance_after: ba,
         });
       }
+      if (adjustmentSourceType === "cash_register") {
+        const { deductReinvestFund } = await import("./finance");
+        await deductReinvestFund(costDelta);
+      }
     }
 
     revalidatePath("/admin/accessories");
@@ -347,8 +384,18 @@ export async function importAccessories(items: unknown[]): Promise<ActionState> 
       throw new Error(`Недостатньо коштів на сейфі "${opexSafe.name}". Необхідно: ${totalImportCost} грн, доступно: ${opexSafe.balance} грн`);
     }
 
-    // 2. Perform insert
-    const { data: inserted, error } = await supabase.from("accessories").insert(parsed).select("id, name, cost_price, stock");
+    // 2. Perform insert (з авторозпізнаванням характеристик кабелів/блоків/паверів)
+    const enrichedItems = parsed.map((item) => {
+      const specs = inferAccessorySpecs(item.type, item.name);
+      return {
+        ...item,
+        connector_in: specs.connector_in,
+        connector_out: specs.connector_out,
+        ports_count: specs.ports_count,
+        power_watts: specs.power_watts,
+      };
+    });
+    const { data: inserted, error } = await supabase.from("accessories").insert(enrichedItems).select("id, name, cost_price, stock");
     if (error) throw error;
 
     // 3. Perform safe balance deduction
@@ -437,13 +484,14 @@ export async function purchaseAccessoryStock(
     let sourceId = parsed.sourceId ?? parsed.safeId ?? null;
     let sourceType = parsed.sourceType;
     if (!sourceId) {
-      const { data: opex } = await supabase
-        .from("safes")
+      const regType = parsed.paymentMethod === "cashless" ? "cashless" : "repairs";
+      const { data: activeReg } = await supabase
+        .from("cash_registers")
         .select("id")
-        .eq("type", "opex")
-        .single();
-      sourceId = opex?.id ?? null;
-      sourceType = "safe";
+        .eq("type", regType)
+        .maybeSingle();
+      sourceId = activeReg?.id ?? null;
+      sourceType = "cash_register";
     }
 
     // @ts-expect-error — purchase_accessory_stock немає в згенерованих типах
@@ -461,6 +509,12 @@ export async function purchaseAccessoryStock(
       p_source_id: sourceId,
     });
     if (error) throw error;
+
+    const totalStockCost = parsed.quantity * parsed.unitCost;
+    if (totalStockCost > 0 && sourceType === "cash_register" && sourceId) {
+      const { deductReinvestFund } = await import("./finance");
+      await deductReinvestFund(totalStockCost);
+    }
 
     revalidatePath("/admin/accessories");
     revalidatePath("/admin/finance");
@@ -531,6 +585,87 @@ export async function markAccessoriesOrdered(ids: string[]): Promise<ActionState
     if (error) throw error;
 
     revalidatePath("/admin/accessories");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+/* ── Коригування кількості без списання коштів ───────────────────────────────
+ *
+ * Два сценарії, одна дія:
+ *   • "set"  — зараз фактично N штук (інвентаризація виявила розбіжність).
+ *   • "add"  — прийшло N штук безкоштовно (зразки, знайдені, подарунок постачальника).
+ *
+ * Гроші не рухаються. У `inventory_movements` лягає `reason = 'adjustment'` зі
+ * словесним поясненням — без нього «+3 шт» без ціни — слід, з якого нічого
+ * не дізнаєшся.
+ */
+
+const adjustStockSchema = z.object({
+  accessoryId: z.string().uuid(),
+  mode: z.enum(["set", "add"]),
+  value: z.coerce.number().int().min(0, "Значення не може бути від'ємним"),
+  note: z.string().max(500).nullable().optional(),
+});
+
+export async function adjustAccessoryStock(
+  input: z.input<typeof adjustStockSchema>,
+): Promise<ActionState> {
+  try {
+    await requireRole(["owner", "manager"]);
+    const parsed = adjustStockSchema.parse(input);
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Неавторизовано: " + (authError?.message || ""));
+
+    // Отримуємо поточний stock і cost_price
+    const { data: acc, error: fetchErr } = await supabase
+      .from("accessories")
+      .select("stock, cost_price, name")
+      .eq("id", parsed.accessoryId)
+      .single();
+    if (fetchErr) throw fetchErr;
+    if (!acc) throw new Error("Аксесуар не знайдено");
+
+    const currentStock = acc.stock ?? 0;
+    const newStock = parsed.mode === "set" ? parsed.value : currentStock + parsed.value;
+    const quantityChange = newStock - currentStock;
+
+    // Якщо нічого не змінилось — не робимо нічого
+    if (quantityChange === 0) return { success: true };
+
+    // 1. Оновлюємо stock аксесуара
+    const { error: updateErr } = await supabase
+      .from("accessories")
+      .update({ stock: newStock })
+      .eq("id", parsed.accessoryId);
+    if (updateErr) throw updateErr;
+
+    // 2. Лишаємо слід у inventory_movements
+    const defaultNote =
+      parsed.mode === "set"
+        ? `інвентаризація: встановлено ${newStock} шт (було ${currentStock})`
+        : `безкоштовне надходження: +${parsed.value} шт`;
+    const noteText = parsed.note?.trim()
+      ? `${defaultNote}; ${parsed.note.trim()}`
+      : defaultNote;
+
+    const { error: moveErr } = await supabase.from("inventory_movements").insert({
+      item_type: "accessory",
+      item_id: parsed.accessoryId,
+      quantity_change: quantityChange,
+      reason: "adjustment",
+      unit_cost: acc.cost_price ?? 0,
+      note: noteText,
+      created_by: user.id,
+    });
+    if (moveErr) throw moveErr;
+
+    revalidatePath("/admin/accessories");
+    revalidatePath("/admin/finance");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {

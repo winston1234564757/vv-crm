@@ -90,7 +90,7 @@ async function syncDeviceStatus(supabase: SupabaseClient<Database>, deviceId: st
 
   const { error } = await supabase
     .from("devices")
-    .update({ 
+    .update({
       status: deviceStatus,
       repair_cost: finalRepairCost,
       repair_status: mappedRepairStatus,
@@ -522,12 +522,12 @@ export async function updateRepair(prevState: ActionState | null, formData: Form
 export async function bulkUpdateRepairsStatus(ids: string[], status: string): Promise<ActionState> {
   try {
     const supabase = await createClient();
-    
+
     const { data: repairs, error: fetchErr } = await supabase
       .from("repairs")
       .select("id, status, inventory_device_id, cost")
       .in("id", ids);
-      
+
     if (fetchErr) throw fetchErr;
 
     const updatePayload: RepairUpdate = { status };
@@ -546,7 +546,7 @@ export async function bulkUpdateRepairsStatus(ids: string[], status: string): Pr
       if (rep.inventory_device_id) {
         await syncDeviceStatus(supabase, rep.inventory_device_id, status, rep.cost);
       }
-      
+
       if (rep.status !== status) {
         await supabase.from("repair_status_log").insert({
           repair_id: rep.id,
@@ -918,9 +918,9 @@ async function recalcRepairPaymentStatus(
   const paidAt =
     status === "paid"
       ? rows.reduce<string | null>(
-          (max, p) => (!max || p.created_at > max ? p.created_at : max),
-          null,
-        )
+        (max, p) => (!max || p.created_at > max ? p.created_at : max),
+        null,
+      )
       : null;
 
   await supabase
@@ -955,17 +955,15 @@ export async function payRepair(
     });
     if (error) throw error;
 
-    // Автоматичний розподіл прибутку та собівартості запчастин при готівковій оплаті
-    const { data: targetReg } = await supabase.from("cash_registers").select("type").eq("id", cashRegisterId).maybeSingle();
-    if (targetReg && targetReg.type !== "cashless") {
-      const { data: repParts } = await supabase.from("repair_parts").select("unit_cost, quantity").eq("repair_id", repairId);
-      const partsCost = repParts?.reduce((sum, p) => sum + ((Number(p.unit_cost) || 0) * (Number(p.quantity) || 1)), 0) || 0;
-      const { allocateCashIncome } = await import("./finance");
-      await allocateCashIncome({ amount: Math.round(amount), costPrice: partsCost });
-    }
+    // Автоматичний розподіл прибутку та собівартості запчастин при оплаті ремонту
+    const { data: repParts } = await supabase.from("repair_parts").select("unit_cost, quantity").eq("repair_id", repairId);
+    const partsCost = repParts?.reduce((sum, p) => sum + ((Number(p.unit_cost) || 0) * (Number(p.quantity) || 1)), 0) || 0;
+    const { allocateCashIncome } = await import("./finance");
+    await allocateCashIncome({ amount: Math.round(amount), costPrice: partsCost });
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -985,10 +983,29 @@ export async function refundRepairPayment(transactionId: string): Promise<Action
     await requireRole(["owner", "manager"]);
     const supabase = await createClient();
 
+    const { data: txRow } = await supabase
+      .from("transactions")
+      .select("amount, reference_id")
+      .eq("id", transactionId)
+      .maybeSingle();
+
     const { error } = await supabase.rpc("refund_repair_payment", {
       p_transaction_id: transactionId,
     });
     if (error) throw error;
+
+    if (txRow?.amount && txRow.amount > 0) {
+      let partsCost = 0;
+      if (txRow.reference_id) {
+        const { data: repParts } = await supabase
+          .from("repair_parts")
+          .select("unit_cost, quantity")
+          .eq("repair_id", txRow.reference_id);
+        partsCost = repParts?.reduce((sum, p) => sum + ((Number(p.unit_cost) || 0) * (Number(p.quantity) || 1)), 0) || 0;
+      }
+      const { reverseCashIncome } = await import("./finance");
+      await reverseCashIncome({ amount: Math.round(txRow.amount), costPrice: partsCost });
+    }
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin/finance");
@@ -1021,6 +1038,9 @@ export async function refundRepairExcess(
       p_user_id: user.id,
     });
     if (error) throw error;
+
+    const { reverseCashIncome } = await import("./finance");
+    await reverseCashIncome({ amount: Math.round(amount), costPrice: 0 });
 
     revalidatePath("/admin/repairs");
     revalidatePath("/admin/finance");

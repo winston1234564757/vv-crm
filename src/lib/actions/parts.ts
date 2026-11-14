@@ -68,13 +68,14 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
     let chosenType = sourceType;
 
     if (!sourceId && !isTransit && !isDeferred && totalCost > 0) {
-      const { data: opexSafe } = await supabase
-        .from("safes")
+      const regType = parsed.payment_method === "cashless" ? "cashless" : "repairs";
+      const { data: activeReg } = await supabase
+        .from("cash_registers")
         .select("id")
-        .eq("type", "opex")
-        .single();
-      sourceId = opexSafe?.id ?? null;
-      chosenType = "safe";
+        .eq("type", regType)
+        .maybeSingle();
+      sourceId = activeReg?.id ?? null;
+      chosenType = "cash_register";
     }
 
     // @ts-expect-error - register_part_purchase is missing from database.ts types
@@ -103,7 +104,13 @@ export async function createPart(prevState: ActionState | null, formData: FormDa
 
     if (rpcError) throw rpcError;
 
+    if (totalCost > 0 && !isTransit && !isDeferred && chosenType === "cash_register" && sourceId) {
+      const { deductReinvestFund } = await import("./finance");
+      await deductReinvestFund(totalCost);
+    }
+
     revalidatePath("/admin/parts");
+    revalidatePath("/admin/finance");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -134,8 +141,87 @@ export async function updatePart(id: string, prevState: ActionState | null, form
     const supabase = await createClient();
     const { error } = await supabase.from("parts").update(partFields).eq("id", id);
     if (error) throw error;
+
+    // Отримуємо поточного користувача для транзакцій
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Обробка фінансового коригування собівартості для деталей
+    const adjustmentAction = formData.get("adjustment_action") as string | null;
+    const adjustmentSourceType = (formData.get("adjustment_source_type") as string | null) || "safe";
+    const adjustmentSourceId = formData.get("adjustment_source_id") as string | null;
+    const adjustmentPaymentMethod = (formData.get("adjustment_payment_method") as string | null) || "cash";
+    const costDelta = Number(formData.get("cost_delta")) || 0;
+
+    if (adjustmentAction === "apply" && costDelta !== 0 && adjustmentSourceId && user) {
+      if (costDelta > 0) {
+        // Збільшення закупівлі -> списуємо costDelta з рахунку
+        const { data: accData, error: accError } = await supabase.rpc("account_apply", {
+          p_type: adjustmentSourceType,
+          p_id: adjustmentSourceId,
+          p_amount: -costDelta,
+          p_method: adjustmentPaymentMethod,
+        });
+        if (accError) throw accError;
+
+        const resObj = Array.isArray(accData) ? accData[0] : accData;
+        const bb = resObj?.o_balance_before ?? null;
+        const ba = resObj?.o_balance_after ?? null;
+        const method = resObj?.o_method ?? adjustmentPaymentMethod;
+
+        await supabase.from("transactions").insert({
+          amount: costDelta,
+          from_type: adjustmentSourceType as any,
+          from_id: adjustmentSourceId,
+          to_type: "external",
+          to_id: null,
+          reference_type: "part" as any,
+          reference_id: id,
+          description: `Доплата за закупівлю деталей (+${costDelta} грн): ${parsed.name}`,
+          created_by: user.id,
+          payment_method: method,
+          from_balance_before: bb,
+          from_balance_after: ba,
+        });
+      } else {
+        // Зменшення закупівлі -> повертаємо abs(costDelta) у сейф/касу
+        const refundAmount = Math.abs(costDelta);
+        const { data: accData, error: accError } = await supabase.rpc("account_apply", {
+          p_type: adjustmentSourceType,
+          p_id: adjustmentSourceId,
+          p_amount: refundAmount,
+          p_method: adjustmentPaymentMethod,
+        });
+        if (accError) throw accError;
+
+        const resObj = Array.isArray(accData) ? accData[0] : accData;
+        const bb = resObj?.o_balance_before ?? null;
+        const ba = resObj?.o_balance_after ?? null;
+        const method = resObj?.o_method ?? adjustmentPaymentMethod;
+
+        await supabase.from("transactions").insert({
+          amount: refundAmount,
+          from_type: "external",
+          from_id: null,
+          to_type: adjustmentSourceType as any,
+          to_id: adjustmentSourceId,
+          reference_type: "part" as any,
+          reference_id: id,
+          description: `Повернення коштів за коригування закупівлі деталей (-${refundAmount} грн): ${parsed.name}`,
+          created_by: user.id,
+          payment_method: method,
+          to_balance_before: bb,
+          to_balance_after: ba,
+        });
+      }
+      if (adjustmentSourceType === "cash_register") {
+        const { deductReinvestFund } = await import("./finance");
+        await deductReinvestFund(costDelta);
+      }
+    }
+
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
+    revalidatePath("/admin/finance");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };
@@ -359,6 +445,102 @@ export async function payDeferredPartAction(
 
     revalidatePath("/admin/parts");
     revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+
+// ============================================================
+// RETURN PART TO SUPPLIER
+// ============================================================
+export async function returnPartToSupplier(
+  partId: string,
+  quantity: number,
+  returnSafeId: string | null
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || ""));
+
+    // 1. Get part details
+    const { data: part, error: partErr } = await supabase
+      .from("parts")
+      .select("id, name, cost_price, stock, payment_status, debt_amount")
+      .eq("id", partId)
+      .single();
+    if (partErr || !part) throw new Error("Деталь не знайдено");
+
+    if (part.stock < quantity) {
+      throw new Error(`На складі лише ${part.stock} шт.`);
+    }
+
+    const refundAmount = part.cost_price * quantity;
+
+    // 2. Handle finance return
+    if (part.payment_status === "paid" && refundAmount > 0 && returnSafeId) {
+      // Повернення коштів на сейф
+      const { data: accData, error: accError } = await supabase.rpc("account_apply", {
+        p_type: "safe",
+        p_id: returnSafeId,
+        p_amount: refundAmount,
+        p_method: "cash",
+      });
+      if (accError) throw accError;
+
+      const resObj = Array.isArray(accData) ? accData[0] : accData;
+      const bb = resObj?.o_balance_before ?? null;
+      const ba = resObj?.o_balance_after ?? null;
+
+      await supabase.from("transactions").insert({
+        amount: refundAmount,
+        from_type: "external",
+        from_id: null,
+        to_type: "safe",
+        to_id: returnSafeId,
+        reference_type: "part" as any,
+        reference_id: partId,
+        description: `Повернення деталі постачальнику (+${refundAmount} грн): ${part.name} (${quantity} шт)`,
+        created_by: user.id,
+        payment_method: "cash",
+        to_balance_before: bb,
+        to_balance_after: ba,
+      });
+    } else if (part.payment_status === "deferred" && refundAmount > 0) {
+      // Зменшити борг (якщо деталь була в борг)
+      const newDebtAmount = Math.max(0, part.debt_amount - refundAmount);
+      const newPaymentStatus = newDebtAmount === 0 ? "paid" : "deferred";
+      
+      const { error: updateDebtErr } = await supabase
+        .from("parts")
+        .update({
+          debt_amount: newDebtAmount,
+          payment_status: newPaymentStatus,
+        })
+        .eq("id", partId);
+      if (updateDebtErr) throw updateDebtErr;
+    }
+
+    // 3. Зменшити stock
+    const newStock = part.stock - quantity;
+    const { error: updateStockErr } = await supabase
+      .from("parts")
+      .update({ stock: newStock })
+      .eq("id", partId);
+    if (updateStockErr) throw updateStockErr;
+
+    // Запис руху
+    await supabase.from("inventory_movements").insert({
+      item_type: "part",
+      item_id: partId,
+      quantity_change: -quantity,
+      reason: "Повернення постачальнику",
+    });
+
+    revalidatePath("/admin/parts");
+    revalidatePath("/admin");
+    revalidatePath("/admin/finance");
     return { success: true };
   } catch (err) {
     return { success: false, error: parseError(err) };

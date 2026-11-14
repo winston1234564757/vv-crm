@@ -76,7 +76,7 @@ export function FinanceTransactionsTable({
 
     const refType = selectedTransaction.reference_type;
     const refId = selectedTransaction.reference_id;
-    const allowedTypes = ["device", "accessory", "part", "expense"];
+    const allowedTypes = ["device", "accessory", "part", "expense", "inventory"];
 
     if (!allowedTypes.includes(refType)) {
       setRelatedEntity(null);
@@ -87,19 +87,33 @@ export function FinanceTransactionsTable({
     setRelatedEntity({ loading: true, data: null, error: null });
 
     const supabase = createClient();
+    const txDesc = (selectedTransaction.description || "").toLowerCase();
 
     async function fetchRelated() {
       try {
+        let resolvedType = refType;
+        if (refType === "inventory") {
+          if (txDesc.includes("технік") || txDesc.includes("пристр")) {
+            resolvedType = "device";
+          } else if (txDesc.includes("детал") || txDesc.includes("запчаст")) {
+            resolvedType = "part";
+          } else if (txDesc.includes("аксесуар")) {
+            resolvedType = "accessory";
+          } else {
+            resolvedType = "part";
+          }
+        }
+
         let table = "";
         let selectStr = "*";
-        if (refType === "device") {
+        if (resolvedType === "device") {
           table = "devices";
-        } else if (refType === "accessory") {
+        } else if (resolvedType === "accessory") {
           table = "accessories";
-        } else if (refType === "part") {
+        } else if (resolvedType === "part") {
           table = "parts";
           selectStr = "*, suppliers(name)";
-        } else if (refType === "expense") {
+        } else if (resolvedType === "expense") {
           table = "expenses";
           selectStr = "*, expense_categories(name)";
         }
@@ -115,7 +129,8 @@ export function FinanceTransactionsTable({
         if (error) throw error;
 
         if (isMounted) {
-          setRelatedEntity({ loading: false, data, error: null });
+          const obj = (typeof data === "object" && data !== null ? data : {}) as Record<string, unknown>;
+          setRelatedEntity({ loading: false, data: { ...obj, __resolvedType: resolvedType }, error: null });
         }
       } catch (err: any) {
         console.error("Error fetching related entity:", err);
@@ -198,12 +213,13 @@ export function FinanceTransactionsTable({
 
   const query = useListQuery({
     mode: "client",
-    filters: { type: "all", period: "all", from: "", to: "" },
+    filters: { type: "all", method: "all", period: "all", from: "", to: "" },
   });
 
   const visible = useMemo(() => {
     const needle = query.search.trim().toLowerCase();
     const type = query.filters.type;
+    const method = query.filters.method || "all";
     const period = query.filters.period || "all";
     const customFrom = query.filters.from;
     const customTo = query.filters.to;
@@ -225,6 +241,10 @@ export function FinanceTransactionsTable({
 
     return transactions.filter((t) => {
       if (type !== "all" && t.type !== type) return false;
+      if (method !== "all") {
+        const txMethod = t.payment_method === "cashless" ? "cashless" : "cash";
+        if (txMethod !== method) return false;
+      }
 
       if (period === "today" && t.date !== todayStr) return false;
       if (period === "7d" && t.date < d7Str) return false;
@@ -245,10 +265,26 @@ export function FinanceTransactionsTable({
     transactions,
     query.search,
     query.filters.type,
+    query.filters.method,
     query.filters.period,
     query.filters.from,
     query.filters.to,
   ]);
+
+  const filterSummary = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    for (const t of visible) {
+      if (t.type === "sale") inflow += t.amount;
+      else if (t.type === "expense") outflow += t.amount;
+    }
+    return {
+      inflow,
+      outflow,
+      net: inflow - outflow,
+      count: visible.length,
+    };
+  }, [visible]);
 
   function DeleteCell({ t }: { t: TransactionRow }) {
     if (isSystem(t)) {
@@ -303,6 +339,23 @@ export function FinanceTransactionsTable({
       ),
     },
     {
+      key: "method",
+      header: "Оплата",
+      hideBelow: "md",
+      cell: (t) => {
+        const isCard = t.payment_method === "cashless";
+        return (
+          <span
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+              isCard ? "bg-accent/10 text-accent-ink" : "bg-hover text-ink"
+            }`}
+          >
+            {isCard ? "💳 Картка" : "💵 Готівка"}
+          </span>
+        );
+      },
+    },
+    {
       key: "description",
       header: "Опис",
       hideBelow: "lg",
@@ -314,13 +367,37 @@ export function FinanceTransactionsTable({
     },
     {
       key: "amount",
-      header: "Сума",
+      header: "Сума · Залишок",
       align: "right",
-      cell: (t) => (
-        <span className="whitespace-nowrap font-medium tabular">
-          {t.amount.toLocaleString()} грн
-        </span>
-      ),
+      cell: (t) => {
+        const balanceAfter =
+          t.type === "sale"
+            ? t.to_balance_after
+            : t.type === "expense"
+              ? t.from_balance_after
+              : t.to_balance_after ?? t.from_balance_after;
+        return (
+          <div className="text-right">
+            <span
+              className={`whitespace-nowrap font-semibold tabular ${
+                t.type === "sale"
+                  ? "text-success"
+                  : t.type === "expense"
+                    ? "text-danger"
+                    : "text-ink"
+              }`}
+            >
+              {t.type === "sale" ? "+" : t.type === "expense" ? "−" : ""}
+              {t.amount.toLocaleString()} ₴
+            </span>
+            {balanceAfter != null && (
+              <p className="text-[10px] tabular text-faint">
+                → {balanceAfter.toLocaleString()} ₴
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     // `interactive` — оболонка сама ізолює клік, тож `stopPropagation` руками
     // тут більше не пишеться і рядок не відкриє шухляду замість видалення.
@@ -330,7 +407,39 @@ export function FinanceTransactionsTable({
   return (
     <>
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">Рух коштів</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">
+              Рух коштів (Банківська та касова виписка)
+            </h2>
+            <p className="text-[11px] text-muted mt-0.5">
+              Усі проводки з відображенням способу оплати та залишку на рахунку після операції
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-hover/60 px-3 py-1.5 text-xs">
+            <span className="text-muted">
+              Надійшло:{" "}
+              <strong className="tabular text-success">+{filterSummary.inflow.toLocaleString()} ₴</strong>
+            </span>
+            <span className="text-border">|</span>
+            <span className="text-muted">
+              Витрачено:{" "}
+              <strong className="tabular text-danger">−{filterSummary.outflow.toLocaleString()} ₴</strong>
+            </span>
+            <span className="text-border">|</span>
+            <span className="text-muted">
+              Сальдо вибірки:{" "}
+              <strong
+                className={`tabular ${
+                  filterSummary.net >= 0 ? "text-success" : "text-danger"
+                }`}
+              >
+                {filterSummary.net >= 0 ? "+" : ""}
+                {filterSummary.net.toLocaleString()} ₴
+              </strong>
+            </span>
+          </div>
+        </div>
         <div className="mt-4">
           <ListPageShell
             query={query}
@@ -413,6 +522,17 @@ export function FinanceTransactionsTable({
                   <option value="sale">Надходження</option>
                   <option value="expense">Витрата</option>
                   <option value="distribution">Розподіл</option>
+                </Select>
+
+                <Select
+                  value={query.filters.method || "all"}
+                  onChange={(e) => query.setFilter("method", e.target.value)}
+                  inline
+                  aria-label="Спосіб оплати"
+                >
+                  <option value="all">Усі способи</option>
+                  <option value="cash">💵 Готівка</option>
+                  <option value="cashless">💳 Картка</option>
                 </Select>
               </Toolbar>
             }
@@ -602,7 +722,7 @@ export function FinanceTransactionsTable({
               )}
 
               {/* Related Entity Details */}
-              {selectedTransaction.reference_type && ["device", "accessory", "part", "expense"].includes(selectedTransaction.reference_type) && relatedEntity && (
+              {selectedTransaction.reference_type && ["device", "accessory", "part", "expense", "inventory"].includes(selectedTransaction.reference_type) && relatedEntity && (
                 <div className="md:col-span-2">
                   {relatedEntity.loading ? (
                     <div className="card p-5 flex items-center justify-center gap-2 text-muted">
@@ -615,7 +735,7 @@ export function FinanceTransactionsTable({
                       <span>{relatedEntity.error}</span>
                     </div>
                   ) : relatedEntity.data ? (
-                    renderRelatedEntityCard(selectedTransaction.reference_type, relatedEntity.data)
+                    renderRelatedEntityCard(relatedEntity.data.__resolvedType || selectedTransaction.reference_type, relatedEntity.data)
                   ) : null}
                 </div>
               )}
@@ -710,7 +830,9 @@ function renderRelatedEntityCard(type: string, data: any) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
             <p className="text-muted">Модель пристрою:</p>
-            <p className="font-bold text-ink text-sm mt-0.5">{data.name}</p>
+            <p className="font-bold text-ink text-sm mt-0.5">
+              {data.brand ? `${data.brand} ${data.model ?? ""}`.trim() : data.name || "Пристрій"}
+            </p>
           </div>
           {data.serial_number && (
             <div>

@@ -5,43 +5,29 @@ import { PaymentMethodPicker } from "@/components/ui/PaymentMethodPicker";
 import { withdrawOwnerShareAction } from "@/lib/actions/finance";
 import { Input } from "@/components/ui/Input";
 import { uah } from "@/lib/utils/money";
-import type { WithdrawSafe } from "@/app/admin/finance/WithdrawShareButton";
+
+interface RegisterOption {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+}
 
 const initialState = { success: false, error: "" };
 
-/** Скільки в сейфі саме тієї половини, якою забирають. */
-function halfOf(safe: WithdrawSafe | undefined, method: "cash" | "cashless"): number {
-  if (!safe) return 0;
-  return Math.max(method === "cash" ? safe.cashBalance : safe.cardBalance, 0);
-}
-
-/**
- * Джерело частки завжди одне — сейф «Чистий прибуток». Раніше тут був вибір із
- * кас і сейфів, і частку регулярно брали з каси повз сейф; тоді залишок
- * власника розходився з тим, що в сейфі реально лежить. Селект лишився на
- * випадок кількох сейфів ЧП, але за замовчуванням підставляє єдиний.
- *
- * Коли суми в сейфі не вистачає, форма НЕ блокує вилучення, а пропонує добрати
- * різницю авансом з іншого сейфа. Було навпаки — кнопка просто гасла, і це
- * закінчилось тим, що 01.08 12 000 забрали повз перевірку, а сейф ЧП лишився
- * з мінусом −3 498, якого не буває. Заборона без легального шляху не спиняє
- * власника взяти свої гроші — вона лише робить це невидимим для системи.
- */
 export function WithdrawShareForm({
-  sources,
-  advanceSources,
+  profitFund = 0,
+  cashRegisters = [],
   onSuccess,
 }: {
-  sources: WithdrawSafe[];
-  advanceSources: WithdrawSafe[];
+  profitFund?: number;
+  cashRegisters?: RegisterOption[];
   onSuccess: () => void;
 }) {
   const [state, action, pending] = useActionState(withdrawOwnerShareAction, initialState);
 
-  const [sourceId, setSourceId] = useState(sources.length === 1 ? sources[0].id : "");
   const [method, setMethod] = useState<"cash" | "cashless">("cash");
   const [amount, setAmount] = useState("");
-  const [advanceSafeId, setAdvanceSafeId] = useState("");
   const [description, setDescription] = useState("");
 
   useEffect(() => {
@@ -50,26 +36,28 @@ export function WithdrawShareForm({
     }
   }, [state.success, onSuccess]);
 
-  const selectedSource = sources.find((s) => s.id === sourceId);
-  const available = halfOf(selectedSource, method);
+  // Підбираємо касу під обраний спосіб (готівка чи безготівка)
+  const matchingRegisters = cashRegisters.filter((r) =>
+    method === "cashless" ? r.type === "cashless" : r.type !== "cashless"
+  );
+  const defaultRegister = matchingRegisters[0];
+  const [selectedRegisterId, setSelectedRegisterId] = useState(defaultRegister?.id || "");
 
+  useEffect(() => {
+    if (matchingRegisters.length > 0) {
+      setSelectedRegisterId(matchingRegisters[0].id);
+    } else {
+      setSelectedRegisterId("");
+    }
+  }, [method]);
+
+  const activeRegister = cashRegisters.find((r) => r.id === selectedRegisterId);
+  const totalPhysicalCash = cashRegisters.reduce((s, r) => s + (r.balance || 0), 0);
+  const maxWithdrawableNow = Math.max(0, Math.min(profitFund, totalPhysicalCash));
   const amountNum = parseFloat(amount) || 0;
-  const fromSafe = Math.min(amountNum, available);
-  const advance = Math.max(amountNum - available, 0);
-
-  const advanceSafe = advanceSources.find((s) => s.id === advanceSafeId);
-  const advanceShort = advance > 0 && !!advanceSafe && halfOf(advanceSafe, method) < advance;
-  const advanceMissing = advance > 0 && !advanceSafe;
-
-  const methodWord = method === "cash" ? "готівкою" : "безготівкою";
-
-  if (sources.length === 0) {
-    return (
-      <div className="p-5 text-sm text-text-secondary">
-        Сейф «Чистий прибуток» не налаштований — частку знімати нема звідки.
-      </div>
-    );
-  }
+  const exceedsProfit = amountNum > profitFund;
+  const exceedsCash = activeRegister ? amountNum > activeRegister.balance : false;
+  const isInvalid = amountNum <= 0 || exceedsProfit || exceedsCash;
 
   return (
     <form action={action} className="space-y-4 p-5">
@@ -79,101 +67,88 @@ export function WithdrawShareForm({
         </div>
       )}
 
-      <input type="hidden" name="source_type" value="safe" />
-      <input type="hidden" name="source_id" value={sourceId} />
-      {/* Порожнє поле означає «аванс не потрібен» — сервер розбирає його як
-          відсутній, а не як невалідний uuid. */}
-      <input type="hidden" name="advance_safe_id" value={advance > 0 ? advanceSafeId : ""} />
-
-      <div>
-        <label htmlFor="source_select" className="mb-1.5 block text-xs font-medium text-text-secondary">
-          Джерело — сейф чистого прибутку
-        </label>
-        <select
-          id="source_select"
-          required
-          value={sourceId}
-          onChange={(e) => setSourceId(e.target.value)}
-          className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
-        >
-          <option value="" disabled>
-            Оберіть сейф...
-          </option>
-          {sources.map((src) => (
-            <option key={src.id} value={src.id}>
-              🔒 {src.name} ({src.balance.toLocaleString("uk-UA")} грн)
-            </option>
-          ))}
-        </select>
-        <p className="mt-1.5 text-[11px] text-text-secondary/70">
-          Частку беруть тільки звідси. Щоб гроші сюди потрапили — спершу розподіліть касу.
-        </p>
+      {/* Показник доступного прибутку */}
+      <div className="rounded-2xl border border-emerald/20 bg-emerald/5 p-4 space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-xs text-text-secondary">Нарахований чистий прибуток:</p>
+          <p className="text-xl font-bold tabular text-emerald">{uah(profitFund)}</p>
+        </div>
+        <div className="flex items-baseline justify-between gap-2 border-t border-emerald/15 pt-2">
+          <p className="text-xs font-medium text-text-primary">Фізично доступно в касах зараз:</p>
+          <p className="text-base font-bold tabular text-text-primary">{uah(maxWithdrawableNow)}</p>
+        </div>
+        {profitFund > totalPhysicalCash && (
+          <p className="text-[11px] text-text-secondary leading-relaxed">
+            💡 Різниця ({uah(profitFund - totalPhysicalCash)}) тимчасово вкладена в закупівлю запчастин/товару і
+            повернеться в касу з наступних продажів.
+          </p>
+        )}
       </div>
 
-      <Input
-        label="Сума вилучення частки (грн)"
-        name="amount"
-        type="number"
-        min="1"
-        required
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="600"
-      />
+      <input type="hidden" name="source_id" value={selectedRegisterId} />
+      <input type="hidden" name="payment_method" value={method} />
 
-      <PaymentMethodPicker label="Чим забрано" value={method} onChange={setMethod} />
+      {/* Вибір методу: Готівка чи Безготівка */}
+      <div className="space-y-1.5">
+        <PaymentMethodPicker
+          value={method}
+          onChange={(m) => setMethod(m)}
+          label="Звідки фізично забираємо гроші:"
+        />
+      </div>
 
-      {selectedSource && (
-        <p className="text-[11px] text-text-secondary/70">
-          У сейфі «{selectedSource.name}» {uah(available)} {methodWord}.
-        </p>
-      )}
-
-      {advance > 0 && (
-        <div className="space-y-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
-          <p className="text-xs text-text-primary">
-            У сейфі не вистачає {uah(advance)}. Можна взяти їх{" "}
-            <span className="font-semibold">авансом</span> з іншого сейфа.
-          </p>
-          <p className="text-[11px] text-text-secondary/80">
-            Аванс — це гроші наперед. Вони зменшать твій залишок повністю, але базу
-            нарахування не збільшать: сейфа чистого прибутку вони не бачили.
-            {fromSafe > 0 && ` Записів буде два: ${uah(fromSafe)} часткою з ЧП і ${uah(advance)} авансом.`}
-          </p>
-
-          <div>
-            <label
-              htmlFor="advance_select"
-              className="mb-1.5 block text-xs font-medium text-text-secondary"
-            >
-              Сейф, з якого взяти аванс
-            </label>
-            <select
-              id="advance_select"
-              value={advanceSafeId}
-              onChange={(e) => setAdvanceSafeId(e.target.value)}
-              className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
-            >
-              <option value="">Оберіть сейф...</option>
-              {advanceSources.map((src) => (
-                <option key={src.id} value={src.id}>
-                  🔒 {src.name} ({halfOf(src, method).toLocaleString("uk-UA")} грн {methodWord})
-                </option>
-              ))}
-            </select>
-            {advanceShort && (
-              <p className="mt-1.5 text-[11px] text-rose">
-                У сейфі «{advanceSafe?.name}» лише {uah(halfOf(advanceSafe, method))} {methodWord} —
-                на аванс не вистачить.
-              </p>
-            )}
-          </div>
+      {/* Вибір каси, якщо є вибір */}
+      {matchingRegisters.length > 1 && (
+        <div>
+          <label htmlFor="reg_select" className="mb-1.5 block text-xs font-medium text-text-secondary">
+            Оберіть касу:
+          </label>
+          <select
+            id="reg_select"
+            value={selectedRegisterId}
+            onChange={(e) => setSelectedRegisterId(e.target.value)}
+            className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet"
+          >
+            {matchingRegisters.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} (баланс: {uah(r.balance)})
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
+      {activeRegister && (
+        <p className="text-[11px] text-text-secondary">
+          Баланс обраного рахунку ({activeRegister.name}):{" "}
+          <span className="font-semibold text-text-primary">{uah(activeRegister.balance)}</span>
+        </p>
+      )}
+
+      {/* Сума вилучення */}
+      <div>
+        <Input
+          label="Сума вилучення (грн)"
+          name="amount"
+          type="number"
+          min="1"
+          required
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Напр. 2000"
+          error={
+            exceedsProfit
+              ? `Сума перевищує нарахований прибуток (${uah(profitFund)})`
+              : exceedsCash
+              ? `Сума перевищує баланс обраного рахунку (${uah(activeRegister?.balance || 0)})`
+              : undefined
+          }
+        />
+      </div>
+
       <div>
         <label htmlFor="description" className="mb-1.5 block text-xs font-medium text-text-secondary">
-          Коментар / Примітка (опціонально)
+          Коментар (опціонально)
         </label>
         <textarea
           id="description"
@@ -182,20 +157,16 @@ export function WithdrawShareForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="w-full rounded-xl border border-iris/20 bg-transparent px-4 py-3 text-sm text-text-primary outline-none focus:border-violet placeholder:text-text-secondary/30"
-          placeholder="Наприклад: Вилучення частки прибутку за липень..."
+          placeholder="Виплата дивідендів..."
         />
       </div>
 
       <button
         type="submit"
-        disabled={pending || !sourceId || !amount || advanceMissing || advanceShort}
-        className="btn-press mt-4 w-full rounded-xl bg-emerald py-3.5 text-sm font-medium text-white transition-colors hover:bg-emerald/90 disabled:opacity-50 cursor-pointer"
+        disabled={pending || isInvalid || !selectedRegisterId}
+        className="btn-press mt-4 w-full rounded-xl bg-emerald py-3.5 text-sm font-semibold text-white transition-colors hover:bg-emerald/90 disabled:opacity-50 cursor-pointer"
       >
-        {pending
-          ? "Збереження..."
-          : advance > 0
-            ? `💵 Виплатити, з них ${uah(advance)} авансом`
-            : "💵 Виплатити частку прибутку"}
+        {pending ? "Вилучення..." : "Зняти чистий прибуток"}
       </button>
     </form>
   );

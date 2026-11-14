@@ -15,6 +15,7 @@ import { splitByKind, isCashless, filterActiveAccounts } from "@/lib/utils/finan
 import { WithdrawShareButton } from "./WithdrawShareButton";
 import { FinanceTransactionsTable } from "./FinanceTransactionsTable";
 import { PLBreakdownPanel } from "./PLBreakdownPanel";
+import { CFOInsightsPanel } from "./CFOInsightsPanel";
 import { getCashFlow } from "@/lib/data-cashflow";
 import { CashFlowPanel } from "./CashFlowPanel";
 import { getMoneyPicture } from "@/lib/data-bridge";
@@ -77,6 +78,13 @@ export default async function FinancePage({
     cash: kinds.cash,
     cashless: kinds.cashless,
   };
+  const totalLiquidity = liquidity.cash + liquidity.cashless;
+  const grossRevenue = report.totalSales + report.repairsRevenue;
+  const totalCogs = report.salesCost + report.repairsCost;
+  const grossMargin = grossRevenue - totalCogs;
+  const grossMarginPct = grossRevenue > 0 ? Math.round((grossMargin / grossRevenue) * 100) : 0;
+  const withdrawableProfitNow = Math.max(0, Math.min(settings.finance_profit_fund, totalLiquidity));
+  const reinvestOverdraft = settings.finance_reinvest_fund < 0 ? Math.abs(settings.finance_reinvest_fund) : 0;
 
 
   return (
@@ -86,7 +94,9 @@ export default async function FinancePage({
       <div className="border-b border-border pb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">Фінанси</h1>
-          <p className="mt-0.5 text-sm text-muted">Каси, рахунки, рух грошей і прибуток</p>
+          <p className="mt-0.5 text-sm text-muted">
+            Управлінський P&L, аналітика точки беззбитковості, каси, фонди та банківська виписка
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <RangeTabs preset={preset} />
@@ -103,40 +113,66 @@ export default async function FinancePage({
         </div>
       </div>
 
+      {/* 1. Панель інсайтів Фінансового Директора (CFO) та Бухгалтера */}
+      <CFOInsightsPanel
+        periodLabel={RANGE_LABELS[preset]}
+        totalSales={report.totalSales}
+        repairsRevenue={report.repairsRevenue}
+        salesCost={report.salesCost}
+        repairsCost={report.repairsCost}
+        totalExpenses={report.totalExpenses}
+        profit={report.profit}
+        salesCount={report.salesCount}
+        repairsCount={report.repairsCount}
+        daysInPeriod={report.daysInPeriod}
+        byCategory={report.byCategory}
+        categoryBreakdown={report.categoryBreakdown}
+        cashBalance={liquidity.cash}
+        cashlessBalance={liquidity.cashless}
+        reinvestFund={settings.finance_reinvest_fund}
+        profitFund={settings.finance_profit_fund}
+        reinvestPct={settings.finance_distribution_shares?.reinvest_percent ?? 45}
+        profitPct={settings.finance_distribution_shares?.profit_percent ?? 55}
+        inventoryValue={picture.worth.inventory}
+        netWorthTotal={picture.worth.total}
+      />
+
       {/* 2. Asymmetric Two-Column Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column: Ledger Balance sheet & Operations (col-span 2) */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* A. Прибуток за період. Кольорова смуга збоку прибрана —
               DESIGN.md §7 забороняє side-stripe акценти. */}
           <div className="card border border-border bg-surface p-6">
-            <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
               <div>
                 <p className="text-xs font-medium text-muted">
-                  Чистий операційний результат ·{" "}
+                  Чистий операційний результат (після OPEX) ·{" "}
                   <span className="text-faint">{RANGE_LABELS[preset].toLowerCase()}</span>
                 </p>
-                <h2
-                  className={`font-display text-3xl font-semibold tabular tracking-tight mt-1 ${report.profit >= 0 ? "text-success" : "text-danger"}`}
-                >
-                  {report.profit.toLocaleString()} ₴
-                </h2>
+                <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                  <h2
+                    className={`font-display text-3xl font-semibold tabular tracking-tight ${report.profit >= 0 ? "text-success" : "text-danger"}`}
+                  >
+                    {report.profit >= 0 ? "+" : ""}
+                    {report.profit.toLocaleString()} ₴
+                  </h2>
+                  <span className="rounded-lg bg-success-subtle px-2.5 py-1 text-xs font-semibold tabular text-success">
+                    Валова маржа з угод: +{grossMargin.toLocaleString()} ₴ ({grossMarginPct}%)
+                  </span>
+                </div>
               </div>
-              {/* «Чиста», а не просто «Рентабельність»: тут прибуток ПІСЛЯ
-                  операційних витрат, а на дашборді в розкладі по категоріях
-                  стоїть ВАЛОВА маржа — до них. Обидва числа правильні, але
-                  доти, доки обидва звались «маржа», два сусідні екрани
-                  показували різні відсотки під однією назвою, і різниця
-                  виглядала помилкою. */}
               <div className="text-right">
-                <p className="text-xs font-medium text-muted">Чиста рентабельність</p>
+                <p className="text-xs font-medium text-muted">Валова рентабельність / Чиста</p>
                 <p className="font-display text-2xl font-semibold tabular text-ink mt-1">
-                  {report.totalSales + report.repairsRevenue > 0
-                    ? Math.round((report.profit / (report.totalSales + report.repairsRevenue)) * 100)
-                    : 0}%
+                  <span className="text-success">+{grossMarginPct}%</span>
+                  <span className="mx-1.5 text-faint">/</span>
+                  <span className={report.profit >= 0 ? "text-success" : "text-danger"}>
+                    {grossRevenue > 0 ? Math.round((report.profit / grossRevenue) * 100) : 0}%
+                  </span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-faint">після витрат</p>
+                <p className="mt-0.5 text-[11px] text-faint">до постійних витрат / після OPEX</p>
               </div>
             </div>
 
@@ -211,24 +247,41 @@ export default async function FinancePage({
 
             {/* Розрахункові показники (Операційний рахунок та Прибуток) */}
             <div className="space-y-3 pt-2">
-              <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">
-                Розрахункові фонди (автоматичний розподіл прибутку)
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">
+                  Розрахункові фонди (автоматичний розподіл живих грошей каси)
+                </h4>
+                <span className="text-[11px] text-muted tabular">
+                  Сума фондів:{" "}
+                  <strong className="text-ink">
+                    {(settings.finance_reinvest_fund + settings.finance_profit_fund).toLocaleString()} ₴
+                  </strong>{" "}
+                  = Сума кас:{" "}
+                  <strong className="text-ink">{totalLiquidity.toLocaleString()} ₴</strong>
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* 1. Операційний рахунок */}
                 <div className="card border border-violet/20 bg-surface p-5 rounded-2xl flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-medium text-violet">🔄 Операційний рахунок</span>
                       <span className="rounded-full bg-violet/10 px-2 py-0.5 text-[11px] font-semibold text-violet">
-                        {settings.finance_distribution_shares?.reinvest_percent ?? 40}% маржі + 100% собівартості
+                        {settings.finance_distribution_shares?.reinvest_percent ?? 45}% маржі + 100% собівартості
                       </span>
                     </div>
-                    <p className="mt-2 text-2xl font-bold tabular text-ink">
-                      {settings.finance_reinvest_fund.toLocaleString()} ₴
+                    <p
+                      className={`mt-2 text-2xl font-bold tabular ${
+                        settings.finance_reinvest_fund >= 0 ? "text-ink" : "text-warning"
+                      }`}
+                    >
+                      {settings.finance_reinvest_fund >= 0 ? "" : "−"}
+                      {Math.abs(settings.finance_reinvest_fund).toLocaleString()} ₴
                     </p>
                     <p className="mt-1 text-xs text-muted">
-                      Оборотні кошти: бюджет закупівель та покриття операційних витрат
+                      {settings.finance_reinvest_fund >= 0
+                        ? "Вільні оборотні кошти на закупівлю деталей, техніки та покриття витрат"
+                        : `Вкладено в закупівлю товару на ${reinvestOverdraft.toLocaleString()} ₴ поверх резерву (відновиться з перших продажів)`}
                     </p>
                   </div>
                 </div>
@@ -236,17 +289,24 @@ export default async function FinancePage({
                 {/* 2. Чистий прибуток */}
                 <div className="card border border-emerald/20 bg-surface p-5 rounded-2xl flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-emerald">💰 Чистий прибуток</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-emerald">💰 Фонд чистого прибутку</span>
                       <span className="rounded-full bg-emerald/10 px-2 py-0.5 text-[11px] font-semibold text-emerald">
-                        {settings.finance_distribution_shares?.profit_percent ?? 60}% маржі
+                        {settings.finance_distribution_shares?.profit_percent ?? 55}% маржі
                       </span>
                     </div>
-                    <p className="mt-2 text-2xl font-bold tabular text-emerald">
-                      {settings.finance_profit_fund.toLocaleString()} ₴
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="text-2xl font-bold tabular text-emerald">
+                        {settings.finance_profit_fund.toLocaleString()} ₴
+                      </p>
+                      <span className="rounded-lg bg-emerald/10 px-2 py-0.5 text-xs font-semibold tabular text-emerald">
+                        В касі зараз: {withdrawableProfitNow.toLocaleString()} ₴
+                      </span>
+                    </div>
                     <p className="mt-1 text-xs text-muted">
-                      Нарахована сума, яку власник може зняти в будь-який момент
+                      {reinvestOverdraft > 0
+                        ? `Нараховано ${settings.finance_profit_fund.toLocaleString()} ₴ (${reinvestOverdraft.toLocaleString()} ₴ тимчасово працює в закуплених деталях)`
+                        : "Уся нарахована сума фізично лежить у касах і доступна до зняття"}
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-border flex justify-end">
@@ -297,7 +357,7 @@ export default async function FinancePage({
 
         {/* Right Column: Telemetry Log & Category Breakdowns (col-span 1) */}
         <div className="space-y-6">
-          
+
           {/* Статус активів. Кольорові крапки-індикатори прибрані: вони не
               означали стану, лише розфарбовували рядки. */}
           <div className="card flex flex-col gap-4 border border-border bg-surface p-5">
@@ -337,15 +397,22 @@ export default async function FinancePage({
               </div>
 
               <div className="border-b border-border pb-3">
-                <p className="text-xs text-muted">Доступно прибутку до виведення</p>
+                <p className="text-xs text-muted">Фонд прибутку (нараховано / фізично в касі)</p>
                 <p className="mt-0.5 text-xl font-semibold tabular text-emerald">
-                  {settings.finance_profit_fund.toLocaleString()} ₴
+                  {settings.finance_profit_fund.toLocaleString()} ₴{" "}
+                  <span className="text-xs font-normal text-muted">
+                    (до видачі: {withdrawableProfitNow.toLocaleString()} ₴)
+                  </span>
                 </p>
               </div>
 
               <div className="border-b border-border pb-3">
                 <p className="text-xs text-muted">Операційний рахунок (оборотні кошти)</p>
-                <p className="mt-0.5 text-xl font-semibold tabular text-violet">
+                <p
+                  className={`mt-0.5 text-xl font-semibold tabular ${
+                    settings.finance_reinvest_fund >= 0 ? "text-violet" : "text-warning"
+                  }`}
+                >
                   {settings.finance_reinvest_fund.toLocaleString()} ₴
                 </p>
               </div>

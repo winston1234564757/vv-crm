@@ -15,9 +15,6 @@ import {
 } from "./profit";
 import { getAllRegistersRaw, getAllSafesRaw, getAllTransactions } from "./request-cache";
 
-/** Скільки останніх рухів показує таблиця «Рух коштів». */
-const RECENT_TX_LIMIT = 50;
-
 export async function getCashRegisters() {
   return getAllRegistersRaw();
 }
@@ -78,6 +75,7 @@ const typeNameMap: Record<string, string> = {
   cash_register: "Каса",
   safe: "Сейф",
   supplier: "Постачальник",
+  external: "Зовнішня виплата",
 };
 
 export async function getFinanceData() {
@@ -91,16 +89,11 @@ export async function getFinanceData() {
 
   const safes = sfRes; // getSafes() повертає масив напряму, без .data
 
-  /* Останні 50 рухів беремо зі спільного кешу, а не окремим `.order().limit(50)`:
-     увесь реєстр на цій сторінці все одно вже вичитаний для `getCashFlow` і
-     `getMoneyPicture`, тож окремий запит був би четвертим читанням тієї самої
-     таблиці заради того, що вже лежить у пам'яті.
-
-     Сортуємо КОПІЮ: `cache()` віддає спільний об'єкт, і `.sort()` на ньому
-     перевпорядкував би масив іншим читачам у тому ж рендері. */
-  const transactions = [...allTx]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, RECENT_TX_LIMIT);
+  /* Сортуємо КОПІЮ: `cache()` віддає спільний об'єкт, і `.sort()` на ньому
+     перевпорядкував би масив іншим читачам у тому ж рендері.
+     Повертаємо всі транзакції без штучного зрізу (раніше стояв .slice(0, 50)),
+     щоб була доступна повна історія, фільтрація за періодами та пагінація. */
+  const transactions = [...allTx].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const expenseCategories = catRes.data ?? [];
 
   const crMap = new Map(cashRegisters.map((cr) => [cr.id, cr.name]));
@@ -115,7 +108,9 @@ export async function getFinanceData() {
           ? sfMap.get(t.from_id ?? "") ?? t.from_type
           : t.from_type === "supplier"
             ? "Постачальник"
-            : typeNameMap[t.from_type] ?? t.from_type;
+            : t.from_type === "external"
+              ? "Зовнішній контрагент"
+              : typeNameMap[t.from_type] ?? t.from_type;
 
     const toName = t.to_type === "customer"
       ? "Клієнт"
@@ -125,11 +120,17 @@ export async function getFinanceData() {
           ? sfMap.get(t.to_id ?? "") ?? t.to_type
           : t.to_type === "supplier"
             ? "Постачальник"
-            : typeNameMap[t.to_type] ?? t.to_type;
+            : t.to_type === "external"
+              ? "Зовнішня виплата"
+              : typeNameMap[t.to_type] ?? t.to_type;
+
+    const isSale = t.from_type === "customer" || t.reference_type === "sale" || t.reference_type === "repair_payment";
+    const isExpense = t.reference_type === "expense" || t.to_type === "supplier" || t.to_type === "external";
 
     return {
       id: t.id,
       date: t.created_at.split("T")[0],
+      created_at: t.created_at,
       from: fromName,
       to: toName,
       from_type: t.from_type,
@@ -137,7 +138,7 @@ export async function getFinanceData() {
       from_id: t.from_id ?? null,
       to_id: t.to_id ?? null,
       amount: t.amount,
-      type: t.from_type === "customer" ? "sale" : t.to_type === "supplier" ? "expense" : "distribution",
+      type: isSale ? "sale" : isExpense ? "expense" : "distribution",
       description: t.description ?? "",
       reference_type: t.reference_type ?? null,
       reference_id: t.reference_id ?? null,
@@ -176,13 +177,20 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
       repairsRevenue: 0,
       repairsCost: 0,
       profit: 0,
-      categoryBreakdown: [] as { name: string; amount: number }[],
+      salesCount: 0,
+      repairsCount: 0,
+      daysInPeriod: 1,
+      categoryBreakdown: [] as { name: string; amount: number; count: number }[],
       byCategory: emptyProfit.byCategory,
     };
   }
 
   const startStr = floored.start.toISOString();
   const endStr = floored.end.toISOString();
+  const daysInPeriod = Math.max(
+    1,
+    Math.ceil((floored.end.getTime() - floored.start.getTime()) / (1000 * 60 * 60 * 24)),
+  );
 
   const [salesRes, purchasesRes, expensesRes, expCatRes, repairsRes, safesForReport] = await Promise.all([
     // `.eq("status","completed")` — та сама причина, що в `profit-dataset.ts`:
@@ -287,13 +295,16 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
   const profit = report.profit - totalExpenses;
 
   const catMap = new Map((expCatRes.data ?? []).map((c) => [c.id, c.name]));
-  const expenseByCat: Record<string, number> = {};
+  const expenseByCat: Record<string, { amount: number; count: number }> = {};
   for (const e of operatingExpenses) {
     const cat = catMap.get(e.category_id) ?? "Інше";
-    expenseByCat[cat] = (expenseByCat[cat] || 0) + e.amount;
+    const cur = expenseByCat[cat] ?? { amount: 0, count: 0 };
+    cur.amount += e.amount;
+    cur.count += 1;
+    expenseByCat[cat] = cur;
   }
   const categoryBreakdown = Object.entries(expenseByCat)
-    .map(([name, amount]) => ({ name, amount }))
+    .map(([name, v]) => ({ name, amount: v.amount, count: v.count }))
     .sort((a, b) => b.amount - a.amount);
 
   return {
@@ -305,10 +316,9 @@ export async function getFinanceReport(preset: RangePreset = "30d") {
     repairsRevenue,
     repairsCost,
     profit,
-    /* `ownerShare` звідси прибраний: його ніхто не читав, а рахувався він
-       хардкодом `* 0.5` замість `PARTNER_SHARE` — тобто був другим, окремим
-       визначенням частки власника, яке мовчки роз'їхалося б із першим.
-       Реальну частку веде `buildLedger` у `data-dashboard.ts`. */
+    salesCount: salesData.length,
+    repairsCount: settledRepairs.length,
+    daysInPeriod,
     categoryBreakdown,
     byCategory: report.byCategory,
   };

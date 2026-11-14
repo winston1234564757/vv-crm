@@ -70,7 +70,7 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
 
     // 1. Get the current user profile ID for created_by
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (!user) {
       throw new Error("Unauthorized: " + (authError?.message || "User not found"));
     }
@@ -83,9 +83,9 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
       .select("id, type");
 
     if (regError) throw regError;
-    
+
     const regMap = registers?.reduce((acc, r) => ({ ...acc, [r.type]: r.id }), {} as Record<string, string>) || {};
-    
+
     // Категорія більше не вирішує сама: карткова частина чека належить
     // рахунку безготівки, готівкова — касі за категорією товару.
     const cashRegType = targetRegisterType("cash", parsed.item_category);
@@ -175,29 +175,24 @@ export async function createQuickSale(prevState: ActionState | null, formData: F
 
     if (rpcError) throw rpcError;
 
-    // Автоматичний розподіл виручки у фонди при оплаті готівкою
-    let cashPaid = 0;
-    if (parsed.is_split) {
-      cashPaid = parsed.cash_amount;
-    } else if (parsed.method === "cash") {
-      cashPaid = parsed.amount;
-    }
-    if (cashPaid > 0) {
+    // Автоматичний розподіл виручки у фонди (готівка, картка, спліт)
+    if (parsed.amount > 0) {
       let costPrice = 0;
       if (parsed.item_id && parsed.item_category === "accessory") {
         const { data: acc } = await supabase.from("accessories").select("cost_price").eq("id", parsed.item_id).maybeSingle();
         costPrice = Number(acc?.cost_price) || 0;
       } else if (parsed.item_id && parsed.item_category === "device") {
-        const { data: dev } = await supabase.from("devices").select("cost_price").eq("id", parsed.item_id).maybeSingle();
-        costPrice = Number(dev?.cost_price) || 0;
+        const { data: dev } = await supabase.from("devices").select("cost_price, repair_cost").eq("id", parsed.item_id).maybeSingle();
+        costPrice = (Number(dev?.cost_price) || 0) + (Number(dev?.repair_cost) || 0);
       }
       const { allocateCashIncome } = await import("./finance");
-      await allocateCashIncome({ amount: cashPaid, costPrice });
+      await allocateCashIncome({ amount: parsed.amount, costPrice });
     }
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin/accessories");
 
     return { success: true, data: { saleId: newSaleId as unknown as string } };
@@ -380,7 +375,7 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     const { data: registers, error: regError } = await supabase
       .from("cash_registers")
       .select("id, type");
-    
+
     if (regError) throw regError;
     const regMap = registers?.reduce((acc, r) => ({ ...acc, [r.type]: r.id }), {} as Record<string, string>) || {};
 
@@ -496,19 +491,20 @@ export async function createMultiSaleAction(prevState: ActionState | null, formD
     if (rpcError) throw rpcError;
     createdSaleId = saleId as unknown as string;
 
-    // Автоматичний розподіл готівкового заробітку
-    const cashPayment = payments.find(p => p.method === "cash");
-    if (cashPayment && cashPayment.amount > 0) {
+    // Автоматичний розподіл виручки у фонди (усі способи оплати)
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    if (totalPaid > 0) {
       const totalCost = parsed.items.reduce((sum, it) => sum + (it.unit_cost * it.quantity), 0);
-      const cashRatio = finalTotal > 0 ? cashPayment.amount / finalTotal : 1;
-      const cashCost = Math.round(totalCost * cashRatio);
+      const paidRatio = finalTotal > 0 ? Math.min(1, totalPaid / finalTotal) : 1;
+      const allocatedCost = Math.round(totalCost * paidRatio);
       const { allocateCashIncome } = await import("./finance");
-      await allocateCashIncome({ amount: cashPayment.amount, costPrice: cashCost });
+      await allocateCashIncome({ amount: totalPaid, costPrice: allocatedCost });
     }
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin/accessories");
     revalidatePath("/admin/parts");
     revalidatePath("/admin/devices");
@@ -551,11 +547,24 @@ export async function processRefundAction(saleId: string): Promise<ActionState> 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized: " + (authError?.message || "User not found"));
 
+    const { data: saleRow } = await supabase
+      .from("sales")
+      .select("total_amount, sale_items(unit_cost, quantity)")
+      .eq("id", saleId)
+      .maybeSingle();
+
     const { error } = await supabase.rpc("refund_sale", {
       sale_id_to_refund: saleId
     });
 
     if (error) throw error;
+
+    if (saleRow?.total_amount && saleRow.total_amount > 0) {
+      const items = (saleRow.sale_items as { unit_cost: number; quantity: number }[] | null) ?? [];
+      const costPrice = items.reduce((s, it) => s + (Number(it.unit_cost) || 0) * (Number(it.quantity) || 1), 0);
+      const { reverseCashIncome } = await import("./finance");
+      await reverseCashIncome({ amount: saleRow.total_amount, costPrice });
+    }
 
     revalidatePath("/admin");
     revalidatePath("/admin/sales");
@@ -595,12 +604,25 @@ export async function deleteSaleAction(saleId: string): Promise<ActionState> {
       throw new Error("Недостатньо прав для видалення продажів. Ця дія дозволена тільки власникам та менеджерам.");
     }
 
+    const { data: saleRow } = await supabase
+      .from("sales")
+      .select("total_amount, status, sale_items(unit_cost, quantity)")
+      .eq("id", saleId)
+      .maybeSingle();
+
     // 4. Invoke the atomic stored procedure to delete the sale and revert all dependencies
     const { error: rpcError } = await supabase.rpc("delete_sale", {
       sale_id_to_delete: saleId
     });
 
     if (rpcError) throw rpcError;
+
+    if (saleRow && saleRow.status === "completed" && saleRow.total_amount > 0) {
+      const items = (saleRow.sale_items as { unit_cost: number; quantity: number }[] | null) ?? [];
+      const costPrice = items.reduce((s, it) => s + (Number(it.unit_cost) || 0) * (Number(it.quantity) || 1), 0);
+      const { reverseCashIncome } = await import("./finance");
+      await reverseCashIncome({ amount: saleRow.total_amount, costPrice });
+    }
 
     // 5. Revalidate cache for layouts and tables
     revalidatePath("/admin");

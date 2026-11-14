@@ -128,13 +128,14 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     let chosenSafeId =
       (formData.get("source_id") as string | null) || (formData.get("safe_id") as string | null);
     if (!chosenSafeId && parsed.cost_price > 0) {
-      const { data: opexSafe } = await supabase
-        .from("safes")
+      const regType = parsed.payment_method === "cashless" ? "cashless" : "repairs";
+      const { data: activeReg } = await supabase
+        .from("cash_registers")
         .select("id")
-        .eq("type", "opex")
-        .single();
-      chosenSafeId = opexSafe?.id ?? null;
-      chosenType = "safe";
+        .eq("type", regType)
+        .maybeSingle();
+      chosenSafeId = activeReg?.id ?? null;
+      chosenType = "cash_register";
     }
 
     // 2. Execute ATOMIC RPC for Device Purchase
@@ -182,11 +183,13 @@ export async function createDevice(prevState: ActionState | null, formData: Form
     if (rpcError) throw rpcError;
     const inserted = { id: insertedId };
 
-
-
-
+    if (parsed.cost_price > 0 && chosenType === "cash_register" && chosenSafeId) {
+      const { deductReinvestFund } = await import("./finance");
+      await deductReinvestFund(parsed.cost_price);
+    }
 
     revalidatePath("/admin/devices");
+    revalidatePath("/admin/finance");
     revalidatePath("/admin");
     revalidatePath("/admin/repairs");
     
@@ -198,6 +201,31 @@ export async function createDevice(prevState: ActionState | null, formData: Form
 
 
 
+
+export async function updateDevicePrice(
+  id: string,
+  price: number,
+): Promise<ActionState> {
+  try {
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error("Ціна має бути невід'ємним числом");
+    }
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("devices")
+      .update({ price: Math.round(price) })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    revalidatePath("/admin/devices");
+    revalidatePath("/admin/sales/pos");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
 
 export async function updateDeviceStatus(
   id: string,
@@ -603,6 +631,10 @@ export async function updateDevice(id: string, prevState: ActionState | null, fo
           to_balance_after: ba,
         });
       }
+      if (adjustmentSourceType === "cash_register") {
+        const { deductReinvestFund } = await import("./finance");
+        await deductReinvestFund(costDelta);
+      }
     }
 
     revalidatePath("/admin/devices");
@@ -629,3 +661,29 @@ export async function deleteDevice(id: string): Promise<ActionState> {
     return { success: false, error: parseError(err) };
   }
 }
+
+export async function attachPartToDevice(deviceId: string, partId: string, quantity: number = 1): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized: " + (authError?.message || ""));
+
+    const { error: rpcError } = await (supabase.rpc as any)("attach_part_to_device", {
+      p_device_id: deviceId,
+      p_part_id: partId,
+      p_quantity: quantity,
+      p_user_id: user.id
+    });
+
+    if (rpcError) throw rpcError;
+
+    revalidatePath("/admin/devices");
+    revalidatePath("/admin/inventory");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: parseError(err) };
+  }
+}
+

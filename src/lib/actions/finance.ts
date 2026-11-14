@@ -59,6 +59,7 @@ export async function createTransfer(prevState: ActionState | null, formData: Fo
     if (rpcError) throw rpcError;
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -153,6 +154,7 @@ export async function createExpenseAction(prevState: ActionState | null, formDat
     });
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -249,6 +251,7 @@ export async function distributeFundsAction(prevState: ActionState | null, formD
     });
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -278,7 +281,10 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     if (rpcError) throw rpcError;
 
     // 3. Синхронізуємо віртуальні фонди в settings
-    if (tx && tx.reference_type === "distribution") {
+    if (tx && tx.reference_type === "expense") {
+      // При видаленні операційної витрати кошти повернулися в касу — повертаємо їх і в Операційний рахунок
+      await deductReinvestFund(-Number(tx.amount));
+    } else if (tx && tx.reference_type === "distribution") {
       const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
       if (tx.description?.includes("Вилучення чистого прибутку")) {
         // Повертаємо вилучений прибуток у фонд прибутку
@@ -305,8 +311,8 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
           const curR = typeof sR?.value === "object" && sR.value !== null && "amount" in sR.value ? Number(sR.value.amount) || 0 : 0;
           const curP = typeof sP?.value === "object" && sP.value !== null && "amount" in sP.value ? Number(sP.value.amount) || 0 : 0;
           await Promise.all([
-            adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: Math.max(0, curR - revAmount) } }, { onConflict: "key" }),
-            adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: Math.max(0, curP - profAmount) } }, { onConflict: "key" }),
+            adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: curR - revAmount } }, { onConflict: "key" }),
+            adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: curP - profAmount } }, { onConflict: "key" }),
           ]);
         }
       }
@@ -314,6 +320,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
 
     // 4. Revalidate cache
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
 
     return { success: true };
@@ -358,6 +365,7 @@ export async function topUpSafeAction(prevState: ActionState | null, formData: F
 
     // 3. Revalidate paths
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -442,6 +450,7 @@ export async function withdrawOwnerShareAction(prevState: ActionState | null, fo
     });
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -496,6 +505,7 @@ export async function convertSafeHalvesAction(
     if (rpcError) throw rpcError;
 
     revalidatePath("/admin/finance");
+    revalidatePath("/admin/analytics");
     revalidatePath("/admin");
     return { success: true };
   } catch (err) {
@@ -504,10 +514,14 @@ export async function convertSafeHalvesAction(
 }
 
 /**
- * Зменшує віртуальний фонд реінвесту при закупівлях запчастин чи техніки.
+ * Зменшує (або відновлює при від'ємному amount) віртуальний фонд реінвесту
+ * при закупівлях запчастин, техніки, аксесуарів чи операційних витратах.
+ *
+ * ВАЖЛИВО: без штучного обрізання `Math.max(0, ...)` — щоб тотожність подвійного запису
+ * `Операційний рахунок + Чистий прибуток === Готівка + Безготівка` зберігалась до копійки.
  */
 export async function deductReinvestFund(amount: number) {
-  if (!amount || amount <= 0) return;
+  if (!amount || !Number.isFinite(amount)) return;
   try {
     const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
     const { data: sReinvest } = await adminSupabase
@@ -518,7 +532,7 @@ export async function deductReinvestFund(amount: number) {
 
     const cur = typeof sReinvest?.value === "object" && sReinvest?.value !== null && "amount" in sReinvest.value
       ? Number(sReinvest.value.amount) || 0 : 0;
-    const newBal = Math.max(0, cur - Math.round(amount));
+    const newBal = cur - Math.round(amount);
     await adminSupabase
       .from("settings")
       .upsert({ key: "finance_reinvest_fund", value: { amount: newBal } }, { onConflict: "key" });
@@ -542,7 +556,7 @@ export async function allocateCashIncome({
   if (!amount || amount <= 0) return;
   try {
     const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
-    
+
     const [{ data: sShares }, { data: sReinvest }, { data: sProfit }] = await Promise.all([
       adminSupabase.from("settings").select("value").eq("key", "finance_distribution_shares").maybeSingle(),
       adminSupabase.from("settings").select("value").eq("key", "finance_reinvest_fund").maybeSingle(),
@@ -572,5 +586,51 @@ export async function allocateCashIncome({
     ]);
   } catch (err) {
     console.error("Помилка автоматичного розподілу готівкового доходу:", err);
+  }
+}
+
+/**
+ * Симетричне сторнування (відкат) віртуальних фондів при поверненні продажу чи скасуванні оплати ремонту.
+ */
+export async function reverseCashIncome({
+  amount,
+  costPrice = 0,
+}: {
+  amount: number;
+  costPrice?: number;
+}): Promise<void> {
+  if (!amount || amount <= 0) return;
+  try {
+    const adminSupabase = (await import("@/lib/supabase/admin")).createAdminClient();
+
+    const [{ data: sShares }, { data: sReinvest }, { data: sProfit }] = await Promise.all([
+      adminSupabase.from("settings").select("value").eq("key", "finance_distribution_shares").maybeSingle(),
+      adminSupabase.from("settings").select("value").eq("key", "finance_reinvest_fund").maybeSingle(),
+      adminSupabase.from("settings").select("value").eq("key", "finance_profit_fund").maybeSingle(),
+    ]);
+
+    const shares = sShares?.value as { reinvest_percent?: number; profit_percent?: number } | null;
+    const reinvestPct = shares?.reinvest_percent ?? 40;
+
+    const curReinvest = typeof sReinvest?.value === "object" && sReinvest.value !== null && "amount" in sReinvest.value
+      ? Number(sReinvest.value.amount) || 0 : 0;
+    const curProfit = typeof sProfit?.value === "object" && sProfit.value !== null && "amount" in sProfit.value
+      ? Number(sProfit.value.amount) || 0 : 0;
+
+    const cost = Math.min(amount, Math.max(0, Math.round(costPrice)));
+    const margin = Math.max(0, amount - cost);
+
+    const marginReinvest = Math.round(margin * (reinvestPct / 100));
+    const marginProfit = margin - marginReinvest;
+
+    const subReinvest = cost + marginReinvest;
+    const subProfit = marginProfit;
+
+    await Promise.all([
+      adminSupabase.from("settings").upsert({ key: "finance_reinvest_fund", value: { amount: curReinvest - subReinvest } }, { onConflict: "key" }),
+      adminSupabase.from("settings").upsert({ key: "finance_profit_fund", value: { amount: curProfit - subProfit } }, { onConflict: "key" }),
+    ]);
+  } catch (err) {
+    console.error("Помилка сторнування розподілу доходу:", err);
   }
 }
