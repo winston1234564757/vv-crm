@@ -33,7 +33,11 @@ export function AddTransferButton({
 
   return (
     <>
-      <Button variant="primary" onClick={() => setIsOpen(true)}>
+      <Button
+        variant="primary"
+        onClick={() => setIsOpen(true)}
+        className="w-full sm:w-auto justify-center whitespace-nowrap px-3 sm:px-4 text-xs"
+      >
         💸 Здійснити переказ
       </Button>
 

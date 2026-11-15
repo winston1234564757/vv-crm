@@ -79,7 +79,7 @@ export function SkuPanel({
                   <button
                     type="button"
                     onClick={() => open(l.key, l.name)}
-                    className="-mx-2 grid w-full cursor-pointer grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover"
+                    className="-mx-2 grid w-full cursor-pointer grid-cols-[minmax(0,7.5rem)_1fr_auto] sm:grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-2 sm:gap-3 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-hover"
                   >
                     <span className="truncate text-left text-xs text-ink" title={l.name ?? undefined}>
                       {l.name ?? <span className="text-faint">Товар видалено</span>}
@@ -88,11 +88,11 @@ export function SkuPanel({
                       </span>
                     </span>
                     <Meter size="md" value={(l.units / maxUnits) * 100} />
-                    <span className="flex shrink-0 items-baseline gap-3 text-xs">
-                      <span className="w-12 text-right font-semibold tabular text-ink">
+                    <span className="flex shrink-0 items-baseline gap-1.5 sm:gap-3 text-xs">
+                      <span className="w-10 sm:w-12 text-right font-semibold tabular text-ink">
                         {l.units} шт
                       </span>
-                      <span className="w-20 text-right tabular text-muted">{uah(l.revenue)}</span>
+                      <span className="w-16 sm:w-20 text-right tabular text-muted">{uah(l.revenue)}</span>
                     </span>
                   </button>
                 </li>

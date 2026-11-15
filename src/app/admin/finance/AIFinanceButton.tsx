@@ -10,9 +10,10 @@ export function AIFinanceButton() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-ink transition-colors hover:bg-hover"
+        className="flex w-full sm:w-auto justify-center cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-border bg-surface px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold text-ink transition-colors hover:bg-hover whitespace-nowrap"
       >
-        <span>✨ AI Фінансовий Аналітик</span>
+        <span className="sm:hidden">✨ AI Аналітик</span>
+        <span className="hidden sm:inline">✨ AI Фінансовий Аналітик</span>
       </button>
 
       <AICopilotDrawer

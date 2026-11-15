@@ -29,12 +29,12 @@ export function PageHeader({ title, subtitle, actions, className }: PageHeaderPr
       )}
     >
       <div className="min-w-0">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">
+        <h1 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink text-balance">
           {title}
         </h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-xs sm:text-sm text-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full sm:w-auto shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }

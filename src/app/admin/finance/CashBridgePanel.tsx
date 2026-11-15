@@ -126,7 +126,7 @@ function Bar({
       <Meter size="md" value={pct} tone={METER_TONE[tone]} />
       <span
         className={cn(
-          "w-24 shrink-0 text-right text-xs tabular",
+          "w-20 sm:w-24 shrink-0 text-right text-xs tabular",
           tone === "minus" ? "text-danger" : tone === "plus" ? "text-success" : "font-semibold text-ink",
         )}
       >
@@ -136,7 +136,7 @@ function Bar({
     </>
   );
 
-  const grid = "grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3";
+  const grid = "grid w-full grid-cols-[minmax(0,7.5rem)_1fr_auto] sm:grid-cols-[minmax(0,9.5rem)_1fr_auto] items-center gap-2 sm:gap-3";
 
   return (
     <li>

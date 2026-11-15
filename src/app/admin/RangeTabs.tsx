@@ -45,7 +45,7 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
   }
 
   return (
-    <div className={cn("flex items-center gap-2", isPending && "opacity-60")}>
+    <div className={cn("flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2", isPending && "opacity-60")}>
       {/*
         Горизонтальний скрол, а не перенос: на 390px «Цей місяць» і «Минулий
         місяць» ламались кожен на два рядки, і смуга з п'яти вкладок займала
@@ -55,7 +55,7 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
       <div
         role="tablist"
         aria-label="Період"
-        className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-[var(--radius-md)] bg-hover p-1 [scrollbar-width:none] md:flex-none [&::-webkit-scrollbar]:hidden"
+        className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-[var(--radius-md)] bg-hover p-1 [scrollbar-width:none] md:flex-none [&::-webkit-scrollbar]:hidden"
       >
         {RANGE_PRESETS.map((p) => (
           <button
@@ -65,7 +65,7 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
             aria-selected={p === preset}
             onClick={() => select(p)}
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium transition-colors",
+              "shrink-0 whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
               p === preset ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
             )}
           >
@@ -78,7 +78,7 @@ export function RangeTabs({ preset }: { preset: RangePreset }) {
         type="button"
         onClick={refresh}
         disabled={isPending}
-        className="btn-press shrink-0 whitespace-nowrap rounded-[var(--radius-md)] border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none"
+        className="btn-press shrink-0 whitespace-nowrap rounded-[var(--radius-md)] border border-border px-2.5 sm:px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none cursor-pointer"
       >
         {isPending ? "Оновлюю…" : "Оновити"}
       </button>

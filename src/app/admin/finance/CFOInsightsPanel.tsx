@@ -196,9 +196,10 @@ export function CFOInsightsPanel({
         <button
           type="button"
           onClick={() => setIsExpanded((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:text-ink transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 sm:px-3 py-1.5 text-xs font-medium text-muted hover:text-ink transition-colors cursor-pointer shrink-0"
         >
-          <span>{isExpanded ? "Згорнути інсайти" : "Розгорнути інсайти"}</span>
+          <span className="hidden sm:inline">{isExpanded ? "Згорнути інсайти" : "Розгорнути інсайти"}</span>
+          <span className="sm:hidden">{isExpanded ? "Згорнути" : "Розгорнути"}</span>
           <IconChevronDown
             size={14}
             className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
@@ -207,9 +208,9 @@ export function CFOInsightsPanel({
       </div>
 
       {isExpanded && (
-        <div className="p-5 space-y-5">
+        <div className="p-3.5 sm:p-5 space-y-4 sm:space-y-5">
           {/* 1. P&L WATERFALL BAR (5 СХОДИНОК ВІД ВИТОРГУ ДО ЧИСТОГО P&L) */}
-          <div className="rounded-2xl border border-border bg-hover/25 p-4">
+          <div className="rounded-2xl border border-border bg-hover/25 p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <span className="text-xs font-bold uppercase tracking-wider text-muted">
                 Воронка формування фінансового результату (P&L Waterfall · {periodLabel.toLowerCase()})
@@ -222,53 +223,53 @@ export function CFOInsightsPanel({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
               {/* Step 1: Gross Revenue */}
-              <div className="rounded-xl border border-border bg-surface p-3.5">
+              <div className="rounded-xl border border-border bg-surface p-3 sm:p-3.5">
                 <p className="text-[11px] font-medium text-muted">1. Валовий виторг</p>
-                <p className="mt-1 font-display text-xl font-bold tabular text-ink">
+                <p className="mt-1 font-display text-lg sm:text-xl font-bold tabular text-ink">
                   {grossRevenue.toLocaleString()} ₴
                 </p>
-                <p className="mt-1 text-[11px] text-faint">
+                <p className="mt-1 text-[10px] sm:text-[11px] text-faint">
                   {salesCount} {pluralUk(salesCount, "продаж", "продажі", "продажів")} · {repairsCount}{" "}
                   {pluralUk(repairsCount, "ремонт", "ремонти", "ремонтів")}
                 </p>
               </div>
 
               {/* Step 2: COGS */}
-              <div className="rounded-xl border border-border bg-surface p-3.5">
+              <div className="rounded-xl border border-border bg-surface p-3 sm:p-3.5">
                 <p className="text-[11px] font-medium text-muted">2. Собівартість (COGS)</p>
-                <p className="mt-1 font-display text-xl font-bold tabular text-ink">
+                <p className="mt-1 font-display text-lg sm:text-xl font-bold tabular text-ink">
                   −{totalCogs.toLocaleString()} ₴
                 </p>
-                <p className="mt-1 text-[11px] text-faint">
+                <p className="mt-1 text-[10px] sm:text-[11px] text-faint">
                   Товар: {salesCost.toLocaleString()} ₴ · Деталі: {repairsCost.toLocaleString()} ₴
                 </p>
               </div>
 
               {/* Step 3: Gross Margin (The true operational earning!) */}
-              <div className="rounded-xl border border-success/30 bg-success-subtle/40 p-3.5">
-                <div className="flex items-center justify-between gap-1">
-                  <p className="text-[11px] font-semibold text-success">3. Валова маржа (Заробіток)</p>
+              <div className="rounded-xl border border-success/30 bg-success-subtle/40 p-3 sm:p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <p className="text-[11px] font-semibold text-success">3. Валова маржа</p>
                   <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-bold tabular text-success">
-                    {grossMarginPct}% маржа
+                    {grossMarginPct}%
                   </span>
                 </div>
-                <p className="mt-1 font-display text-xl font-bold tabular text-success">
+                <p className="mt-1 font-display text-lg sm:text-xl font-bold tabular text-success">
                   +{grossMargin.toLocaleString()} ₴
                 </p>
-                <p className="mt-1 text-[11px] text-success/80">
-                  Чистий плюс з угод · ROI +{cogsRoiPct}%
+                <p className="mt-1 text-[10px] sm:text-[11px] text-success/80">
+                  Плюс з угод · ROI +{cogsRoiPct}%
                 </p>
               </div>
 
               {/* Step 4: Fixed OPEX */}
-              <div className="rounded-xl border border-border bg-surface p-3.5">
-                <p className="text-[11px] font-medium text-muted">4. Постійні витрати (OPEX)</p>
-                <p className="mt-1 font-display text-xl font-bold tabular text-danger">
+              <div className="rounded-xl border border-border bg-surface p-3 sm:p-3.5">
+                <p className="text-[11px] font-medium text-muted">4. Постійні витрати</p>
+                <p className="mt-1 font-display text-lg sm:text-xl font-bold tabular text-danger">
                   −{totalExpenses.toLocaleString()} ₴
                 </p>
-                <p className="mt-1 text-[11px] text-faint truncate">
+                <p className="mt-1 text-[10px] sm:text-[11px] text-faint truncate">
                   {categoryBreakdown.length > 0
                     ? categoryBreakdown
                         .slice(0, 2)
@@ -280,7 +281,7 @@ export function CFOInsightsPanel({
 
               {/* Step 5: Net P&L */}
               <div
-                className={`rounded-xl border p-3.5 ${
+                className={`col-span-2 lg:col-span-1 rounded-xl border p-3 sm:p-3.5 ${
                   profit >= 0
                     ? "border-success/30 bg-success-subtle/30"
                     : "border-danger/30 bg-danger-subtle/30"
@@ -288,14 +289,14 @@ export function CFOInsightsPanel({
               >
                 <p className="text-[11px] font-semibold text-muted">5. Чистий P&L періоду</p>
                 <p
-                  className={`mt-1 font-display text-xl font-bold tabular ${
+                  className={`mt-1 font-display text-lg sm:text-xl font-bold tabular ${
                     profit >= 0 ? "text-success" : "text-danger"
                   }`}
                 >
                   {profit >= 0 ? "+" : ""}
                   {profit.toLocaleString()} ₴
                 </p>
-                <p className="mt-1 text-[11px] text-muted">
+                <p className="mt-1 text-[10px] sm:text-[11px] text-muted">
                   {profit >= 0
                     ? "Всі витрати OPEX перекрито!"
                     : `Покрито ${breakEvenCoveragePct}% касових витрат`}
@@ -410,38 +411,57 @@ export function CFOInsightsPanel({
                   {engines.map((eng) => (
                     <div
                       key={eng.key}
-                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
+                      className="flex flex-col gap-1.5 px-3 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-[155px]">
-                        {eng.icon}
-                        <div>
-                          <p className="font-semibold text-ink">{eng.label}</p>
-                          <p className="text-[10px] text-muted tabular">
-                            Виторг: {eng.revenue.toLocaleString()} ₴ · Собів.: {eng.cost.toLocaleString()} ₴
+                      <div className="flex items-center justify-between gap-2 sm:min-w-[155px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {eng.icon}
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink truncate">{eng.label}</p>
+                            <p className="text-[10px] text-muted tabular">
+                              Виторг: {eng.revenue.toLocaleString()} ₴ · Собів.: {eng.cost.toLocaleString()} ₴
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* На мобільному сума прибутку стоїть одразу справа в першому рядку */}
+                        <div className="text-right shrink-0 sm:hidden">
+                          <p
+                            className={`font-bold tabular ${
+                              eng.profit >= 0 ? "text-success" : "text-danger"
+                            }`}
+                          >
+                            {eng.profit >= 0 ? "+" : ""}
+                            {eng.profit.toLocaleString()} ₴
+                          </p>
+                          <p className="text-[10px] text-faint tabular">
+                            {eng.shareOfGrossProfit}% плюсу
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2.5 ml-auto">
-                        <span
-                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular ${
-                            eng.marginPct >= 40
-                              ? "bg-success-subtle text-success"
-                              : eng.marginPct >= 20
-                                ? "bg-accent/10 text-accent-ink"
-                                : "bg-warning/15 text-warning"
-                          }`}
-                          title="Рентабельність виторгу (Маржа / Виторг)"
-                        >
-                          Маржа {eng.marginPct}%
-                        </span>
-                        <span
-                          className="rounded-md bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-muted"
-                          title="Віддача на вкладену собівартість (Маржа / Собівартість)"
-                        >
-                          ROI +{eng.roiPct}%
-                        </span>
-                        <div className="text-right min-w-[82px]">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-2.5 sm:ml-auto">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular ${
+                              eng.marginPct >= 40
+                                ? "bg-success-subtle text-success"
+                                : eng.marginPct >= 20
+                                  ? "bg-accent/10 text-accent-ink"
+                                  : "bg-warning/15 text-warning"
+                            }`}
+                            title="Рентабельність виторгу (Маржа / Виторг)"
+                          >
+                            Маржа {eng.marginPct}%
+                          </span>
+                          <span
+                            className="rounded-md bg-hover px-1.5 py-0.5 text-[10px] font-semibold tabular text-muted"
+                            title="Віддача на вкладену собівартість (Маржа / Собівартість)"
+                          >
+                            ROI +{eng.roiPct}%
+                          </span>
+                        </div>
+                        <div className="hidden sm:block text-right min-w-[82px]">
                           <p
                             className={`font-bold tabular ${
                               eng.profit >= 0 ? "text-success" : "text-danger"
@@ -495,7 +515,7 @@ export function CFOInsightsPanel({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-center">
                   <div className="rounded-xl border border-border bg-hover/30 p-2.5">
                     <p className="text-[10px] text-muted">Нарахований прибуток</p>
                     <p className="mt-0.5 text-sm font-bold tabular text-emerald">
@@ -519,13 +539,13 @@ export function CFOInsightsPanel({
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-emerald/30 bg-emerald/5 p-2.5">
+                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-emerald/30 bg-emerald/5 p-2.5">
                     <p className="text-[10px] font-semibold text-emerald">Живих грошей у касі</p>
                     <p className="mt-0.5 text-sm font-bold tabular text-ink">
                       {totalLiquidity.toLocaleString()} ₴
                     </p>
                     <p className="text-[10px] text-muted tabular">
-                      💵 {cashBalance.toLocaleString()} · 💳 {cashlessBalance.toLocaleString()}
+                      💵 {cashBalance.toLocaleString()} ₴ · 💳 {cashlessBalance.toLocaleString()} ₴
                     </p>
                   </div>
                 </div>

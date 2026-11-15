@@ -135,10 +135,10 @@ export function FinanceTransactionsTable({
       } catch (err: any) {
         console.error("Error fetching related entity:", err);
         if (isMounted) {
-          setRelatedEntity({ 
-            loading: false, 
-            data: null, 
-            error: err.message || "Не вдалося завантажити деталі" 
+          setRelatedEntity({
+            loading: false,
+            data: null,
+            error: err.message || "Не вдалося завантажити деталі"
           });
         }
       }
@@ -346,9 +346,8 @@ export function FinanceTransactionsTable({
         const isCard = t.payment_method === "cashless";
         return (
           <span
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${
-              isCard ? "bg-accent/10 text-accent-ink" : "bg-hover text-ink"
-            }`}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${isCard ? "bg-accent/10 text-accent-ink" : "bg-hover text-ink"
+              }`}
           >
             {isCard ? "💳 Картка" : "💵 Готівка"}
           </span>
@@ -379,13 +378,12 @@ export function FinanceTransactionsTable({
         return (
           <div className="text-right">
             <span
-              className={`whitespace-nowrap font-semibold tabular ${
-                t.type === "sale"
-                  ? "text-success"
-                  : t.type === "expense"
-                    ? "text-danger"
-                    : "text-ink"
-              }`}
+              className={`whitespace-nowrap font-semibold tabular ${t.type === "sale"
+                ? "text-success"
+                : t.type === "expense"
+                  ? "text-danger"
+                  : "text-ink"
+                }`}
             >
               {t.type === "sale" ? "+" : t.type === "expense" ? "−" : ""}
               {t.amount.toLocaleString()} ₴
@@ -406,7 +404,7 @@ export function FinanceTransactionsTable({
 
   return (
     <>
-      <div className="card p-5">
+      <div className="card p-3.5 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div>
             <h2 className="text-sm font-semibold text-ink text-balance tracking-tight">
@@ -416,23 +414,22 @@ export function FinanceTransactionsTable({
               Усі проводки з відображенням способу оплати та залишку на рахунку після операції
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-hover/60 px-3 py-1.5 text-xs">
-            <span className="text-muted">
-              Надійшло:{" "}
+          <div className="grid w-full grid-cols-3 gap-1.5 rounded-xl bg-hover/60 p-2 text-center text-[11px] sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3 sm:px-3 sm:py-1.5 sm:text-left sm:text-xs">
+            <span className="flex flex-col sm:block text-muted">
+              <span>Надійшло: </span>
               <strong className="tabular text-success">+{filterSummary.inflow.toLocaleString()} ₴</strong>
             </span>
-            <span className="text-border">|</span>
-            <span className="text-muted">
-              Витрачено:{" "}
+            <span className="hidden text-border sm:inline">|</span>
+            <span className="flex flex-col sm:block text-muted border-x border-border/60 sm:border-0 px-1 sm:px-0">
+              <span>Витрачено: </span>
               <strong className="tabular text-danger">−{filterSummary.outflow.toLocaleString()} ₴</strong>
             </span>
-            <span className="text-border">|</span>
-            <span className="text-muted">
-              Сальдо вибірки:{" "}
+            <span className="hidden text-border sm:inline">|</span>
+            <span className="flex flex-col sm:block text-muted">
+              <span>Сальдо: </span>
               <strong
-                className={`tabular ${
-                  filterSummary.net >= 0 ? "text-success" : "text-danger"
-                }`}
+                className={`tabular ${filterSummary.net >= 0 ? "text-success" : "text-danger"
+                  }`}
               >
                 {filterSummary.net >= 0 ? "+" : ""}
                 {filterSummary.net.toLocaleString()} ₴
@@ -451,21 +448,65 @@ export function FinanceTransactionsTable({
             /* Пов'язаний рух підсвічується: по ньому є що відкрити. Раніше та
                сама умова була переписана окремо для таблиці й для картки. */
             rowClassName={(t) => (hasRef(t) ? "bg-accent/[0.03]" : undefined)}
-            card={(t) => ({
-              title: t.to,
-              subtitle: t.from ? `від ${t.from}` : undefined,
-              state: (
-                <Badge tone={typeTones[t.type] ?? "neutral"}>
-                  {typeLabels[t.type] ?? t.type}
-                </Badge>
-              ),
-              rows: [
-                { label: "Дата", value: t.date },
-                { label: "Сума", value: `${t.amount.toLocaleString()} грн` },
-                ...(t.description ? [{ label: "Опис", value: t.description }] : []),
-              ],
-              footer: <DeleteCell t={t} />,
-            })}
+            card={(t) => {
+              const isCard = t.payment_method === "cashless";
+              const isSale = t.type === "sale";
+              const isExpense = t.type === "expense";
+              const balanceAfter = isSale
+                ? t.to_balance_after
+                : isExpense
+                  ? t.from_balance_after
+                  : t.to_balance_after ?? t.from_balance_after;
+
+              return {
+                title: t.to,
+                subtitle: t.from ? `від ${t.from}` : undefined,
+                state: (
+                  <Badge tone={typeTones[t.type] ?? "neutral"}>
+                    {typeLabels[t.type] ?? t.type}
+                  </Badge>
+                ),
+                rows: [
+                  { label: "Дата", value: t.date },
+                  {
+                    label: "Оплата",
+                    value: (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                          isCard
+                            ? "bg-accent/10 text-accent-ink"
+                            : "bg-hover text-ink"
+                        }`}
+                      >
+                        {isCard ? "💳 Картка" : "💵 Готівка"}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Сума",
+                    value: (
+                      <div className="text-right">
+                        <span
+                          className={`font-semibold tabular ${
+                            isSale ? "text-success" : isExpense ? "text-danger" : "text-ink"
+                          }`}
+                        >
+                          {isSale ? "+" : isExpense ? "−" : ""}
+                          {t.amount.toLocaleString()} ₴
+                        </span>
+                        {balanceAfter != null && (
+                          <span className="ml-2 text-[11px] text-faint tabular">
+                            (→ {balanceAfter.toLocaleString()} ₴)
+                          </span>
+                        )}
+                      </div>
+                    ),
+                  },
+                  ...(t.description ? [{ label: "Опис", value: t.description }] : []),
+                ],
+                footer: <DeleteCell t={t} />,
+              };
+            }}
             toolbar={
               <Toolbar
                 search={
@@ -652,64 +693,64 @@ export function FinanceTransactionsTable({
               {/* Balance Snapshots — Стан рахунків */}
               {(selectedTransaction.from_balance_before != null ||
                 selectedTransaction.to_balance_before != null) && (
-                <div className="card p-5 space-y-3 md:col-span-2">
-                  <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">
-                    Стан рахунків
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* From account snapshot */}
-                    {selectedTransaction.from_balance_before != null &&
-                      selectedTransaction.from_type !== "customer" &&
-                      selectedTransaction.from_type !== "external" && (
-                        <div className="rounded-xl bg-danger/5 border border-danger/15 p-4 space-y-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-danger/70">
-                            Рахунок-джерело
-                          </p>
-                          <p className="font-semibold text-ink text-xs truncate">
-                            {selectedTransaction.from}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs mt-1">
-                            <span className="text-muted tabular">
-                              {(selectedTransaction.from_balance_before).toLocaleString()} ₴
-                            </span>
-                            <span className="text-muted">→</span>
-                            <span className="font-bold tabular text-ink">
-                              {(selectedTransaction.from_balance_after ?? selectedTransaction.from_balance_before - selectedTransaction.amount).toLocaleString()} ₴
-                            </span>
+                  <div className="card p-5 space-y-3 md:col-span-2">
+                    <h4 className="font-semibold text-ink border-b border-border pb-2 font-medium">
+                      Стан рахунків
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* From account snapshot */}
+                      {selectedTransaction.from_balance_before != null &&
+                        selectedTransaction.from_type !== "customer" &&
+                        selectedTransaction.from_type !== "external" && (
+                          <div className="rounded-xl bg-danger/5 border border-danger/15 p-4 space-y-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-danger/70">
+                              Рахунок-джерело
+                            </p>
+                            <p className="font-semibold text-ink text-xs truncate">
+                              {selectedTransaction.from}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs mt-1">
+                              <span className="text-muted tabular">
+                                {(selectedTransaction.from_balance_before).toLocaleString()} ₴
+                              </span>
+                              <span className="text-muted">→</span>
+                              <span className="font-bold tabular text-ink">
+                                {(selectedTransaction.from_balance_after ?? selectedTransaction.from_balance_before - selectedTransaction.amount).toLocaleString()} ₴
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-danger font-medium tabular">
+                              ▼ −{selectedTransaction.amount.toLocaleString()} ₴
+                            </p>
                           </div>
-                          <p className="text-[11px] text-danger font-medium tabular">
-                            ▼ −{selectedTransaction.amount.toLocaleString()} ₴
-                          </p>
-                        </div>
-                    )}
-                    {/* To account snapshot */}
-                    {selectedTransaction.to_balance_before != null &&
-                      selectedTransaction.to_type !== "external" &&
-                      selectedTransaction.to_type !== "supplier" && (
-                        <div className="rounded-xl bg-success/5 border border-success/15 p-4 space-y-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-success/70">
-                            Рахунок-одержувач
-                          </p>
-                          <p className="font-semibold text-ink text-xs truncate">
-                            {selectedTransaction.to}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs mt-1">
-                            <span className="text-muted tabular">
-                              {(selectedTransaction.to_balance_before).toLocaleString()} ₴
-                            </span>
-                            <span className="text-muted">→</span>
-                            <span className="font-bold tabular text-ink">
-                              {(selectedTransaction.to_balance_after ?? selectedTransaction.to_balance_before + selectedTransaction.amount).toLocaleString()} ₴
-                            </span>
+                        )}
+                      {/* To account snapshot */}
+                      {selectedTransaction.to_balance_before != null &&
+                        selectedTransaction.to_type !== "external" &&
+                        selectedTransaction.to_type !== "supplier" && (
+                          <div className="rounded-xl bg-success/5 border border-success/15 p-4 space-y-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-success/70">
+                              Рахунок-одержувач
+                            </p>
+                            <p className="font-semibold text-ink text-xs truncate">
+                              {selectedTransaction.to}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs mt-1">
+                              <span className="text-muted tabular">
+                                {(selectedTransaction.to_balance_before).toLocaleString()} ₴
+                              </span>
+                              <span className="text-muted">→</span>
+                              <span className="font-bold tabular text-ink">
+                                {(selectedTransaction.to_balance_after ?? selectedTransaction.to_balance_before + selectedTransaction.amount).toLocaleString()} ₴
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-success font-medium tabular">
+                              ▲ +{selectedTransaction.amount.toLocaleString()} ₴
+                            </p>
                           </div>
-                          <p className="text-[11px] text-success font-medium tabular">
-                            ▲ +{selectedTransaction.amount.toLocaleString()} ₴
-                          </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Description Card */}
               {selectedTransaction.description && (

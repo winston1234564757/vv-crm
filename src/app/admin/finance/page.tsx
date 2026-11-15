@@ -91,25 +91,27 @@ export default async function FinancePage({
     <div className="space-y-6 animate-entry">
       {/* Шапка. Пульсуюча крапка з написом «LEDGER TELEMETRY : ACTIVE» звідси
           прибрана: вона нічого не міряла й нічого не означала. */}
-      <div className="border-b border-border pb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="border-b border-border pb-4 sm:pb-5 flex flex-col gap-3.5 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance">Фінанси</h1>
-          <p className="mt-0.5 text-sm text-muted">
+          <h1 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink text-balance">Фінанси</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted">
             Управлінський P&L, аналітика точки беззбитковості, каси, фонди та банківська виписка
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex w-full md:w-auto flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <RangeTabs preset={preset} />
-          <AIFinanceButton />
-          <WithdrawShareButton
-            profitFund={settings.finance_profit_fund}
-            cashRegisters={activeRegisters}
-          />
-          <AddExpenseButton
-            expenseCategories={expenseCategories}
-            registers={activeRegisters}
-          />
-          <AddTransferButton cashRegisters={activeRegisters} />
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+            <AIFinanceButton />
+            <WithdrawShareButton
+              profitFund={settings.finance_profit_fund}
+              cashRegisters={activeRegisters}
+            />
+            <AddExpenseButton
+              expenseCategories={expenseCategories}
+              registers={activeRegisters}
+            />
+            <AddTransferButton cashRegisters={activeRegisters} />
+          </div>
         </div>
       </div>
 
@@ -144,28 +146,28 @@ export default async function FinancePage({
 
           {/* A. Прибуток за період. Кольорова смуга збоку прибрана —
               DESIGN.md §7 забороняє side-stripe акценти. */}
-          <div className="card border border-border bg-surface p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
+          <div className="card border border-border bg-surface p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-3 sm:gap-4 border-b border-border pb-4">
               <div>
                 <p className="text-xs font-medium text-muted">
                   Чистий операційний результат (після OPEX) ·{" "}
                   <span className="text-faint">{RANGE_LABELS[preset].toLowerCase()}</span>
                 </p>
-                <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                <div className="mt-1 flex flex-wrap items-baseline gap-2.5 sm:gap-3">
                   <h2
-                    className={`font-display text-3xl font-semibold tabular tracking-tight ${report.profit >= 0 ? "text-success" : "text-danger"}`}
+                    className={`font-display text-2xl sm:text-3xl font-semibold tabular tracking-tight ${report.profit >= 0 ? "text-success" : "text-danger"}`}
                   >
                     {report.profit >= 0 ? "+" : ""}
                     {report.profit.toLocaleString()} ₴
                   </h2>
-                  <span className="rounded-lg bg-success-subtle px-2.5 py-1 text-xs font-semibold tabular text-success">
+                  <span className="rounded-lg bg-success-subtle px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-semibold tabular text-success">
                     Валова маржа з угод: +{grossMargin.toLocaleString()} ₴ ({grossMarginPct}%)
                   </span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <p className="text-xs font-medium text-muted">Валова рентабельність / Чиста</p>
-                <p className="font-display text-2xl font-semibold tabular text-ink mt-1">
+                <p className="font-display text-xl sm:text-2xl font-semibold tabular text-ink mt-0.5 sm:mt-1">
                   <span className="text-success">+{grossMarginPct}%</span>
                   <span className="mx-1.5 text-faint">/</span>
                   <span className={report.profit >= 0 ? "text-success" : "text-danger"}>
@@ -192,7 +194,7 @@ export default async function FinancePage({
               завжди від фінансової епохи до зараз, бо «в середньому на день»
               за останні 7 днів і за весь час — два різних питання. */}
           {averages && (
-            <div className="card border border-border bg-surface p-6">
+            <div className="card border border-border bg-surface p-4 sm:p-6">
               <h3 className="border-b border-border pb-3 text-sm font-semibold text-ink">
                 Середні показники · з відкриття
               </h3>
@@ -226,11 +228,11 @@ export default async function FinancePage({
             </div>
 
             {/* Фізичні рахунки (Готівка та Безготівка) */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
               {activeRegisters.map((cr) => (
                 <div
                   key={cr.id}
-                  className="card card-hover flex min-h-[90px] flex-col justify-between border border-border bg-surface p-4 transition-colors"
+                  className="card card-hover flex min-h-[84px] sm:min-h-[90px] flex-col justify-between border border-border bg-surface p-3.5 sm:p-4 transition-colors"
                 >
                   <div>
                     <span className="text-[11px] text-faint">

@@ -13,11 +13,13 @@ import { cn } from "@/lib/utils/cn";
  * Tailwind сканує вихідний код і `col-span-${n}` для нього не існує.
  */
 
-export type BentoSpan = 4 | 6 | 8 | 12;
+export type BentoSpan = 4 | 5 | 6 | 7 | 8 | 12;
 
 const SPAN_CLASS: Record<BentoSpan, string> = {
   4: "md:col-span-3 lg:col-span-4",
+  5: "md:col-span-6 lg:col-span-5",
   6: "md:col-span-6 lg:col-span-6",
+  7: "md:col-span-6 lg:col-span-7",
   8: "md:col-span-6 lg:col-span-8",
   12: "md:col-span-6 lg:col-span-12",
 };
@@ -46,7 +48,7 @@ export function BentoCell({
   return (
     <section
       className={cn(
-        "flex flex-col rounded-[var(--radius-lg)] border p-5",
+        "flex flex-col rounded-[var(--radius-lg)] border p-3.5 sm:p-5",
         inverse
           ? "border-inverse-border bg-inverse-surface"
           : "card border-border bg-surface",
@@ -55,7 +57,7 @@ export function BentoCell({
       )}
     >
       {(title || action) && (
-        <div className="mb-4 flex items-baseline justify-between gap-3">
+        <div className="mb-3 sm:mb-4 flex items-baseline justify-between gap-2 sm:gap-3">
           {title && (
             <h2
               className={cn(
